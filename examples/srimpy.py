@@ -10,9 +10,11 @@ import irradiapy as irp
 
 # Use the style of the package
 irp.use_style(latex=False)
-# TRIM.exe directory
+# TRIM.exe directory (parent folder)
 srim_dir = Path()
 # Database of MD cascades
+# For example: CascadesDefectsDB/Fe/cascadesdb_fe_granberg_sand
+# Donwloaded from: https://github.com/acgc99/CascadesDefectsDB
 dir_mddb = Path()
 compute_tdam = False  # True if the database does not include electronic stopping
 # Where to store the results
