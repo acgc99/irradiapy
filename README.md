@@ -35,7 +35,7 @@ mpi4py>=3.0.0
 ```
 Note that `mpi4py` is not needed now, but it will be requeried for the LAMMPS subpackage. Note also that the LAMMPS Python package is not distributed by `pip`, so it is not listed in this project dependencies files.
 
-Installation:
+Installation (PyPI link [here](https://pypi.org/project/irradiapy/)):
 ```
 pip install irradiapy
 ```
