@@ -112,11 +112,11 @@ def calc_nrt_dpa(
 
     if isinstance(tdam, (float, int)):
         if tdam < min_threshold:
-            return 0
+            return 0.0
         elif tdam > max_threshold:
-            return round(scaling_func(tdam))
+            return scaling_func(tdam)
         else:
-            return 1
+            return 1.0
     elif isinstance(tdam, np.ndarray) and np.issubdtype(tdam.dtype, np.number):
         return _apply_dpa_thresholds(tdam, min_threshold, max_threshold, scaling_func)
     else:
@@ -152,12 +152,12 @@ def calc_arc_dpa(
 
     if isinstance(tdam, (float, int)):
         if tdam < min_threshold:
-            return 0
+            return 0.0
         elif tdam > max_threshold:
             eff = efficiency_func(tdam)
-            return round(scaling_func(tdam) * eff)
+            return scaling_func(tdam) * eff
         else:
-            return 1
+            return 1.0
     elif isinstance(tdam, np.ndarray):
         return _apply_dpa_thresholds(
             tdam, min_threshold, max_threshold, scaling_func, efficiency_func
@@ -195,12 +195,12 @@ def calc_fer_arc_dpa(
 
     if isinstance(tdam, (float, int)):
         if tdam < min_threshold:
-            return 0
+            return 0.0
         elif tdam > max_threshold:
             eff = efficiency_func(tdam)
-            return round(scaling_func(tdam) * eff)
+            return scaling_func(tdam) * eff
         else:
-            return round(scaling_func(tdam))
+            return scaling_func(tdam)
     elif isinstance(tdam, np.ndarray):
         return _apply_dpa_thresholds(
             tdam,
@@ -244,18 +244,18 @@ def _apply_dpa_thresholds(
     np.ndarray
         Array of dpa values.
     """
-    result = np.ones_like(tdam, dtype=np.int64)
+    result = np.ones_like(tdam, dtype=np.float64)
     below_mask = tdam < min_threshold
     above_mask = tdam > max_threshold
     result[below_mask] = 0
     if middle_func is not None:
         middle_mask = (~below_mask) & (~above_mask)
-        result[middle_mask] = np.round(middle_func(tdam[middle_mask])).astype(np.int64)
+        result[middle_mask] = middle_func(tdam[middle_mask])
     # else: keep as 1
     if efficiency_func:
-        result[above_mask] = np.round(
-            scaling_func(tdam[above_mask]) * efficiency_func(tdam[above_mask])
-        ).astype(np.int64)
+        result[above_mask] = scaling_func(tdam[above_mask]) * efficiency_func(
+            tdam[above_mask]
+        )
     else:
-        result[above_mask] = np.round(scaling_func(tdam[above_mask])).astype(np.int64)
+        result[above_mask] = scaling_func(tdam[above_mask])
     return result

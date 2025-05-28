@@ -65,11 +65,17 @@ class DamageDB:
         )
         # Select the dpa model for residual energy
         if self.dpa_mode == dpa.DpaMode.NRT:
-            self.__calc_nd = lambda x: dpa.calc_nrt_dpa(x, self.mat_target)
+            self.__calc_nd = lambda x: np.round(
+                dpa.calc_nrt_dpa(x, self.mat_target)
+            ).astype(np.int32)
         elif self.dpa_mode == dpa.DpaMode.ARC:
-            self.__calc_nd = lambda x: dpa.calc_arc_dpa(x, self.mat_target)
+            self.__calc_nd = lambda x: np.round(
+                dpa.calc_arc_dpa(x, self.mat_target)
+            ).astype(np.int32)
         elif self.dpa_mode == dpa.DpaMode.FERARC:
-            self.__calc_nd = lambda x: dpa.calc_fer_arc_dpa(x, self.mat_target)
+            self.__calc_nd = lambda x: np.round(
+                dpa.calc_fer_arc_dpa(x, self.mat_target)
+            ).astype(np.int32)
         else:
             raise ValueError("Invalid dpa mode")
 
