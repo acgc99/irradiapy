@@ -179,3 +179,8 @@ cython_debug/
 
 # VS Code
 .vs
+.vscode
+irradiapy/srimpy/target/__pycache__/__init__.cpython-313.pyc
+irradiapy/srimpy/target/__pycache__/element.cpython-313.pyc
+irradiapy/srimpy/target/__pycache__/layer.cpython-313.pyc
+irradiapy/srimpy/target/__pycache__/target.cpython-313.pyc
