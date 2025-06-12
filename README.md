@@ -2,7 +2,7 @@
 
 This Python package is aimed towards the simulation and analysis of irradiation damage with multiple tools.
 
-This initial version works and is ready for production, but the code is under revision to improve usability, readability and efficiency. You can find an example under the `examples` folder. More examples will be provided with the next version, as well as a documentation page.
+This initial version works and is ready for production, but the code is under revision to improve usability, readability and efficiency (parallelisation). You can find an example under the `examples` folder. More examples will be provided with the next versions, as well as a documentation page.
 
 ## Functionalities
 
@@ -19,7 +19,7 @@ With this subpackage, you get the list of PKAs produced by ions, and then you ca
 
 ### lammpspy
 
-I am also working on a Python workflow that uses the corresponding LAMMPS API to generate databases of molecular dynamcis cascades "easily". This is in development and will be publish later.
+I am also working on a Python workflow that uses the LAMMPS package to generate databases of molecular dynamcis cascades "easily". This is in development and will be publish later.
 
 ## Installation
 
@@ -33,7 +33,9 @@ scikit_learn>=1.6.0
 scipy>=1.14.1
 mpi4py>=3.0.0
 ```
-Note that `mpi4py` is not needed now, but it will be requeried for the LAMMPS subpackage. Note also that the LAMMPS Python package is not distributed by `pip`, so it is not listed in this project dependencies files.
+Note that:
+- `mpi4py` is not needed now, but it will be requeried in the following versions. I need to check this, but its version must be < 4 for LAMMPS compatibility.
+- (For the future) If you do `pip install lammps`, you are not installing the right thing. To use your LAMMPS distribution you must build the package from source.
 
 Installation (PyPI link [here](https://pypi.org/project/irradiapy/)):
 ```
