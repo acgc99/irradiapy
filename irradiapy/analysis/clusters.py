@@ -326,6 +326,8 @@ def plot_results(
     nions: int,
     depth_bins: int = 100,
     size_bins: Optional[int] = None,
+    min_depth: Optional[float] = None,
+    max_depth: Optional[float] = None,
 ) -> None:
     """Plots the results of size-depth histograms, clustering fractions,
     and scaling laws for interstitials and vacancies.
@@ -344,6 +346,18 @@ def plot_results(
         The number of bins for size histograms, by default None (one bin per size).
     """
     isizes, idepths, vsizes, vdepths = load_results(db_path)
+
+    # Create masks for depth filtering
+    imask = np.ones_like(idepths, dtype=bool)
+    vmask = np.ones_like(vdepths, dtype=bool)
+    if min_depth is not None:
+        imask &= idepths >= min_depth
+        vmask &= vdepths >= min_depth
+    if max_depth is not None:
+        imask &= idepths <= max_depth
+        vmask &= vdepths <= max_depth
+    isizes, idepths = isizes[imask], idepths[imask]
+    vsizes, vdepths = vsizes[vmask], vdepths[vmask]
 
     (
         sia_histogram,
