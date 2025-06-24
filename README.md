@@ -2,7 +2,7 @@
 
 This Python package is aimed towards the simulation and analysis of irradiation damage with multiple tools.
 
-This initial version works and is ready for production, but the code is under revision to improve usability, readability and efficiency (parallelisation). You can find an example under the `examples` folder. More examples will be provided with the next versions, as well as a documentation page.
+This initial version works and is ready for production, but the code is under revision to improve usability, readability and efficiency. You can find an example under the `examples` folder. More examples will be provided with the next versions, as well as a documentation page.
 
 If you have any question about the use of `irradiapy`, feel free to start a discussion. Otherwise, if you find any bug and for feature requests, open an issue.
 
@@ -13,12 +13,12 @@ If you have any question about the use of `irradiapy`, feel free to start a disc
 This subpackage runs [SRIM](http://www.srim.org/) from Python with some tweaks for automation . All SRIM outputs are saved into a SQLite database for easy use.
 
 Please note that:
-- You must obtain SRIM and make it work on own before using this functionality. SRIM is not included here.
-- SRIM was designed to be run with a GUI. I managed to handled it the best way I could. A SRIM window will open in every run, but it will be minimised.
+- You must obtain SRIM and make it work on your own before using this functionality. SRIM is not included here.
+- SRIM was designed to be run with a GUI. I managed to handle it the best way I could. A SRIM window will open in every run, but it will be minimised.
 - I think this can adapted to run in Linux with Wine, but I do not have a Linux system. Someone could help with this.
 - Not all target materials have been implemented, only the ones I needed (Fe, W). Feel free to open an issue and I will try to update the code as soon as possible.
 
-With this subpackage, you get the list of PKAs produced by ions, and then you can place molecular dynamics collisional cascades debris accordinly, as described in [to be published]. You can find the database we used in [to be published] in [CascadesDefectsDB](https://github.com/acgc99/CascadesDefectsDB.git) repository.
+With this subpackage, you get the list of PKAs produced by ions, and then you can place molecular dynamics collisional cascades debris accordinly, as described in [to be published]. You can find the database we used in [to be published] in [CascadesDefectsDB](https://github.com/acgc99/CascadesDefectsDB.git) repository. [This](https://github.com/acgc99/irradiapy/blob/f52507b6d6b3a263440915b52f3b987c7b19f2bd/examples/srimpy.py) is an example about how to use it.
 
 ### lammpspy
 
