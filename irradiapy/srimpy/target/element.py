@@ -48,3 +48,5 @@ Fe = Element("Fe", 26, 55.85, 40.0, 5.8, 4.34, 7.8658)
 Ag = Element("Ag", 47, 107.8682, 39.0, 4.0, 2.97, 10.49)
 #: Element: Predefined tungsten.
 W = Element("W", 74, 183.84, 70.0, 13.2, 8.68, 19.3)
+#: Element: Predefined copper.
+Cu = Element("Cu", 29, 63.546, 33.0, 4.4, 3.52, 8.92)
