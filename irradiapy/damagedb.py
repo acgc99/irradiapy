@@ -215,7 +215,7 @@ class DamageDB:
             for file0 in files[energy]:
                 defects0 = next(iter(XYZReader(file0)))
                 defects0["pos"] -= np.mean(defects0["pos"], axis=0)
-                defects0["pos"] = Rotation.random().apply(defects0["pos"])
+                defects0["pos"] = Rotation.random(rng=self.__rng).apply(defects0["pos"])
                 pos0 = self.__get_parallelepiped_points(*parallelepiped, 1)
                 defects0["pos"] += pos0
                 defects = np.concatenate((defects, defects0))
@@ -247,7 +247,9 @@ class DamageDB:
         defects0["type"][:nfp] = self.mat_target.atomic_number
         defects0["type"][nfp:] = 0
         defects0["pos"][:nfp, 0] = self.mat_target.dist_fp / 2.0
-        defects0["pos"][:nfp] = Rotation.random(nfp).apply(defects0["pos"][:nfp])
+        defects0["pos"][:nfp] = Rotation.random(nfp, self.__rng).apply(
+            defects0["pos"][:nfp]
+        )
         defects0["pos"][nfp:] = -defects0["pos"][:nfp]
         pos0 = self.__get_parallelepiped_points(*parallelepiped, nfp)
         defects0["pos"][:nfp] += pos0
@@ -277,7 +279,9 @@ class DamageDB:
         defects["type"][:nfp] = self.mat_target.atomic_number
         defects["type"][nfp:] = 0
         defects["pos"][:nfp, 0] = self.mat_target.dist_fp / 2.0
-        defects["pos"][:nfp] = Rotation.random(nfp).apply(defects["pos"][:nfp])
+        defects["pos"][:nfp] = Rotation.random(nfp, rng=self.__rng).apply(
+            defects["pos"][:nfp]
+        )
         defects["pos"][nfp:] = -defects["pos"][:nfp]
 
         random = self.__rng.random((nfp, 3))
