@@ -247,7 +247,7 @@ class DamageDB:
         defects0["type"][:nfp] = self.mat_target.atomic_number
         defects0["type"][nfp:] = 0
         defects0["pos"][:nfp, 0] = self.mat_target.dist_fp / 2.0
-        defects0["pos"][:nfp] = Rotation.random(nfp, self.__rng).apply(
+        defects0["pos"][:nfp] = Rotation.random(nfp, rng=self.__rng).apply(
             defects0["pos"][:nfp]
         )
         defects0["pos"][nfp:] = -defects0["pos"][:nfp]
