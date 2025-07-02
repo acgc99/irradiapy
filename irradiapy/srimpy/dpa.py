@@ -9,7 +9,7 @@ import numpy as np
 from matplotlib.lines import Line2D
 
 from irradiapy import dpa, materials
-from irradiapy.io.xyzreader import XYZReader
+from irradiapy.io.lammpsreader import LAMMPSReader
 from irradiapy.math_utils import fit_lorentzian
 from irradiapy.srimpy.srimdb import SRIMDB
 
@@ -60,9 +60,9 @@ def get_dpas(
     depth_debris = np.array([], dtype=float)
     nion = 0
     total_debris = 0
-    for defects in XYZReader(path_collisions):
-        vacs = defects[defects["type"] == 0]
-        depth_debris = np.concatenate((depth_debris, vacs["pos"][:, 0]))
+    for data_defects in LAMMPSReader(path_collisions):
+        vacs = data_defects["atoms"][data_defects["atoms"]["type"] == 0]
+        depth_debris = np.concatenate((depth_debris, vacs["x"]))
         nion += 1
         total_debris += vacs.size
         if nion % 100 == 0:

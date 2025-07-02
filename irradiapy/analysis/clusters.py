@@ -13,6 +13,7 @@ from matplotlib.ticker import MaxNLocator
 from scipy.optimize import curve_fit
 
 from irradiapy import dtypes
+from irradiapy.io.lammpsreader import LAMMPSReader
 from irradiapy.io.xyzreader import XYZReader
 from irradiapy.io.xyzwriter import XYZWriter
 
@@ -127,10 +128,16 @@ def clusterize_file(
     irradiated_particle : str, optional
         Name of the irradiated particle, by default "Projectile".
     """
-    reader = XYZReader(path_collisions)
+    reader = LAMMPSReader(path_collisions)
     nsim = 0
     with XYZWriter(path_aclusters) as awriter, XYZWriter(path_oclusters) as owriter:
-        for defects in reader:
+        for data_defects in reader:
+            # TODO: xyz > pos transform
+            defects = np.empty(data_defects["natoms"], dtype=dtypes.defect)
+            defects["type"] = data_defects["atoms"]["type"]
+            defects["pos"][:, 0] = data_defects["atoms"]["x"]
+            defects["pos"][:, 1] = data_defects["atoms"]["y"]
+            defects["pos"][:, 2] = data_defects["atoms"]["z"]
             nsim += 1
             cond = defects["type"] == 0
             sia, vac = defects[~cond], defects[cond]

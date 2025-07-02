@@ -1,5 +1,6 @@
-"""This module contains the `LAMMPSReader` class."""
+"""This module contains the `BZIP2LAMMPSReader` class."""
 
+import bz2
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
@@ -9,17 +10,22 @@ import numpy as np
 
 
 @dataclass
-class LAMMPSReader:
-    """A class to read data from a LAMMPS dump file.
+class BZIP2LAMMPSReader:
+    """A class to read data from a bzip2-compressed LAMMPS dump file.
 
     Note
     ----
     Assumed orthogonal simulation box.
 
+    Note
+    ----
+    If you only need to decompress a file, use `irradiapy.io.io_utils.decompress_file_bz2` instead.
+
+
     Attributes
     ----------
     file_path : Path
-        The path to the LAMMPS dump file.
+        The path to the bzip2-compressed LAMMPS dump file.
     """
 
     file_path: Path
@@ -27,19 +33,6 @@ class LAMMPSReader:
     def __get_dtype(
         self, line: str
     ) -> tuple[list[str], list[Type[Union[int, float]]], np.dtype]:
-        """Get the data type of the simulation data.
-
-        Parameters
-        ----------
-        line : str
-            The line containing the data type.
-
-        Returns
-        -------
-        tuple[list[str], list[Type[Union[int, float]], np.dtype]
-            The names of the data items, the types of the data items,
-            and the data type.
-        """
         items = line.split()[2:]
         types = [
             int if item in ("id", "type", "element", "size") else float
@@ -55,7 +48,7 @@ class LAMMPSReader:
         None,
         None,
     ]:
-        """Read the file as an iterator, timestep by timestep.
+        """Read the bzip2 file as an iterator, timestep by timestep.
 
         Yields
         ------
@@ -64,7 +57,7 @@ class LAMMPSReader:
             'time' (optional), 'timestep', 'natoms', 'boundary', 'xlo', 'xhi',
             'ylo', 'yhi', 'zlo', 'zhi', and 'atoms' (as a numpy structured array).
         """
-        with open(self.file_path, encoding="utf-8") as file:
+        with bz2.open(self.file_path, mode="rt", encoding="utf-8") as file:
             while True:
                 data = defaultdict(None)
                 line = file.readline()
@@ -83,7 +76,6 @@ class LAMMPSReader:
 
                 line = file.readline()
                 items, types, dtype = self.__get_dtype(line)
-
                 data["atoms"] = np.empty(data["natoms"], dtype=dtype)
                 for i in range(data["natoms"]):
                     line = file.readline().split()

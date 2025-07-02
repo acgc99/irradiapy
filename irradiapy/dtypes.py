@@ -18,3 +18,11 @@ ocluster = np.dtype([field_pos, field_type, field_size])
 trimdat = np.dtype(
     [field_name, field_atomic_number, field_energy, field_pos, field_dir]
 )
+defect2 = np.dtype(
+    [
+        ("type", np.int32),
+        ("x", np.float64),
+        ("y", np.float64),
+        ("z", np.float64),
+    ]
+)

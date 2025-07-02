@@ -1,15 +1,17 @@
 """This module contains the `DamageDB` class."""
 
 import warnings
+from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
+from numpy.lib.recfunctions import structured_to_unstructured as str2unstr
 from scipy.spatial.transform import Rotation
 from sklearn.decomposition import PCA
 
 from irradiapy import dpa, dtypes, materials
-from irradiapy.io.xyzreader import XYZReader
+from irradiapy.io.lammpsreader import LAMMPSReader
 
 
 @dataclass
@@ -150,8 +152,10 @@ class DamageDB:
             return defects
         # If no energy is available, generate FP only
         if nfp:
-            return self.__place_fps_in_sphere(nfp, pka_pos, pka_dir)
-        return np.empty(0, dtype=dtypes.defect)
+            defects = self.__place_fps_in_sphere(nfp, pka_pos, pka_dir)
+            return defects
+        defects = np.empty(0, dtype=dtypes.defect2)
+        return defects
 
     def __process_highest_energy_cascade(
         self,
@@ -180,13 +184,18 @@ class DamageDB:
         """
         file = files[db_emax][0]
         files[db_emax] = np.delete(files[db_emax], 0)
-        defects = next(iter(XYZReader(file)))
+        defects = deque(LAMMPSReader(file), maxlen=1).pop()["atoms"]
         xaxis = np.array([1.0, 0.0, 0.0])
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", category=UserWarning)
-            transform = Rotation.align_vectors([pka_dir], [xaxis])[0].as_matrix()
-        defects["pos"] = defects["pos"] @ transform.T
-        defects["pos"] += pka_pos
+            transform = Rotation.align_vectors([pka_dir], [xaxis])[0]
+
+        pos = str2unstr(defects[["x", "y", "z"]], dtype=np.float64, copy=False)
+        pos = transform.apply(pos) + pka_pos
+        defects["x"] = pos[:, 0]
+        defects["y"] = pos[:, 1]
+        defects["z"] = pos[:, 2]
+
         return defects
 
     def __place_other_debris(
@@ -213,12 +222,21 @@ class DamageDB:
         """
         for energy in self.__energies:
             for file0 in files[energy]:
-                defects0 = next(iter(XYZReader(file0)))
-                defects0["pos"] -= np.mean(defects0["pos"], axis=0)
-                defects0["pos"] = Rotation.random(rng=self.__rng).apply(defects0["pos"])
+                defects_ = deque(LAMMPSReader(file0), maxlen=1).pop()["atoms"]
+
+                # TODO: why recenter?
+                defects_["x"] -= np.mean(defects_["x"])
+                defects_["y"] -= np.mean(defects_["y"])
+                defects_["z"] -= np.mean(defects_["z"])
+                transform = Rotation.random(rng=self.__rng)
+                pos = str2unstr(defects_[["x", "y", "z"]], dtype=np.float64, copy=False)
                 pos0 = self.__get_parallelepiped_points(*parallelepiped, 1)
-                defects0["pos"] += pos0
-                defects = np.concatenate((defects, defects0))
+                pos = transform.apply(pos) + pos0
+                defects_["x"] = pos[:, 0]
+                defects_["y"] = pos[:, 1]
+                defects_["z"] = pos[:, 2]
+
+                defects = np.concatenate((defects, defects_))
         return defects
 
     def __place_fps_in_parallelepiped(
@@ -243,18 +261,20 @@ class DamageDB:
         np.ndarray
             Defects after placing the FPs.
         """
-        defects0 = np.zeros(2 * nfp, dtype=dtypes.defect)
-        defects0["type"][:nfp] = self.mat_target.atomic_number
-        defects0["type"][nfp:] = 0
-        defects0["pos"][:nfp, 0] = self.mat_target.dist_fp / 2.0
-        defects0["pos"][:nfp] = Rotation.random(nfp, rng=self.__rng).apply(
-            defects0["pos"][:nfp]
-        )
-        defects0["pos"][nfp:] = -defects0["pos"][:nfp]
+        defects_ = np.zeros(2 * nfp, dtype=dtypes.defect2)
+        defects_["type"][:nfp] = self.mat_target.atomic_number
+        defects_["x"][:nfp] = self.mat_target.dist_fp / 2.0
+        pos = str2unstr(defects_[["x", "y", "z"]], dtype=np.float64, copy=False)
+        pos[:nfp] = Rotation.random(nfp, rng=self.__rng).apply(pos[:nfp])
+        pos[nfp:] = -pos[:nfp]
         pos0 = self.__get_parallelepiped_points(*parallelepiped, nfp)
-        defects0["pos"][:nfp] += pos0
-        defects0["pos"][nfp:] += pos0
-        return np.concatenate((defects, defects0))
+        pos[:nfp] += pos0
+        pos[nfp:] += pos0
+        defects_["x"] = pos[:, 0]
+        defects_["y"] = pos[:, 1]
+        defects_["z"] = pos[:, 2]
+
+        return np.concatenate((defects, defects_))
 
     def __place_fps_in_sphere(
         self, nfp: int, pka_pos: np.ndarray, pka_dir: np.ndarray
@@ -275,14 +295,12 @@ class DamageDB:
         np.ndarray
             Defects after generating.
         """
-        defects = np.zeros(2 * nfp, dtype=dtypes.defect)
-        defects["type"][:nfp] = self.mat_target.atomic_number
-        defects["type"][nfp:] = 0
-        defects["pos"][:nfp, 0] = self.mat_target.dist_fp / 2.0
-        defects["pos"][:nfp] = Rotation.random(nfp, rng=self.__rng).apply(
-            defects["pos"][:nfp]
-        )
-        defects["pos"][nfp:] = -defects["pos"][:nfp]
+        defects_ = np.zeros(2 * nfp, dtype=dtypes.defect2)
+        defects_["type"][:nfp] = self.mat_target.atomic_number
+        defects_["x"][:nfp] = self.mat_target.dist_fp / 2
+        pos = str2unstr(defects_[["x", "y", "z"]], dtype=np.float64, copy=False)
+        pos[:nfp] = Rotation.random(nfp, rng=self.__rng).apply(pos[:nfp])
+        pos[nfp:] = -pos[:nfp]
 
         random = self.__rng.random((nfp, 3))
         theta = np.arccos(2.0 * random[:, 0] - 1.0)
@@ -294,10 +312,14 @@ class DamageDB:
         points[:, 1] = r * np.sin(theta) * np.sin(phi)
         points[:, 2] = r * np.cos(theta)
 
-        defects["pos"][:nfp] += points
-        defects["pos"][nfp:] += points
-        defects["pos"] += pka_pos + pka_dir * radius
-        return defects
+        pos[:nfp] += points
+        pos[nfp:] += points
+        pos += pka_pos + pka_dir * radius
+        defects_["x"] = pos[:, 0]
+        defects_["y"] = pos[:, 1]
+        defects_["z"] = pos[:, 2]
+
+        return defects_
 
     def __get_parallelepiped(self, atoms: np.ndarray) -> tuple:
         """
@@ -313,9 +335,10 @@ class DamageDB:
         tuple
             PCA object, minimum PCA coordinates, maximum PCA coordinates.
         """
+        pos = str2unstr(atoms[["x", "y", "z"]], dtype=np.float64, copy=False)
         pca = PCA(n_components=3)
-        pca.fit(atoms["pos"])
-        atoms_pca = pca.transform(atoms["pos"])
+        pca.fit(pos)
+        atoms_pca = pca.transform(pos)
         min_pca = np.min(atoms_pca, axis=0)
         max_pca = np.max(atoms_pca, axis=0)
         return pca, min_pca, max_pca
