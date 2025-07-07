@@ -1,6 +1,6 @@
 """This module contains the `SRIMDB` class."""
 
-# pylint: disable=too-many-lines,protected-access,no-name-in-module
+# pylint: disable=too-many-lines,protected-access
 import os
 import platform
 import sqlite3
@@ -15,7 +15,6 @@ from types import TracebackType
 from typing import Callable, Optional, Union
 
 import numpy as np
-from mpi4py import MPI
 
 from irradiapy import dtypes, materials
 from irradiapy.srimpy.ofiles.backscat import Backscat
@@ -41,10 +40,9 @@ if platform == "Windows":
     import pygetwindow
     import pywinauto
 else:
-    if MPI.COMM_WORLD.Get_rank() == 0:
-        warnings.warn(
-            ("SRIM subpackage only works for Windows. " f"'{platform}' not supported.")
-        )
+    warnings.warn(
+        "SRIM subpackage only works for Windows. " f"'{platform}' not supported."
+    )
 
 
 @dataclass(kw_only=True)
