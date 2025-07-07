@@ -1,7 +1,6 @@
 """This module contains the `SRIMDB` class."""
 
-# pylint: disable=too-many-lines
-# pylint: disable=protected-access
+# pylint: disable=too-many-lines,protected-access,no-name-in-module
 import os
 import platform
 import sqlite3
@@ -1017,7 +1016,13 @@ class SRIMDB(sqlite3.Connection):
             Final position.
         """
         diff = pos - pos0
-        direction = diff / np.linalg.norm(diff)
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                category=RuntimeWarning,
+                message="invalid value encountered in divide",
+            )
+            direction = diff / np.linalg.norm(diff)
         return direction
 
     def __filter_subcollisions_logic_qc(self, subcollision_data: tuple) -> dict:
@@ -1137,6 +1142,14 @@ class SRIMDB(sqlite3.Connection):
                     # In such cases (if statement triggered), we assume that the
                     # second PKA has the same direction as the first one.
                     if np.isnan(cosx) or np.isnan(cosy) or np.isnan(cosz):
+                        warnings.warn(
+                            (
+                                "Two PKAs at the same position, assuming same direction. This is "
+                                "likely because they are really close and when saved into "
+                                "COLLISON.txt, positions are rounded and they coincide."
+                            ),
+                            RuntimeWarning,
+                        )
                         cosx, cosy, cosz = cosx0, cosy0, cosz0
                     else:
                         cosx0, cosy0, cosz0 = cosx, cosy, cosz
