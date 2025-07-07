@@ -1,7 +1,7 @@
 """Utility functions related to collisions' debris from SRIM data."""
 
-import pathlib
 from collections import defaultdict
+from pathlib import Path
 from typing import Optional, Union
 
 import numpy as np
@@ -14,9 +14,9 @@ from irradiapy.srimpy.srimdb import SRIMDB
 
 def generate_debris(
     srimdb: SRIMDB,
-    dir_mddb: pathlib.Path,
+    dir_mddb: Path,
     compute_tdam: bool,
-    path_collisions: pathlib.Path,
+    path_collisions: Path,
     dpa_mode: dpa.DpaMode,
     add_injected: bool,
     outsiders: bool,
@@ -33,12 +33,12 @@ def generate_debris(
     ----------
     srimdb : SRIMDB
         SRIM database class.
-    dir_mddb : pathlib.Path
+    dir_mddb : Path
         Directory where the database of cascades' debris is stored.
     compute_tdam : bool
         Whether to transform the PKA energies into damage energies. It should be `True` for
         MD simulations without electronic stopping.
-    path_collisions : pathlib.Path
+    path_collisions : Path
         Directory where the ions debris will be stored as `.xyz` files.
     dpa_mode : dpa.DpaMode
         Formula to convert the residual energy into Frenkel pairs.
