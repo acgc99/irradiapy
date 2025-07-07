@@ -268,7 +268,6 @@ class SRIMDB(sqlite3.Connection):
             db_elements = list(cur.fetchall())
             elements = []
             for db_element in db_elements:
-                print(db_element)
                 elements.append(
                     Element(
                         db_element[2],
