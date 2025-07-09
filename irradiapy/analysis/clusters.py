@@ -140,39 +140,32 @@ def clusterize_file(
             aclusters = np.concatenate((iaclusters, vaclusters))
             oclusters = np.concatenate((ioclusters, voclusters))
 
-            data_aclusters = defaultdict(
-                None,
-                {
-                    "timestep": data_defects["timestep"],
-                    "time": data_defects["time"],
-                    "natoms": len(aclusters),
-                    "boundary": data_defects["boundary"],
-                    "xlo": data_defects["xlo"],
-                    "xhi": data_defects["xhi"],
-                    "ylo": data_defects["ylo"],
-                    "yhi": data_defects["yhi"],
-                    "zlo": data_defects["zlo"],
-                    "zhi": data_defects["zhi"],
-                    "atoms": aclusters,
-                },
-            )
-            data_oclusters = defaultdict(
-                None,
-                {
-                    "timestep": data_defects["timestep"],
-                    "time": data_defects["time"],
-                    "natoms": len(oclusters),
-                    "boundary": data_defects["boundary"],
-                    "xlo": data_defects["xlo"],
-                    "xhi": data_defects["xhi"],
-                    "ylo": data_defects["ylo"],
-                    "yhi": data_defects["yhi"],
-                    "zlo": data_defects["zlo"],
-                    "zhi": data_defects["zhi"],
-                    "atoms": oclusters,
-                },
-            )
+            data_aclusters = defaultdict(None)
+            data_aclusters["timestep"] = data_defects["timestep"]
+            data_aclusters["time"] = data_defects["time"]
+            data_aclusters["natoms"] = len(aclusters)
+            data_aclusters["boundary"] = data_defects["boundary"]
+            data_aclusters["xlo"] = data_defects["xlo"]
+            data_aclusters["xhi"] = data_defects["xhi"]
+            data_aclusters["ylo"] = data_defects["ylo"]
+            data_aclusters["yhi"] = data_defects["yhi"]
+            data_aclusters["zlo"] = data_defects["zlo"]
+            data_aclusters["zhi"] = data_defects["zhi"]
+            data_aclusters["atoms"] = aclusters
             awriter.write(data_aclusters)
+
+            data_oclusters = defaultdict(None)
+            data_oclusters["timestep"] = data_defects["timestep"]
+            data_oclusters["time"] = data_defects["time"]
+            data_oclusters["natoms"] = len(oclusters)
+            data_oclusters["boundary"] = data_defects["boundary"]
+            data_oclusters["xlo"] = data_defects["xlo"]
+            data_oclusters["xhi"] = data_defects["xhi"]
+            data_oclusters["ylo"] = data_defects["ylo"]
+            data_oclusters["yhi"] = data_defects["yhi"]
+            data_oclusters["zlo"] = data_defects["zlo"]
+            data_oclusters["zhi"] = data_defects["zhi"]
+            data_oclusters["atoms"] = oclusters
             owriter.write(data_oclusters)
 
 
