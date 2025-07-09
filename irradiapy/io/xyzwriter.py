@@ -172,7 +172,7 @@ class XYZWriter:
         )
         return line
 
-    def save(self, datas: npt.NDArray, extra_comment: str = "") -> None:
+    def write(self, datas: npt.NDArray, extra_comment: str = "") -> None:
         """
         Writes the given data into the file.
 
