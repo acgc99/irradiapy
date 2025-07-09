@@ -193,9 +193,9 @@ def __get_size_depth_histogram(
 
     Parameters
     ----------
-    sizes : dtypes.FLOAT_CHECK
+    sizes : np.ndarray
         An array of size values.
-    depths : dtypes.FLOAT_CHECK
+    depths : np.ndarray
         An array of depth values.
     depth_bins : int, optional
         Number of bins for the depth axis, by default 100.
@@ -204,8 +204,7 @@ def __get_size_depth_histogram(
 
     Returns
     -------
-    tuple[dtypes.FLOAT_CHECK, dtypes.FLOAT_CHECK, dtypes.FLOAT_CHECK, dtypes.FLOAT_CHECK,
-    dtypes.FLOAT_CHECK]
+    tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]
         A tuple containing: the values of the histogram, the bin edges of the size histogram,
         the bin edges of the depth histogram, the centers of the size bins, the centers of the
         depth bins.
@@ -231,12 +230,12 @@ def __get_size_histogram(
 
     Parameters
     ----------
-    sizes : dtypes.FLOAT_CHECK
+    sizes : np.ndarray
         An array of cluster sizes.
 
     Returns
     -------
-    tuple[dtypes]
+    tuple[np.ndarray, np.ndarray, np.ndarray]
         A tuple containing: the histogram of cluster sizes, the edges of the histogram bins and
         the centers of the histogram bins.
     """
@@ -308,7 +307,7 @@ def load_results(
 
     Returns
     -------
-    tuple[dtypes.INT_CHECK, dtypes.FLOAT_CHECK, dtypes.INT_CHECK, dtypes.FLOAT_CHECK]
+    tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
         A tuple containing: the sizes of the interstitials, the depths of the interstitials, the
         sizes of the vacancies, the depths of the vacancies
     """
@@ -332,9 +331,9 @@ def __scaling_law_fit(
 
     Parameters
     ----------
-    centers : dtypes.FLOAT_CHECK
+    centers : np.ndarray
         The centers of the bins.
-    counts : dtypes.FLOAT_CHECK
+    counts : np.ndarray
         The values of the histogram.
 
     Returns
@@ -811,7 +810,7 @@ def write_count_0d(
 
     Returns
     -------
-    tuple[dtypes.INT_CHECK, dtypes.INT_CHECK]
+    tuple[np.ndarray, np.ndarray]
         A tuple containing: the sizes of the interstitials and the sizes of the vacancies.
     """
     isizes, vsizes = np.array([], dtype=int), np.array([], dtype=int)
@@ -848,7 +847,7 @@ def read_count_0d(out_dir: Path) -> tuple[np.ndarray, np.ndarray]:
 
     Returns
     -------
-    tuple[dtypes.INT_CHECK, dtypes.INT_CHECK]
+    tuple[np.ndarray, np.ndarray]
         A tuple containing: the sizes of the interstitials and the sizes of the vacancies.
     """
     with open(out_dir / "oclusters0D.csv", "r", encoding="utf-8") as file:

@@ -646,21 +646,21 @@ class SRIMDB(sqlite3.Connection):
         ----------
         ofile_dir : Path
             Output file directory.
-        atomic_numbers : dtypes.INT_CHECK
+        atomic_numbers : np.ndarray
             Atomic numbers.
-        energies : dtypes.FLOAT_CHECK
+        energies : np.ndarray
             Energies.
-        depths : dtypes.FLOAT_CHECK, optional
+        depths : np.ndarray, optional
             Depths.
-        ys : dtypes.FLOAT_CHECK, optional
+        ys : np.ndarray, optional
             Y positions.
-        zs : dtypes.FLOAT_CHECK, optional
+        zs : np.ndarray, optional
             Z positions.
-        cosxs : dtypes.FLOAT_CHECK, optional
+        cosxs : np.ndarray, optional
             X directions.
-        cosys : dtypes.FLOAT_CHECK, optional
+        cosys : np.ndarray, optional
             Y directions.
-        coszs : dtypes.FLOAT_CHECK, optional
+        coszs : np.ndarray, optional
             Z directions.
 
         Returns
@@ -784,23 +784,23 @@ class SRIMDB(sqlite3.Connection):
             `criterion(nion, energy, depth, y, z, se, atom_hit,
             pka_e, target_disp)`.
             Recommended to be defined as `def criterion(**kwargs: dict) -> bool:`.
-        atomic_numbers : dtypes.INT_CHECK
+        atomic_numbers : np.ndarray
             Ion atomic numbers.
-        energies : dtypes.FLOAT_CHECK
+        energies : np.ndarray
             Ion energies.
         remove_offsets : bool
             Whether to remove initial depth offsets or not.
-        depths : dtypes.FLOAT_CHECK, optional
+        depths : np.ndarray, optional
             Ion initial depths.
-        ys : dtypes.FLOAT_CHECK, optional
+        ys : np.ndarray, optional
             Ion initial y positions.
-        zs : dtypes.FLOAT_CHECK, optional
+        zs : np.ndarray, optional
             Ion initial z positions.
-        cosxs : dtypes.FLOAT_CHECK, optional
+        cosxs : np.ndarray, optional
             Ion initial x directions.
-        cosys : dtypes.FLOAT_CHECK, optional
+        cosys : np.ndarray, optional
             Ion initial y directions.
-        coszs : dtypes.FLOAT_CHECK, optional
+        coszs : np.ndarray, optional
             Ion initial z directions.
         iter_max : int, optional
             Maximum number of iterations, by default None.
@@ -929,21 +929,21 @@ class SRIMDB(sqlite3.Connection):
             Target material.
         calculation : Calculation
             Calculation parameters.
-        atomic_numbers : dtypes.INT_CHECK
+        atomic_numbers : np.ndarray
             Ion atomic numbers.
-        energies : dtypes.FLOAT_CHECK
+        energies : np.ndarray
             Ion energies.
-        depths : dtypes.FLOAT_CHECK, optional
+        depths : np.ndarray, optional
             Ion initial depths.
-        ys : dtypes.FLOAT_CHECK, optional
+        ys : np.ndarray, optional
             Ion initial y positions.
-        zs : dtypes.FLOAT_CHECK, optional
+        zs : np.ndarray, optional
             Ion initial z positions.
-        cosxs : dtypes.FLOAT_CHECK, optional
+        cosxs : np.ndarray, optional
             Ion initial x directions.
-        cosys : dtypes.FLOAT_CHECK, optional
+        cosys : np.ndarray, optional
             Ion initial y directions.
-        coszs : dtypes.FLOAT_CHECK, optional
+        coszs : np.ndarray, optional
             Ion initial z directions.
 
         Returns
@@ -1101,7 +1101,7 @@ class SRIMDB(sqlite3.Connection):
             Number of ions.
         trimdat : dtypes.trimdat
             TRIMDAT data.
-        nsubcollisions0 : dtypes.INT_CHECK
+        nsubcollisions0 : np.ndarray
             Initial number of subcollisions.
         criterion : Callable
             Criterion to repeat calculation, must return False to repeat calculation.
