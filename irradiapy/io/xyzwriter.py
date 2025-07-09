@@ -1,10 +1,9 @@
 """This module contains the `XYZWriter` class."""
 
 from dataclasses import dataclass, field
-from io import TextIOWrapper
 from pathlib import Path
 from types import TracebackType
-from typing import Optional
+from typing import Optional, TextIO
 
 import numpy.typing as npt
 
@@ -18,28 +17,30 @@ class XYZWriter:
     file_path : Path
         Path to the file where data will be written.
     mode : str, optional
-        File open mode, by default "w".
-
-    Attributes
-    ----------
-    file : TextIOWrapper
-        File object associated with this writer.
+        File open mode. Default: `"w"`.
+    encoding : str, optional
+        File encoding. Default: `"utf-8"`.
+    int_format : str, optional
+        Format for integers. Default: `"%d"`.
+    float_format : str, optional
+        Format for floats. Default: `"%g"`.
     """
 
     file_path: Path
     mode: str = "w"
-    file: Optional[TextIOWrapper] = field(default=None, init=False)
-    excluded_items: list[str] = field(default_factory=lambda: ["xs", "ys", "zs"])
     encoding: str = "utf-8"
     int_format: str = "%d"
     float_format: str = "%g"
+    file: TextIO = field(default=None, init=False)
 
     def __post_init__(self) -> None:
         self.file = open(self.file_path, self.mode, encoding="utf-8")
 
     def __enter__(self) -> "XYZWriter":
-        """Enter the runtime context related to this object."""
         return self
+
+    def __del__(self) -> None:
+        self.file.close()
 
     def __exit__(
         self,
@@ -52,17 +53,7 @@ class XYZWriter:
             self.file.close()
         return False
 
-    def close(self) -> None:
-        """Close the file associated with this writer."""
-        if self.file and not self.file.closed:
-            self.file.close()
-
-    def __del__(self) -> None:
-        file = getattr(self, "file", None)
-        if file and not file.closed:
-            file.close()
-
-    def _get_properties(
+    def __get_properties(
         self, dtype: npt.DTypeLike
     ) -> tuple[tuple[str, ...], int, list[str], list[int]]:
         """Get the properties of the given data.
@@ -103,7 +94,7 @@ class XYZWriter:
 
         return name_props, count_props, type_props, multiplicity_props, formatters
 
-    def _get_comment(
+    def __get_comment(
         self,
         name_props: tuple,
         count_props: int,
@@ -134,7 +125,7 @@ class XYZWriter:
         )
         return comment
 
-    def _data_to_line(
+    def __data_to_line(
         self,
         data: npt.NDArray,
         name_props: tuple,
@@ -187,17 +178,22 @@ class XYZWriter:
         natoms = datas.size
         dtype = datas.dtype
         name_props, count_props, type_props, multiplicity_props, formatters = (
-            self._get_properties(dtype)
+            self.__get_properties(dtype)
         )
 
-        comment = self._get_comment(
+        comment = self.__get_comment(
             name_props, count_props, type_props, multiplicity_props
         )
         full_comment = f"{comment} {extra_comment}" if extra_comment else comment
         self.file.write(f"{natoms}\n")
         self.file.write(f"{full_comment}\n")
         for data in datas:
-            line = self._data_to_line(
+            line = self.__data_to_line(
                 data, name_props, count_props, multiplicity_props, formatters
             )
             self.file.write(f"{line}\n")
+
+    def close(self) -> None:
+        """Close the file associated with this writer."""
+        if self.file and not self.file.closed:
+            self.file.close()

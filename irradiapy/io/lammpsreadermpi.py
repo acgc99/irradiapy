@@ -1,16 +1,21 @@
 """This module contains the `LAMMPSReaderMPI` class."""
 
-# pylint: disable=no-name-in-module
+# pylint: disable=no-name-in-module, broad-except
 
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Generator, TextIO, Tuple, Type, Union
+from types import TracebackType
+from typing import Any, Dict, Generator, Optional, TextIO, Tuple, Type, Union
 
 import numpy as np
 from mpi4py import MPI
 
-from irradiapy.mpi_utils import MPITagAllocator, mpi_safe_method
+from irradiapy.mpi_utils import (
+    MPIExceptionHandlerMixin,
+    MPITagAllocator,
+    mpi_safe_method,
+)
 
 
 def _factorize_to_3d(n: int) -> Tuple[int, int, int]:
@@ -33,7 +38,7 @@ def _factorize_to_3d(n: int) -> Tuple[int, int, int]:
 
 
 @dataclass
-class LAMMPSReaderMPI:
+class LAMMPSReaderMPI(MPIExceptionHandlerMixin):
     """A class to read data from a LAMMPS dump  file in parallel using MPI.
 
     Note
@@ -44,14 +49,15 @@ class LAMMPSReaderMPI:
     ----------
     file_path : Path
         The path to the LAMMPS dump file.
-    debug : bool
-        If True, prints debug information (default: False).
+    encoding : str
+        The file encoding. Default: `"utf-8"`.
     comm : MPI.Comm
-        The MPI communicator (default: MPI.COMM_WORLD).
+        The MPI communicator. Default: `mpi4py.MPI.COMM_WORLD`.
     """
 
     file_path: Path
-    debug: bool = False
+    encoding: str = "utf-8"
+    file: TextIO = field(default=None, init=False)
     comm: MPI.Comm = field(default_factory=lambda: MPI.COMM_WORLD)
     __rank: int = field(init=False)
     __commsize: int = field(init=False)
@@ -68,10 +74,30 @@ class LAMMPSReaderMPI:
         iy = (self.__rank // self.__nx) % self.__ny
         iz = self.__rank // (self.__nx * self.__ny)
         self._domain_index = (ix, iy, iz)
-        if self.debug and self.__rank == 0:
-            print(
-                f"[Debug] Domain grid: nx={self.__nx}, ny={self.__ny}, nz={self.__nz}"
-            )
+        self.file = None
+        if self.__rank == 0:
+            try:
+                self.file = open(self.file_path, "r", encoding=self.encoding)
+            except Exception:
+                self._handle_exception()
+
+    def __enter__(self) -> "LAMMPSReaderMPI":
+        return self
+
+    def __del__(self) -> None:
+        if self.__rank == 0 and not self.file.closed:
+            self.file.close()
+
+    def __exit__(
+        self,
+        exc_type: Optional[type[BaseException]] = None,
+        exc_value: Optional[BaseException] = None,
+        exc_traceback: Optional[TracebackType] = None,
+    ) -> bool:
+        """Exits the context manager."""
+        if self.__rank == 0 and not self.file.closed:
+            self.file.close()
+        return False
 
     def __get_dtype(
         self, file: TextIO
@@ -91,8 +117,6 @@ class LAMMPSReaderMPI:
         line = file.readline()
         if not line:
             return {}
-        if self.debug:
-            print(f"[Rank {self.__rank}] Read header line: {line.strip()}")
         if line.strip() == "ITEM: TIME":
             data["time"] = float(file.readline())
             file.readline()
@@ -107,8 +131,6 @@ class LAMMPSReaderMPI:
         for _ in range(3):
             b = file.readline().split()
             bounds.append(b)
-            if self.debug:
-                print(f"[Rank {self.rank}] Bound line: {b}")
         data["xlo"], data["xhi"] = map(float, bounds[0][:2])
         data["ylo"], data["yhi"] = map(float, bounds[1][:2])
         data["zlo"], data["zhi"] = map(float, bounds[2][:2])
@@ -116,22 +138,16 @@ class LAMMPSReaderMPI:
 
     @mpi_safe_method
     def __iter__(self) -> Generator[Tuple[Dict[str, Any], np.ndarray], None, None]:
-        file = open(self.file_path, encoding="utf-8") if self.__rank == 0 else None
-        iteration = 0
         while True:
-            if self.debug:
-                print(f"[Rank {self.__rank}] Starting iteration {iteration}")
             # header broadcast
             data = self.comm.bcast(
-                self.__process_header(file) if self.__rank == 0 else None, root=0
+                self.__process_header(self.file) if self.__rank == 0 else None, root=0
             )
             if data is None or not data:
-                if self.debug:
-                    print(f"[Rank {self.__rank}] No more data, breaking loop")
                 break
             # dtype broadcast
             items, types, dtype = self.comm.bcast(
-                self.__get_dtype(file) if self.__rank == 0 else (None, None, None),
+                self.__get_dtype(self.file) if self.__rank == 0 else (None, None, None),
                 root=0,
             )
             data.update({"items": items, "types": types, "dtype": dtype})
@@ -143,28 +159,18 @@ class LAMMPSReaderMPI:
                 + (1 if i < (natoms % self.__commsize) else 0)
                 for i in range(self.__commsize)
             ]
-            if self.debug:
-                print(f"[Rank {self.__rank}] Raw counts per rank: {counts}")
 
             # distribute chunks
             if self.__rank == 0:
                 chunks = []
                 for cnt in counts:
-                    chunk = [file.readline().split() for _ in range(cnt)]
+                    chunk = [self.file.readline().split() for _ in range(cnt)]
                     chunks.append(chunk)
                 raw = chunks[0]
                 for r in range(1, self.__commsize):
-                    if self.debug:
-                        print(
-                            f"[Rank 0] Sending chunk of size {len(chunks[r])} to rank {r}"
-                        )
                     self.comm.send(chunks[r], dest=r, tag=self.__comm_tag)
             else:
-                if self.debug:
-                    print(f"[Rank {self.__rank}] Waiting to receive raw chunk")
                 raw = self.comm.recv(source=0, tag=self.__comm_tag)
-                if self.debug:
-                    print(f"[Rank {self.__rank}] Received raw chunk of size {len(raw)}")
 
             # build structured array
             arr = np.empty(len(raw), dtype=dtype)
@@ -174,7 +180,6 @@ class LAMMPSReaderMPI:
                         continue
                     arr[key][i] = types[j](fields[j])
 
-            iteration += 1
             # subdomain info: indices and physical bounds
             xlo, xhi = data["xlo"], data["xhi"]
             ylo, yhi = data["ylo"], data["yhi"]
@@ -198,9 +203,15 @@ class LAMMPSReaderMPI:
                 arr["ys"] = (arr["y"] - ylo) / (yhi - ylo)
                 arr["zs"] = (arr["z"] - zlo) / (zhi - zlo)
             # attach atoms
-            data["atoms_rank"] = arr
-            data["natoms_rank"] = len(arr)
+            data["atoms"] = arr
+            data["natoms"] = len(arr)
             yield data
 
-        if file:
-            file.close()
+        if self.file:
+            self.file.close()
+
+    @mpi_safe_method
+    def close(self) -> None:
+        """Closes the file associated with this writer."""
+        if self.__rank == 0 and not self.file.closed:
+            self.file.close()

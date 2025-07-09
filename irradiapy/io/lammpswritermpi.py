@@ -5,7 +5,7 @@
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import TracebackType
-from typing import Any, Optional
+from typing import Any, Optional, TextIO
 
 import numpy.typing as npt
 from mpi4py import MPI
@@ -26,17 +26,17 @@ class LAMMPSWriterMPI(MPIExceptionHandlerMixin):
     file_path : Path
         The path to the LAMMPS dump file.
     mode : str
-        The file open mode (default: 'w').
+        The file open mode. Default: `"w"`.
     excluded_items : list[str]
-        Atom fields to exclude from output (default: ["xs", "ys", "zs"]).
+        Atom fields to exclude from output. Default: `["xs", "ys", "zs"]`.
     encoding : str
-        The file encoding (default: 'utf-8').
+        The file encoding. Default: `"utf-8"`.
     int_format : str
-        The format for integers (default: '%d').
+        The format for integers. Default: `"%d"`.
     float_format : str
-        The format for floats (default: '%g').
+        The format for floats. Default: `"%g"`.
     comm : MPI.Comm
-        The MPI communicator (default: MPI.COMM_WORLD).
+        The MPI communicator. Default: `mpi4py.MPI.COMM_WORLD`.
     """
 
     file_path: Path
@@ -45,10 +45,10 @@ class LAMMPSWriterMPI(MPIExceptionHandlerMixin):
     encoding: str = "utf-8"
     int_format: str = "%d"
     float_format: str = "%g"
+    file: TextIO = field(default=None, init=False)
     comm: MPI.Comm = field(default_factory=lambda: MPI.COMM_WORLD)
     __rank: int = field(init=False)
     __commsize: int = field(init=False)
-    __closed: bool = field(default=False, init=False)
     __comm_tag: int = field(default_factory=MPITagAllocator.get_tag, init=False)
 
     def __post_init__(self) -> None:
@@ -63,8 +63,11 @@ class LAMMPSWriterMPI(MPIExceptionHandlerMixin):
                 self._handle_exception()
 
     def __enter__(self) -> "LAMMPSWriterMPI":
-        """Enters the context manager."""
         return self
+
+    def __del__(self) -> None:
+        if self.__rank == 0 and not self.file.closed:
+            self.file.close()
 
     def __exit__(
         self,
@@ -72,8 +75,8 @@ class LAMMPSWriterMPI(MPIExceptionHandlerMixin):
         exc_value: Optional[BaseException] = None,
         exc_traceback: Optional[TracebackType] = None,
     ) -> bool:
-        """Exits the context manager."""
-        self.close()
+        if self.__rank == 0 and not self.file.closed:
+            self.file.close()
         return False
 
     def __atoms_rank_to_string(
@@ -95,19 +98,19 @@ class LAMMPSWriterMPI(MPIExceptionHandlerMixin):
         str
             A formatted string representation of the atoms_rank array.
         """
-        return "\n".join(
+        lines_chunk = "\n".join(
             " ".join(
                 fmt % atom[field_name]
                 for fmt, field_name in zip(formatters, field_names)
             )
             for atom in atoms_rank
         )
+        return lines_chunk
 
     @mpi_safe_method
     def close(self) -> None:
         """Closes the file associated with this writer."""
-        if self.__rank == 0 and not self.__closed:
-            self.__closed = True
+        if self.__rank == 0 and not self.file.closed:
             self.file.close()
 
     @mpi_safe_method
@@ -125,14 +128,12 @@ class LAMMPSWriterMPI(MPIExceptionHandlerMixin):
             include 'timestep', 'boundary', 'xlo', 'xhi', 'ylo', 'yhi', 'zlo', 'zhi',
             and any other fields to be written as atom properties.
         """
-        items = data["items"].copy()
-        for excluded_item in self.excluded_items:
-            if excluded_item in items:
-                items.remove(excluded_item)
+        atoms = data["atoms"]
+        field_names = [f for f in atoms.dtype.names if f not in self.excluded_items]
 
         formatters = []
-        for field_name in items:
-            dtype = data["atoms_rank"].dtype[field_name]
+        for field_name in field_names:
+            dtype = atoms.dtype[field_name]
             if dtype.kind == "i":
                 formatters.append(self.int_format)
             elif dtype.kind == "f":
@@ -149,15 +150,15 @@ class LAMMPSWriterMPI(MPIExceptionHandlerMixin):
             self.file.write(f"{data['xlo']} {data['xhi']}\n")
             self.file.write(f"{data['ylo']} {data['yhi']}\n")
             self.file.write(f"{data['zlo']} {data['zhi']}\n")
-            self.file.write(f"ITEM: ATOMS {' '.join(items)}\n")
+            self.file.write(f"ITEM: ATOMS {' '.join(field_names)}\n")
 
         self.comm.Barrier()
-        atoms_rank_str = self.__atoms_rank_to_string(
-            data["atoms_rank"], items, formatters
+        lines_chunk = self.__atoms_rank_to_string(
+            data["atoms"], field_names, formatters
         )
         if self.__rank == 0:
-            self.file.write(atoms_rank_str)
-            if atoms_rank_str:
+            self.file.write(lines_chunk)
+            if lines_chunk:
                 self.file.write("\n")
             for sender_rank in range(1, self.__commsize):
                 self.comm.send(None, dest=sender_rank, tag=self.__comm_tag + 1)
@@ -167,5 +168,5 @@ class LAMMPSWriterMPI(MPIExceptionHandlerMixin):
                     self.file.write("\n")
         else:
             self.comm.recv(source=0, tag=self.__comm_tag + 1)
-            self.comm.send(atoms_rank_str, dest=0, tag=self.__comm_tag)
+            self.comm.send(lines_chunk, dest=0, tag=self.__comm_tag)
         self.comm.Barrier()

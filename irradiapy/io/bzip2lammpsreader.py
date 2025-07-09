@@ -2,9 +2,9 @@
 
 import bz2
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Generator, Type, Union
+from typing import BinaryIO, Generator, Type, Union
 
 import numpy as np
 
@@ -26,25 +26,24 @@ class BZIP2LAMMPSReader:
     ----------
     file_path : Path
         The path to the bzip2-compressed LAMMPS dump file.
+    encoding : str
+        The file encoding. Default: `"utf-8"`.
     """
 
     file_path: Path
+    encoding: str = "utf-8"
+    file: BinaryIO = field(default=None, init=False)
 
-    def __get_dtype(
-        self, line: str
-    ) -> tuple[list[str], list[Type[Union[int, float]]], np.dtype]:
-        items = line.split()[2:]
-        types = [
-            int if item in ("id", "type", "element", "size") else float
-            for item in items
-        ]
-        dtype = np.dtype([(item, type) for item, type in zip(items, types)])
-        return items, types, dtype
+    def __post_init__(self) -> None:
+        self.file = bz2.open(self.file_path, mode="rt", encoding=self.encoding)
+
+    def __del__(self) -> None:
+        self.file.close()
 
     def __iter__(
         self,
     ) -> Generator[
-        dict,  # Changed from tuple[...] to dict
+        dict,
         None,
         None,
     ]:
@@ -82,3 +81,18 @@ class BZIP2LAMMPSReader:
                     for j, item in enumerate(items):
                         data["atoms"][i][item] = types[j](line[j])
                 yield data
+
+    def __get_dtype(
+        self, line: str
+    ) -> tuple[list[str], list[Type[Union[int, float]]], np.dtype]:
+        items = line.split()[2:]
+        types = [
+            int if item in ("id", "type", "element", "size") else float
+            for item in items
+        ]
+        dtype = np.dtype([(item, type) for item, type in zip(items, types)])
+        return items, types, dtype
+
+    def close(self) -> None:
+        """Close the file associated with this reader."""
+        self.file.close()

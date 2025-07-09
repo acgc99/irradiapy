@@ -15,15 +15,15 @@ class LAMMPSWriter:
     file_path : Path
         The path to the LAMMPS dump file.
     mode : str
-        The file open mode (default: 'w').
+        The file open mode. Default: `"w"`.
     excluded_items : list[str]
-        Atom fields to exclude from output (default: ["xs", "ys", "zs"]).
+        Atom fields to exclude from output. Default: `["xs", "ys", "zs"]`.
     encoding : str
-        The file encoding (default: 'utf-8').
+        The file encoding. Default: `"utf-8"`.
     int_format : str
-        The format for integers (default: '%d').
+        The format for integers. Default: `"%d"`.
     float_format : str
-        The format for floats (default: '%g').
+        The format for floats. Default: `"%g"`.
     """
 
     file_path: Path
@@ -35,12 +35,13 @@ class LAMMPSWriter:
     file: TextIO = field(default=None, init=False)
 
     def __post_init__(self) -> None:
-        """Opens the file associated with this writer."""
         self.file = open(self.file_path, self.mode, encoding=self.encoding)
 
     def __enter__(self) -> "LAMMPSWriter":
-        """Enters the context manager."""
         return self
+
+    def __del__(self) -> None:
+        self.file.close()
 
     def __exit__(
         self,
@@ -48,15 +49,10 @@ class LAMMPSWriter:
         exc_value: Optional[BaseException] = None,
         exc_traceback: Optional[TracebackType] = None,
     ) -> bool:
-        """Exits the context manager."""
         self.file.close()
         return False
 
     def close(self) -> None:
-        """Closes the file associated with this writer."""
-        self.file.close()
-
-    def __del__(self) -> None:
         """Closes the file associated with this writer."""
         self.file.close()
 
@@ -78,7 +74,7 @@ class LAMMPSWriter:
         self.file.write(f"{data['zlo']} {data['zhi']}\n")
 
         atoms = data["atoms"]
-        field_names = atoms.dtype.names
+        field_names = [f for f in atoms.dtype.names if f not in self.excluded_items]
         self.file.write(f"ITEM: ATOMS {' '.join(field_names)}\n")
 
         formatters = []

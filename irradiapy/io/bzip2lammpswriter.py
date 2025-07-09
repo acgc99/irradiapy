@@ -3,6 +3,7 @@
 import bz2
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import BinaryIO
 
 
 @dataclass
@@ -18,26 +19,27 @@ class BZIP2LAMMPSWriter:
     file_path : Path
         The path to the bzip2-compressed LAMMPS dump file.
     mode : str
-        The file open mode (default: 'wt').
+        The file open mode. Default: `"wt"`.
     encoding : str
-        The file encoding (default: 'utf-8').
-    compresslevel : int
-        The bzip2 compression level (default: 9).
+        The file encoding. Default: `"utf-8"`.
     excluded_items : list[str]
-        Atom fields to exclude from output (default: ["xs", "ys", "zs"]).
+        Atom fields to exclude from output. Default: `["xs", "ys", "zs"]`.
     int_format : str
-        The format for integers (default: "%d").
+        The format for integers. Default: `"%d"`.
     float_format : str
-        The format for floats (default: "%g").
+        The format for floats. Default: `"%g"`.
+    compresslevel : int
+        The bzip2 compression level. Default: `9`.
     """
 
     file_path: Path
     mode: str = "wt"
     encoding: str = "utf-8"
-    compresslevel: int = 9
     excluded_items: list[str] = field(default_factory=lambda: ["xs", "ys", "zs"])
     int_format: str = "%d"
     float_format: str = "%g"
+    compresslevel: int = 9
+    file: BinaryIO = field(default=None, init=False)
 
     def __post_init__(self) -> None:
         self.file = bz2.open(
@@ -50,15 +52,14 @@ class BZIP2LAMMPSWriter:
     def __enter__(self) -> "BZIP2LAMMPSWriter":
         return self
 
+    def __del__(self) -> None:
+        self.file.close()
+
     def __exit__(self, exc_type=None, exc_value=None, exc_traceback=None) -> bool:
         self.file.close()
         return False
 
     def close(self) -> None:
-        """Closes the file associated with this writer."""
-        self.file.close()
-
-    def __del__(self) -> None:
         """Closes the file associated with this writer."""
         self.file.close()
 
