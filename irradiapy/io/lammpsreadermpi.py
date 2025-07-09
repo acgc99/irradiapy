@@ -15,26 +15,8 @@ from irradiapy.mpi_utils import (
     MPIExceptionHandlerMixin,
     MPITagAllocator,
     mpi_safe_method,
+    mpi_subdomains_decomposition,
 )
-
-
-def _factorize_to_3d(n: int) -> Tuple[int, int, int]:
-    best = (1, 1, n)
-    best_score = float("inf")
-    for nx in range(1, int(n ** (1 / 3)) + 2):
-        if n % nx:
-            continue
-        m = n // nx
-        for ny in range(1, int(m**0.5) + 2):
-            if m % ny:
-                continue
-            nz = m // ny
-            dims = [nx, ny, nz]
-            score = max(dims) / min(dims)
-            if score < best_score:
-                best_score = score
-                best = (nx, ny, nz)
-    return best
 
 
 @dataclass
@@ -69,7 +51,7 @@ class LAMMPSReaderMPI(MPIExceptionHandlerMixin):
     def __post_init__(self):
         self.__rank = self.comm.Get_rank()
         self.__commsize = self.comm.Get_size()
-        self.__nx, self.__ny, self.__nz = _factorize_to_3d(self.__commsize)
+        self.__nx, self.__ny, self.__nz = mpi_subdomains_decomposition(self.__commsize)
         ix = self.__rank % self.__nx
         iy = (self.__rank // self.__nx) % self.__ny
         iz = self.__rank // (self.__nx * self.__ny)

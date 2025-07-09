@@ -8,6 +8,36 @@ import numpy as np
 from scipy.optimize import curve_fit
 
 
+def repeated_prime_factors(n: int) -> list[int]:
+    """Return the prime factors of n (with repetition).
+
+    Parameters
+    ----------
+    n : int
+        The number to factorize.
+
+    Returns
+    -------
+    list[int]
+        List of prime factors of n, including repetitions.
+    """
+    facs = []
+    # Factor out 2s
+    while n % 2 == 0:
+        facs.append(2)
+        n //= 2
+    # Factor odd primes up to sqrt(n)
+    f = 3
+    while f * f <= n:
+        while n % f == 0:
+            facs.append(f)
+            n //= f
+        f += 2
+    if n > 1:
+        facs.append(n)
+    return facs
+
+
 def lorentzian(
     xs: np.ndarray,
     x_peak: float,

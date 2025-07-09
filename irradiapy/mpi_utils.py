@@ -9,6 +9,8 @@ from pathlib import Path
 
 from mpi4py import MPI
 
+from irradiapy.math_utils import repeated_prime_factors
+
 
 def broadcast_variables(root: int, comm: MPI.Comm, *variables) -> list:
     """Broadcasts variables.
@@ -85,6 +87,34 @@ def mpi_safe_method(method):
             self.comm.Abort(1)
 
     return wrapper
+
+
+def mpi_subdomains_decomposition(n: int) -> tuple[int, int, int]:
+    """Factor `n` into three integers `nx`, `ny`, `nz` for MPI decomposition into subdomains.
+
+    `nx`, `ny` and `nz` are such that:
+    - `nx * ny * nz == n`
+    - the maximum of (`nx`, `ny`, `nz`) divided by the minimum is as small as possible.
+
+    Parameters
+    ----------
+    n : int
+        The number of processes to decompose into subdomains.
+
+    Returns
+    -------
+    tuple[int, int, int]
+        A tuple containing the number of subdomains in the x, y, and z directions.
+    """
+    # Start with 1,1,n
+    dims = [1, 1, 1]
+    facs = repeated_prime_factors(n)
+    # For each prime, multiply into the currently smallest dimension
+    for p in sorted(facs, reverse=True):
+        # Sort so that dims[0] ≤ dims[1] ≤ dims[2]
+        dims.sort()
+        dims[0] *= p
+    return tuple(sorted(dims))
 
 
 class MPIExceptionHandlerMixin:
