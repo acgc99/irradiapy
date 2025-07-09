@@ -3,7 +3,6 @@
 import matplotlib.pyplot as plt
 
 from irradiapy import analysis, dpa, dtypes, io, materials, srimpy, utils
-from irradiapy.damagedb import DamageDB
 
 
 def use_style(latex: bool = False) -> None:
