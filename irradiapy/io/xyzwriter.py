@@ -29,6 +29,10 @@ class XYZWriter:
     file_path: Path
     mode: str = "w"
     file: Optional[TextIOWrapper] = field(default=None, init=False)
+    excluded_items: list[str] = field(default_factory=lambda: ["xs", "ys", "zs"])
+    encoding: str = "utf-8"
+    int_format: str = "%d"
+    float_format: str = "%g"
 
     def __post_init__(self) -> None:
         self.file = open(self.file_path, self.mode, encoding="utf-8")
@@ -71,7 +75,8 @@ class XYZWriter:
         Returns
         -------
         tuple
-            A tuple containing the names, count, types, and multiplicities of the properties.
+            A tuple containing the names, count, types, multiplicities and formatters
+            of the properties.
         """
         name_props = dtype.names
         count_props = len(name_props)
@@ -87,7 +92,16 @@ class XYZWriter:
             for name_prop in name_props
         ]
 
-        return name_props, count_props, type_props, multiplicity_props
+        formatters = []
+        for kind in type_props:
+            if kind == "I":
+                formatters.append(self.int_format)
+            elif kind == "R":
+                formatters.append(self.float_format)
+            else:
+                formatters.append("%s")
+
+        return name_props, count_props, type_props, multiplicity_props, formatters
 
     def _get_comment(
         self,
@@ -126,6 +140,7 @@ class XYZWriter:
         name_props: tuple,
         count_props: int,
         multiplicity_props: list,
+        formatters: list,
     ) -> str:
         """Transform data into string to write.
 
@@ -139,20 +154,23 @@ class XYZWriter:
             Number of properties.
         multiplicity_props : list
             Property multiplicities.
+        formatters : list
+            Formatters for each property.
 
         Returns
         -------
         str
             Data as string.
         """
-        return " ".join(
+        line = " ".join(
             (
-                str(data[name_props[i]])
+                formatters[i] % data[name_props[i]]
                 if multiplicity_props[i] == 1
-                else " ".join(map(str, data[name_props[i]]))
+                else " ".join(formatters[i] % v for v in data[name_props[i]])
             )
             for i in range(count_props)
         )
+        return line
 
     def save(self, datas: npt.NDArray, extra_comment: str = "") -> None:
         """
@@ -168,9 +186,10 @@ class XYZWriter:
         """
         natoms = datas.size
         dtype = datas.dtype
-        name_props, count_props, type_props, multiplicity_props = self._get_properties(
-            dtype
+        name_props, count_props, type_props, multiplicity_props, formatters = (
+            self._get_properties(dtype)
         )
+
         comment = self._get_comment(
             name_props, count_props, type_props, multiplicity_props
         )
@@ -178,5 +197,7 @@ class XYZWriter:
         self.file.write(f"{natoms}\n")
         self.file.write(f"{full_comment}\n")
         for data in datas:
-            line = self._data_to_line(data, name_props, count_props, multiplicity_props)
+            line = self._data_to_line(
+                data, name_props, count_props, multiplicity_props, formatters
+            )
             self.file.write(f"{line}\n")
