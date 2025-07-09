@@ -2,7 +2,7 @@
 
 from collections import defaultdict
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional
 
 import numpy as np
 
@@ -21,7 +21,11 @@ def generate_debris(
     add_injected: bool,
     outsiders: bool,
     seed: Optional[int] = None,
-    depth_offset: Union[int, float, np.number] = 0.0,
+    depth_offset: Optional[float] = 0.0,
+    ylo: Optional[float] = None,
+    yhi: Optional[float] = None,
+    zlo: Optional[float] = None,
+    zhi: Optional[float] = None,
 ) -> None:
     """Turns SRIM's collisions into `.xyz` files for the given database of cascades' debris.
 
@@ -46,12 +50,33 @@ def generate_debris(
         Whether to add the injected interstitial.
     outsiders : bool
         Whether to include defects generated outside the material (PKAs close to surfaces).
+        This can cause an inmbalance between the number of vacancies and interstitials.
     seed : int, optional
         Random seed for reproducibility.
     depth_offset : float, optional
         Offset to add to the depth of the defects, by default 0.0.
+    ylo : float, optional
+        Minimum y-coordinate for the defects, by default None
+        (will be set to minus the target width).
+    yhi : float, optional
+        Maximum y-coordinate for the defects, by default None
+        (will be set to the target width).
+    zlo : float, optional
+        Minimum z-coordinate for the defects, by default None
+        (will be set to minus the target width).
+    zhi : float, optional
+        Maximum z-coordinate for the defects, by default None
+        (will be set to the target width).
     """
-    depth_min, depth_max = 0.0, srimdb.target.layers[0].width
+    xlo, xhi = depth_offset, srimdb.target.layers[0].width + depth_offset
+    if ylo is None:
+        ylo = -xhi
+    if yhi is None:
+        yhi = xhi
+    if zlo is None:
+        zlo = -xhi
+    if zhi is None:
+        zhi = xhi
     mat_pka = materials.get_material_by_atomic_number(
         next(
             iter(srimdb.trimdat.read(what="atom_numb", condition="WHERE ion_numb = 1"))
@@ -71,27 +96,31 @@ def generate_debris(
     )
     with LAMMPSWriter(path_collisions) as writer:
         for nion in range(1, nions + 1):
-            defects = __generate_ion_defects(
-                srimdb,
-                nion,
-                damagedb,
-                add_injected,
-                depth_min,
-                depth_max,
-                outsiders,
-                depth_offset,
-            )
+            defects = __generate_ion_defects(srimdb, nion, damagedb, add_injected)
+
+            # Apply offsets and cuts
+            defects["x"] += depth_offset
+            if not outsiders:
+                defects = defects[
+                    (defects["x"] >= xlo)
+                    & (defects["x"] <= xhi)
+                    & (defects["y"] >= ylo)
+                    & (defects["y"] <= yhi)
+                    & (defects["z"] >= zlo)
+                    & (defects["z"] <= zhi)
+                ]
+
             data_defects = defaultdict(None)
             data_defects["time"] = 0.0
             data_defects["timestep"] = 0
             data_defects["natoms"] = defects.size
             data_defects["boundary"] = ["ff", "ff", "ff"]
-            data_defects["xlo"] = depth_min
-            data_defects["xhi"] = depth_max
-            data_defects["ylo"] = 0.0  # placeholder
-            data_defects["yhi"] = 1000.0  # placeholder
-            data_defects["zlo"] = 0.0  # placeholder
-            data_defects["zhi"] = 1000.0  # placeholder
+            data_defects["xlo"] = xlo
+            data_defects["xhi"] = xhi
+            data_defects["ylo"] = ylo
+            data_defects["yhi"] = yhi
+            data_defects["zlo"] = zlo
+            data_defects["zhi"] = zhi
             data_defects["atoms"] = defects
             writer.write(data_defects)
 
@@ -101,10 +130,6 @@ def __generate_ion_defects(
     nion: int,
     damagedb: DamageDB,
     add_injected: bool,
-    depth_min: float,
-    depth_max: float,
-    outsiders: bool,
-    depth_offset: Union[int, float, np.number] = 0.0,
 ) -> np.ndarray:
     """Generates the defects for a specific ion in the SRIM simulation.
 
@@ -118,14 +143,6 @@ def __generate_ion_defects(
         DamageDB class that will choose MD debris.
     add_injected : bool
         Whether to add the injected interstitial.
-    depth_min : float
-        Minimum depth to consider for defects.
-    depth_max : float
-        Maximum depth to consider for defects.
-    outsiders : bool
-        Whether to include defects generated outside the material (PKAs close to surface).
-    depth_offset : float, optional
-        Offset to add to the depth of the defects, by default 0.0.
 
     Returns
     -------
@@ -150,6 +167,7 @@ def __generate_ion_defects(
                 what="depth, y, z", condition=f"WHERE ion_numb = {nion} LIMIT 1"
             )
         )
+        # No backscattered or transmitted ion
         if injected:
             atom_number = list(
                 srimdb.trimdat.read(
@@ -161,7 +179,4 @@ def __generate_ion_defects(
                 dtype=dtypes.defect,
             )
             defects = np.concatenate((defects, injected))
-    if not outsiders:
-        defects = defects[(defects["x"] >= depth_min) & (defects["x"] <= depth_max)]
-    defects["x"] += depth_offset
     return defects
