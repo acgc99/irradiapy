@@ -154,7 +154,7 @@ class DamageDB:
         if nfp:
             defects = self.__place_fps_in_sphere(nfp, pka_pos, pka_dir)
             return defects
-        defects = np.empty(0, dtype=dtypes.defect2)
+        defects = np.empty(0, dtype=dtypes.defect)
         return defects
 
     def __process_highest_energy_cascade(
@@ -261,7 +261,7 @@ class DamageDB:
         np.ndarray
             Defects after placing the FPs.
         """
-        defects_ = np.zeros(2 * nfp, dtype=dtypes.defect2)
+        defects_ = np.zeros(2 * nfp, dtype=dtypes.defect)
         defects_["type"][:nfp] = self.mat_target.atomic_number
         defects_["x"][:nfp] = self.mat_target.dist_fp / 2.0
         pos = str2unstr(defects_[["x", "y", "z"]], dtype=np.float64, copy=False)
@@ -295,7 +295,7 @@ class DamageDB:
         np.ndarray
             Defects after generating.
         """
-        defects_ = np.zeros(2 * nfp, dtype=dtypes.defect2)
+        defects_ = np.zeros(2 * nfp, dtype=dtypes.defect)
         defects_["type"][:nfp] = self.mat_target.atomic_number
         defects_["x"][:nfp] = self.mat_target.dist_fp / 2
         pos = str2unstr(defects_[["x", "y", "z"]], dtype=np.float64, copy=False)

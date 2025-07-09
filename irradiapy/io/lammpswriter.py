@@ -3,7 +3,7 @@
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import TracebackType
-from typing import Optional
+from typing import Optional, TextIO
 
 
 @dataclass
@@ -32,6 +32,7 @@ class LAMMPSWriter:
     encoding: str = "utf-8"
     int_format: str = "%d"
     float_format: str = "%g"
+    file: TextIO = field(default=None, init=False)
 
     def __post_init__(self) -> None:
         """Opens the file associated with this writer."""

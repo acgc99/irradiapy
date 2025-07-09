@@ -1,5 +1,7 @@
 """This module provides a class to find and analyze defects in crystal structures."""
 
+# TODO: deprecate
+
 import warnings
 from dataclasses import dataclass
 from pathlib import Path

@@ -1,5 +1,7 @@
 """This module provides a class to find and analyze defects in crystal structures."""
 
+# TODO: use new dtypes
+
 from dataclasses import dataclass
 from typing import Optional, Union
 

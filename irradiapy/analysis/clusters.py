@@ -1,6 +1,7 @@
 """Cluster analysis module."""
 
 import sqlite3
+from collections import defaultdict
 from pathlib import Path
 from typing import Optional
 
@@ -14,69 +15,66 @@ from scipy.optimize import curve_fit
 
 from irradiapy import dtypes
 from irradiapy.io.lammpsreader import LAMMPSReader
+from irradiapy.io.lammpswriter import LAMMPSWriter
 from irradiapy.io.xyzreader import XYZReader
-from irradiapy.io.xyzwriter import XYZWriter
 
 
 def clusterize(defects: np.ndarray, cutoff: float) -> tuple[np.ndarray, np.ndarray]:
-    """Finds defects clusters in the given defects.
+    """Identify atom clusters.
 
-    Notes
-    -----
-    Algorithm: union-find path compression. Output data structure (atom clusters):
-    ``{1: [[accx0, ...], [accy0, ...], [accz0, ...]],
-    2: [[accx0, ...], [accy0, ...], [accz0, ...]]}``
+    Note
+    ----
+    Atom clusters are the individual atoms with their cluster number, while object clusters are a
+    single point representing the average position of the atoms in the cluster and the type of the
+    cluster (the cluster type is taken from the first atom in the cluster).
 
     Parameters
     ----------
-    defects : dtypes.DEFECT_CHECK
-        The defects.
+    atoms : np.ndarray
+        Array of atoms with fields "type", "x", "y", "z".
     cutoff : float
         Cutoff distance for clustering.
 
     Returns
     -------
-    tuple[dtypes.ACLUSTER_CHECK, dtypes.OCLUSTER_CHECK]
-        Atomic clusters and object clusters.
+    tuple[np.ndarray, np.ndarray]
+        Atomic and object clusters.
     """
-    ndefects = len(defects)
-    defects_ = np.zeros(ndefects, dtype=dtypes.defect)
-    defects_["type"] = defects["type"]
-    if (
-        "x" in defects.dtype.names
-        or "y" in defects.dtype.names
-        or "z" in defects.dtype.names
-    ):
-        defects_["pos"][:, 0] = defects["x"]
-        defects_["pos"][:, 1] = defects["y"]
-        defects_["pos"][:, 2] = defects["z"]
-        defects = defects_
-
     cutoff2 = cutoff**2
     natoms = defects.size
     aclusters = np.empty(natoms, dtype=dtypes.acluster)
-    aclusters["pos"] = defects["pos"]
+    aclusters["x"] = defects["x"]
+    aclusters["y"] = defects["y"]
+    aclusters["z"] = defects["z"]
     aclusters["type"] = defects["type"]
+
+    # Each atom is its own cluster initially
     aclusters["cluster"] = np.arange(1, natoms + 1)
 
+    # Cluster identification
     for i in range(natoms):
         curr_cluster = aclusters[i]["cluster"]
-        dists = np.sum(
-            np.square(aclusters[i]["pos"] - aclusters[i + 1 :]["pos"]), axis=1
+        dists = (
+            np.square(aclusters[i]["x"] - aclusters["x"][i + 1 :])
+            + np.square(aclusters[i]["y"] - aclusters["y"][i + 1 :])
+            + np.square(aclusters[i]["z"] - aclusters["z"][i + 1 :])
         )
-        neighbourhood = aclusters["cluster"][np.where(dists <= cutoff2)[0] + i + 1]
-        if neighbourhood.size:
-            for neighbour in neighbourhood:
+        neighbours = aclusters["cluster"][np.where(dists <= cutoff2)[0] + i + 1]
+        if neighbours.size:
+            for neighbour in neighbours:
                 if neighbour != curr_cluster:
                     aclusters["cluster"][
                         aclusters["cluster"] == neighbour
                     ] = curr_cluster
 
+    # Rearrange cluster numbers to be consecutive starting from 1
     nclusters = np.unique(aclusters["cluster"])
     for i in range(nclusters.size):
         aclusters["cluster"][aclusters["cluster"] == nclusters[i]] = i + 1
 
+    # Calculate object clusters
     oclusters = atom_to_object(aclusters)
+
     return aclusters, oclusters
 
 
@@ -85,19 +83,21 @@ def atom_to_object(aclusters: np.ndarray) -> np.ndarray:
 
     Parameters
     ----------
-    aclusters : dtypes.ACLUSTER_CHECK
+    aclusters : np.ndarray
         Atomic clusters.
 
     Returns
     -------
-    dtypes.OCLUSTER_CHECK
+    np.ndarray
         Object clusters.
     """
     nclusters = np.unique(aclusters["cluster"])
     oclusters = np.empty(nclusters.size, dtype=dtypes.ocluster)
     for i in range(nclusters.size):
         acluster = aclusters[aclusters["cluster"] == nclusters[i]]
-        oclusters[i]["pos"] = np.mean(acluster["pos"], axis=0)
+        oclusters[i]["x"] = np.mean(acluster["x"])
+        oclusters[i]["y"] = np.mean(acluster["y"])
+        oclusters[i]["z"] = np.mean(acluster["z"])
         oclusters[i]["type"] = acluster[0]["type"]
         oclusters[i]["size"] = acluster.size
     return oclusters
@@ -109,7 +109,6 @@ def clusterize_file(
     cutoff_vac: float,
     path_aclusters: Path,
     path_oclusters: Path,
-    irradiated_particle: str = "Projectile",
 ) -> None:
     """Finds defect clusters in the given file.
 
@@ -125,28 +124,56 @@ def clusterize_file(
         Where atomic clusters will be stored.
     path_oclusters : Path
         Where object clusters will be stored.
-    irradiated_particle : str, optional
-        Name of the irradiated particle, by default "Projectile".
     """
     reader = LAMMPSReader(path_collisions)
     nsim = 0
-    with XYZWriter(path_aclusters) as awriter, XYZWriter(path_oclusters) as owriter:
+    with (
+        LAMMPSWriter(path_aclusters) as awriter,
+        LAMMPSWriter(path_oclusters) as owriter,
+    ):
         for data_defects in reader:
-            # TODO: xyz > pos transform
-            defects = np.empty(data_defects["natoms"], dtype=dtypes.defect)
-            defects["type"] = data_defects["atoms"]["type"]
-            defects["pos"][:, 0] = data_defects["atoms"]["x"]
-            defects["pos"][:, 1] = data_defects["atoms"]["y"]
-            defects["pos"][:, 2] = data_defects["atoms"]["z"]
             nsim += 1
-            cond = defects["type"] == 0
-            sia, vac = defects[~cond], defects[cond]
+            cond = data_defects["atoms"]["type"] == 0
+            sia, vac = data_defects["atoms"][~cond], data_defects["atoms"][cond]
             iaclusters, ioclusters = clusterize(sia, cutoff_sia)
             vaclusters, voclusters = clusterize(vac, cutoff_vac)
             aclusters = np.concatenate((iaclusters, vaclusters))
             oclusters = np.concatenate((ioclusters, voclusters))
-            awriter.save(aclusters, extra_comment=f"{irradiated_particle}={nsim}")
-            owriter.save(oclusters, extra_comment=f"{irradiated_particle}={nsim}")
+
+            data_aclusters = defaultdict(
+                None,
+                {
+                    "timestep": data_defects["timestep"],
+                    "time": data_defects["time"],
+                    "natoms": len(aclusters),
+                    "boundary": data_defects["boundary"],
+                    "xlo": data_defects["xlo"],
+                    "xhi": data_defects["xhi"],
+                    "ylo": data_defects["ylo"],
+                    "yhi": data_defects["yhi"],
+                    "zlo": data_defects["zlo"],
+                    "zhi": data_defects["zhi"],
+                    "atoms": aclusters,
+                },
+            )
+            data_oclusters = defaultdict(
+                None,
+                {
+                    "timestep": data_defects["timestep"],
+                    "time": data_defects["time"],
+                    "natoms": len(oclusters),
+                    "boundary": data_defects["boundary"],
+                    "xlo": data_defects["xlo"],
+                    "xhi": data_defects["xhi"],
+                    "ylo": data_defects["ylo"],
+                    "yhi": data_defects["yhi"],
+                    "zlo": data_defects["zlo"],
+                    "zhi": data_defects["zhi"],
+                    "atoms": oclusters,
+                },
+            )
+            awriter.write(data_aclusters)
+            owriter.write(data_oclusters)
 
 
 # region Analysis
@@ -234,17 +261,17 @@ def get_clusters(path_oclusters: Path, db_path: Path) -> None:
     isizes, vsizes = np.array([], dtype=int), np.array([], dtype=int)
     idepths, vdepths = np.array([], dtype=float), np.array([], dtype=float)
 
-    reader = XYZReader(path_oclusters)
-    for oclusters in reader:
-        cond = oclusters["type"] == 0
-        vacancies = oclusters[cond]
+    reader = LAMMPSReader(path_oclusters)
+    for data_oclusters in reader:
+        cond = data_oclusters["atoms"]["type"] == 0
+        vacancies = data_oclusters["atoms"][cond]
         if vacancies.size > 0:
             vsizes = np.concatenate((vsizes, vacancies["size"]))
-            vdepths = np.concatenate((vdepths, vacancies["pos"][:, 0]))
-        interstitials = oclusters[~cond]
+            vdepths = np.concatenate((vdepths, vacancies["x"]))
+        interstitials = data_oclusters["atoms"][~cond]
         if interstitials.size > 0:
             isizes = np.concatenate((isizes, interstitials["size"]))
-            idepths = np.concatenate((idepths, interstitials["pos"][:, 0]))
+            idepths = np.concatenate((idepths, interstitials["x"]))
 
     con = sqlite3.connect(db_path)
     cur = con.cursor()
