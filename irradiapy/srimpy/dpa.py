@@ -10,8 +10,8 @@ from matplotlib.lines import Line2D
 
 from irradiapy import dpa, materials
 from irradiapy.io.lammpsreader import LAMMPSReader
-from irradiapy.math_utils import fit_lorentzian
 from irradiapy.srimpy.srimdb import SRIMDB
+from irradiapy.utils.math import fit_lorentzian
 
 
 def get_dpas(

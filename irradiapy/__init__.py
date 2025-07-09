@@ -2,16 +2,7 @@
 
 import matplotlib.pyplot as plt
 
-from irradiapy import (
-    analysis,
-    dpa,
-    dtypes,
-    io,
-    materials,
-    math_utils,
-    mpi_utils,
-    srimpy,
-)
+from irradiapy import analysis, dpa, dtypes, io, materials, srimpy, utils
 from irradiapy.damagedb import DamageDB
 
 

@@ -1,7 +1,5 @@
 """This subpackage provides classes for reading and writing various file formats."""
 
-from irradiapy.io import io_utils
-
 from .bzip2lammpsreader import BZIP2LAMMPSReader
 from .bzip2lammpswriter import BZIP2LAMMPSWriter
 from .lammpslogreader import LAMMPSLogReader

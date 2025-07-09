@@ -6,8 +6,8 @@ from typing import Optional
 import matplotlib.pyplot as plt
 import numpy as np
 
-from irradiapy.math_utils import fit_gaussian
 from irradiapy.srimpy.srimdb import SRIMDB
+from irradiapy.utils.math import fit_gaussian
 
 
 def plot_injected(

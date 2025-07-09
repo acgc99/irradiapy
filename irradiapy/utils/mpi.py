@@ -9,7 +9,7 @@ from pathlib import Path
 
 from mpi4py import MPI
 
-from irradiapy.math_utils import repeated_prime_factors
+from irradiapy.utils.math import repeated_prime_factors
 
 
 def broadcast_variables(root: int, comm: MPI.Comm, *variables) -> list:

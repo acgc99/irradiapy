@@ -10,7 +10,7 @@ from typing import Any, Optional, TextIO
 import numpy.typing as npt
 from mpi4py import MPI
 
-from irradiapy.mpi_utils import (
+from irradiapy.utils.mpi import (
     MPIExceptionHandlerMixin,
     MPITagAllocator,
     mpi_safe_method,

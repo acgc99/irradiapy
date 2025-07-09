@@ -11,7 +11,7 @@ from typing import Any, Dict, Generator, Optional, TextIO, Tuple, Type, Union
 import numpy as np
 from mpi4py import MPI
 
-from irradiapy.mpi_utils import (
+from irradiapy.utils.mpi import (
     MPIExceptionHandlerMixin,
     MPITagAllocator,
     mpi_safe_method,
