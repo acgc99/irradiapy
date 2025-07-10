@@ -7,6 +7,8 @@ from typing import Optional, TextIO
 
 import numpy.typing as npt
 
+from irradiapy import config
+
 
 @dataclass
 class XYZWriter:
@@ -19,18 +21,18 @@ class XYZWriter:
     mode : str, optional
         File open mode. Default: `"w"`.
     encoding : str, optional
-        File encoding. Default: `"utf-8"`.
+        File encoding. Default: `irradiapy.config.ENCODING`.
     int_format : str, optional
-        Format for integers. Default: `"%d"`.
+        Format for integers. Default: `irradiapy.config.INT_FORMAT`.
     float_format : str, optional
-        Format for floats. Default: `"%g"`.
+        Format for floats. Default: `irradiapy.config.FLOAT_FORMAT`.
     """
 
     file_path: Path
     mode: str = "w"
-    encoding: str = "utf-8"
-    int_format: str = "%d"
-    float_format: str = "%g"
+    encoding: str = field(default_factory=lambda: config.ENCODING)
+    int_format: str = field(default_factory=lambda: config.INT_FORMAT)
+    float_format: str = field(default_factory=lambda: config.FLOAT_FORMAT)
     file: TextIO = field(default=None, init=False)
 
     def __post_init__(self) -> None:

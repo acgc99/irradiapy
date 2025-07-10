@@ -10,6 +10,7 @@ from typing import Any, Optional, TextIO
 import numpy.typing as npt
 from mpi4py import MPI
 
+from irradiapy import config
 from irradiapy.utils.mpi import (
     MPIExceptionHandlerMixin,
     MPITagAllocator,
@@ -28,23 +29,23 @@ class LAMMPSWriterMPI(MPIExceptionHandlerMixin):
     mode : str
         The file open mode. Default: `"w"`.
     excluded_items : list[str]
-        Atom fields to exclude from output. Default: `["xs", "ys", "zs"]`.
+        Atom fields to exclude from output. Default: `irradiapy.config.EXCLUDED_ITEMS`.
     encoding : str
-        The file encoding. Default: `"utf-8"`.
+        The file encoding. Default: `irradiapy.config.ENCODING`.
     int_format : str
-        The format for integers. Default: `"%d"`.
+        The format for integers. Default: `irradiapy.config.INT_FORMAT`.
     float_format : str
-        The format for floats. Default: `"%g"`.
+        The format for floats. Default: `irradiapy.config.FLOAT_FORMAT`.
     comm : MPI.Comm
         The MPI communicator. Default: `mpi4py.MPI.COMM_WORLD`.
     """
 
     file_path: Path
     mode: str = "w"
-    excluded_items: list[str] = field(default_factory=lambda: ["xs", "ys", "zs"])
-    encoding: str = "utf-8"
-    int_format: str = "%d"
-    float_format: str = "%g"
+    excluded_items: list[str] = field(default_factory=lambda: config.EXCLUDED_ITEMS)
+    encoding: str = field(default_factory=lambda: config.ENCODING)
+    int_format: str = field(default_factory=lambda: config.INT_FORMAT)
+    float_format: str = field(default_factory=lambda: config.FLOAT_FORMAT)
     file: TextIO = field(default=None, init=False)
     comm: MPI.Comm = field(default_factory=lambda: MPI.COMM_WORLD)
     __rank: int = field(init=False)

@@ -5,6 +5,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import BinaryIO
 
+from irradiapy import config
+
 
 @dataclass
 class BZIP2LAMMPSWriter:
@@ -20,24 +22,24 @@ class BZIP2LAMMPSWriter:
         The path to the bzip2-compressed LAMMPS dump file.
     mode : str
         The file open mode. Default: `"wt"`.
-    encoding : str
-        The file encoding. Default: `"utf-8"`.
     excluded_items : list[str]
-        Atom fields to exclude from output. Default: `["xs", "ys", "zs"]`.
+        Atom fields to exclude from output. Default: `irradiapy.config.EXCLUDED_ITEMS`.
+    encoding : str
+        The file encoding. Default: `irradiapy.config.ENCODING`.
     int_format : str
-        The format for integers. Default: `"%d"`.
+        The format for integers. Default: `irradiapy.config.INT_FORMAT`.
     float_format : str
-        The format for floats. Default: `"%g"`.
+        The format for floats. Default: `irradiapy.config.FLOAT_FORMAT`.
     compresslevel : int
         The bzip2 compression level. Default: `9`.
     """
 
     file_path: Path
     mode: str = "wt"
-    encoding: str = "utf-8"
-    excluded_items: list[str] = field(default_factory=lambda: ["xs", "ys", "zs"])
-    int_format: str = "%d"
-    float_format: str = "%g"
+    excluded_items: list[str] = field(default_factory=lambda: config.EXCLUDED_ITEMS)
+    encoding: str = field(default_factory=lambda: config.ENCODING)
+    int_format: str = field(default_factory=lambda: config.INT_FORMAT)
+    float_format: str = field(default_factory=lambda: config.FLOAT_FORMAT)
     compresslevel: int = 9
     file: BinaryIO = field(default=None, init=False)
 
