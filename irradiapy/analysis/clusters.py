@@ -11,9 +11,8 @@ import numpy as np
 from matplotlib.gridspec import GridSpec
 from matplotlib.image import NonUniformImage
 from matplotlib.ticker import MaxNLocator
-from scipy.optimize import curve_fit
 
-from irradiapy import dtypes
+from irradiapy import dtypes, utils
 from irradiapy.io.lammpsreader import LAMMPSReader
 from irradiapy.io.lammpswriter import LAMMPSWriter
 from irradiapy.io.xyzreader import XYZReader
@@ -317,35 +316,6 @@ def load_results(
     return isizes, idepths, vsizes, vdepths
 
 
-def __scaling_law_fit(
-    centers: np.ndarray, counts: np.ndarray
-) -> tuple[float, float, callable]:
-    """Fit a scaling law to the given histogram data.
-
-    Parameters
-    ----------
-    centers : np.ndarray
-        The centers of the bins.
-    counts : np.ndarray
-        The values of the histogram.
-
-    Returns
-    -------
-    tuple
-        A tuple containing: the prefactor of the scaling law, the exponent of the scaling law,
-        and the scaling law function.
-    """
-    # pylint: disable=unbalanced-tuple-unpacking
-    popt, _ = curve_fit(lambda x, a, b: a + b * x, np.log10(centers), np.log10(counts))
-    a, s = popt
-    a, s = 10.0**a, -s
-
-    def curve(x):
-        return a / x**s
-
-    return a, s, curve
-
-
 def plot_results(
     db_path: Path,
     out_dir: Path,
@@ -506,10 +476,12 @@ def plot_results(
         sia_size_centers_ = sia_size_centers[icounts > 0]
         small_counts, big_counts = icounts_[:10], icounts_[10:]
         small_centers, big_centers = sia_size_centers_[:10], sia_size_centers_[10:]
-        sia_small_a, sia_small_s, sia_small_curve = __scaling_law_fit(
+        sia_small_a, sia_small_s, sia_small_curve = utils.math.fit_scaling_law(
             small_centers, small_counts
         )
-        sia_big_a, sia_big_s, sia_big_curve = __scaling_law_fit(big_centers, big_counts)
+        sia_big_a, sia_big_s, sia_big_curve = utils.math.fit_scaling_law(
+            big_centers, big_counts
+        )
         # Plot
         plt.scatter(
             small_centers,
@@ -557,10 +529,12 @@ def plot_results(
         vac_size_centers_ = vac_size_centers[vcounts > 0]
         small_counts, big_counts = vcounts_[:10], vcounts_[10:]
         small_centers, big_centers = vac_size_centers_[:10], vac_size_centers_[10:]
-        vac_small_a, vac_small_s, vac_small_curve = __scaling_law_fit(
+        vac_small_a, vac_small_s, vac_small_curve = utils.math.fit_scaling_law(
             small_centers, small_counts
         )
-        vac_big_a, vac_big_s, vac_big_curve = __scaling_law_fit(big_centers, big_counts)
+        vac_big_a, vac_big_s, vac_big_curve = utils.math.fit_scaling_law(
+            big_centers, big_counts
+        )
         # Plot
         plt.scatter(
             small_centers,

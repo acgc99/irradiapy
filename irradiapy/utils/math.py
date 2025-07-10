@@ -38,6 +38,9 @@ def repeated_prime_factors(n: int) -> list[int]:
     return facs
 
 
+# region Lorentzian
+
+
 def lorentzian(
     xs: np.ndarray,
     x_peak: float,
@@ -95,7 +98,8 @@ def fit_lorentzian(
     p0 : np.ndarray, optional
         Initial guess of fit parameters. If None, a guess is generated. Default is None.
     asymmetry : float, optional
-        Bound for the asymmetry fit parameter. Fit will be done in (-asymmetry, asymmetry). Default is 1.0.
+        Bound for the asymmetry fit parameter. Fit will be done in (-asymmetry, asymmetry).
+        Default is 1.0.
 
     Returns
     -------
@@ -137,6 +141,9 @@ def fit_lorentzian(
         return lorentzian(xs_fit, *popt)
 
     return popt, pcov, fit_function
+
+
+# region Gaussian
 
 
 def gaussian(
@@ -196,7 +203,8 @@ def fit_gaussian(
     p0 : np.ndarray, optional
         Initial guess of fit parameters. If None, a guess is generated. Default is None.
     asymmetry : float, optional
-        Bound for the asymmetry fit parameter. Fit will be done in (-asymmetry, asymmetry). Default is 1.0.
+        Bound for the asymmetry fit parameter. Fit will be done in (-asymmetry, asymmetry).
+        Default is 1.0.
 
     Returns
     -------
@@ -238,3 +246,54 @@ def fit_gaussian(
         return gaussian(xs_fit, *popt)
 
     return popt, pcov, fit_function
+
+
+# region Power law
+
+
+def scaling_law(x: np.ndarray, a: float, s: float) -> np.ndarray:
+    """Evaluate the scaling law function a / x**s.
+
+    Parameters
+    ----------
+    x : np.ndarray
+        Input values.
+    a : float
+        Prefactor.
+    s : float
+        Exponent.
+
+    Returns
+    -------
+    np.ndarray
+        Evaluated scaling law.
+    """
+    return a / x**s
+
+
+def fit_scaling_law(
+    centers: np.ndarray, counts: np.ndarray
+) -> tuple[float, float, Callable[[np.ndarray], np.ndarray]]:
+    """Fit a scaling law to the given histogram data.
+
+    Parameters
+    ----------
+    centers : np.ndarray
+        The centers of the bins.
+    counts : np.ndarray
+        The values of the histogram.
+
+    Returns
+    -------
+    tuple
+        A tuple containing: the prefactor of the scaling law, the exponent of the scaling law,
+        and the scaling law function.
+    """
+    popt, _ = curve_fit(lambda x, a, b: a + b * x, np.log10(centers), np.log10(counts))
+    a, s = popt
+    a, s = 10.0**a, -s
+
+    def fit_function(x: np.ndarray) -> np.ndarray:
+        return scaling_law(x, a, s)
+
+    return a, s, fit_function

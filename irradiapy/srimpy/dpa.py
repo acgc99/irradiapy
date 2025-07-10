@@ -162,10 +162,18 @@ def plot_dpa(
     total_nrt = dpa_nrt.sum()
     total_debris = dpa_debris.sum()
     # Fit dpa_debris
-    fit = False
+    # Plot
+    fig = plt.figure()
+    gs = fig.add_gridspec()
+    ax = fig.add_subplot(gs[0, 0])
+    # Scatter
+    ax.set_xlabel(r"Depth ($\mathrm{\AA}$)")
+    ax.set_ylabel("dpa")
+    ax.scatter(depth_centers, dpa_nrt, label="NRT-dpa")
+    ax.scatter(depth_centers, dpa_fer_arc, label="fer-arc-dpa")
+    ax.scatter(depth_centers, dpa_debris, label="debris-dpa")
     if path_fit:
         try:
-            # p0 = [depth_centers[np.argmax(dpa_debris)], 1.0, 1.0, 1.0]
             popt, _, dpa_fit = fit_lorentzian(depth_centers, dpa_debris, p0, asymmetry)
             if path_fit:
                 with open(path_fit, "w", encoding="utf-8") as file:
@@ -177,25 +185,13 @@ def plot_dpa(
                         )
                     )
                     file.write(", ".join(map(str, popt)) + "\n")
-            fit = True
+            ax.plot(
+                depth_centers,
+                dpa_fit(depth_centers),
+                label="debris-dpa fit",
+            )
         except Exception as exc:  # pylint: disable=broad-except
             print(f"Fit failed: {exc}")
-    # Plot
-    fig = plt.figure()
-    gs = fig.add_gridspec()
-    ax = fig.add_subplot(gs[0, 0])
-    # Scatter
-    ax.set_xlabel(r"Depth ($\mathrm{\AA}$)")
-    ax.set_ylabel("dpa")
-    ax.scatter(depth_centers, dpa_nrt, label="NRT-dpa")
-    ax.scatter(depth_centers, dpa_fer_arc, label="fer-arc-dpa")
-    ax.scatter(depth_centers, dpa_debris, label="debris-dpa")
-    if fit:
-        ax.plot(
-            depth_centers,
-            dpa_fit(depth_centers),
-            label="debris-dpa fit",
-        )
     efficiency = [
         Line2D(
             [0],

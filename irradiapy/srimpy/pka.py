@@ -7,9 +7,9 @@ from typing import Callable, Optional
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.image import NonUniformImage
-from scipy.optimize import curve_fit
 
 from irradiapy.srimpy.srimdb import SRIMDB
+from irradiapy.utils.math import fit_scaling_law
 
 
 def plot_pka_distribution(
@@ -46,19 +46,11 @@ def plot_pka_distribution(
     pka_hist, pka_edges = np.histogram(pka_es, bins=bins)
     pka_hist = pka_hist / nions
     pka_centers = pka_edges[:-1] + (pka_edges[1:] - pka_edges[:-1]) / 2.0
-    # Fit
+    # Fit using fit_scaling_law
+    fit = False
     try:
-        # pylint: disable=unbalanced-tuple-unpacking
-        popt, _ = curve_fit(
-            lambda x, a, b: a + b * x,
-            np.log10(pka_centers[pka_hist > 0] / 1e3),
-            np.log10(pka_hist[pka_hist > 0]),
-        )
-        a, s = 10.0 ** popt[0], -popt[1]
-
-        def curve(x):
-            return a / x**s
-
+        mask = pka_hist > 0
+        a, s, curve = fit_scaling_law(pka_centers[mask] / 1e3, pka_hist[mask])
         fit = True
     except Exception as exc:  # pylint: disable=broad-except
         print(f"Fit failed: {exc}")
