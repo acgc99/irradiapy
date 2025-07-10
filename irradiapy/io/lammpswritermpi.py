@@ -147,9 +147,15 @@ class LAMMPSWriterMPI(MPIExceptionHandlerMixin):
             self.file.write(f"ITEM: TIMESTEP\n{data['timestep']}\n")
             self.file.write(f"ITEM: NUMBER OF ATOMS\n{data['natoms']}\n")
             self.file.write(f"ITEM: BOX BOUNDS {' '.join(data['boundary'])}\n")
-            self.file.write(f"{data['xlo']} {data['xhi']}\n")
-            self.file.write(f"{data['ylo']} {data['yhi']}\n")
-            self.file.write(f"{data['zlo']} {data['zhi']}\n")
+            self.file.write(
+                f"{self.float_format % data['xlo']} {self.float_format % data['xhi']}\n"
+            )
+            self.file.write(
+                f"{self.float_format % data['ylo']} {self.float_format % data['yhi']}\n"
+            )
+            self.file.write(
+                f"{self.float_format % data['zlo']} {self.float_format % data['zhi']}\n"
+            )
             self.file.write(f"ITEM: ATOMS {' '.join(field_names)}\n")
 
         self.comm.Barrier()
