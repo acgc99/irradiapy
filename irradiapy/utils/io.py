@@ -1,6 +1,10 @@
 """Utility functions for I/O operations."""
 
 import bz2
+from collections import defaultdict, deque
+from pathlib import Path
+
+from irradiapy.io import LAMMPSReader
 
 
 def compress_file_bz2(
@@ -38,3 +42,19 @@ def decompress_file_bz2(input_path: str, output_path: str) -> None:
     with bz2.open(input_path, "rb") as f_in, open(output_path, "wb") as f_out:
         for chunk in iter(lambda: f_in.read(1024 * 1024), b""):
             f_out.write(chunk)
+
+
+def get_last_lammps_dump(path: Path) -> defaultdict:
+    """Get the last snaptshot from a LAMMPS dump file.
+
+    Parameters
+    ----------
+    path : Path
+        Path to the LAMMPS dump file.
+
+    Returns
+    -------
+    defaultdict
+        The last snapshot from the LAMMPS dump file.
+    """
+    return deque(LAMMPSReader(path), maxlen=1).pop()
