@@ -35,4 +35,3 @@ class Layer:
 
     def __post_init__(self) -> None:
         self.nelements = len(self.elements)
-        self.nelements = len(self.elements)
