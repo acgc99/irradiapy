@@ -227,6 +227,7 @@ def get_clusters_1d(
     path_db: Path,
     axis: str = "x",
     depth_bins: int = 100,
+    depth_offset: float = 0.0,
     min_depth: Optional[float] = None,
     max_depth: Optional[float] = None,
     scale: float = 1.0,
@@ -245,6 +246,8 @@ def get_clusters_1d(
         Axis along which to measure depth. It can be `"x"`, `"y"`, or `"z"`. Default: `"x"`.
     depth_bins : int, optional
         Number of bins for the depth histogram. Default: `100`.
+    depth_offset : float, optional
+        Offset to add to the depth values. Default is `0.0`.
     min_depth : float, optional
         Minimum depth to consider. If `None`, the minimum depth from the data is used.
     max_depth : float, optional
@@ -267,6 +270,8 @@ def get_clusters_1d(
         if interstitials.size > 0:
             isizes = np.concatenate((isizes, interstitials["size"]))
             idepths = np.concatenate((idepths, interstitials[axis]))
+    vdepths += depth_offset
+    idepths += depth_offset
 
     # Histogram depths
     if min_depth is None:
@@ -359,6 +364,7 @@ def plot_size_1d(
     path_sias: Optional[Path] = None,
     path_vacs: Optional[Path] = None,
     axis: str = "x",
+    depth_offset: float = 0.0,
     transpose: bool = True,
 ) -> None:
     """Plot the depth-size 1D histogram for interstitials and vacancies.
@@ -382,6 +388,8 @@ def plot_size_1d(
     axis : str, optional
         Axis along which the histogram was computed. It can be `"x"`, `"y"`, or `"z"`.
         Default: `"x"`.
+    depth_offset : float, optional
+        Offset to add to the depth values. Default is `0.0`.
     transpose : bool, optional
         If `True`, the depth is on the x-axis and size on the y-axis. If `False`, the
         axes are swapped. Default is `True`.
@@ -459,7 +467,7 @@ def plot_size_1d(
         plt.close(fig)
 
     data = read_clusters_1d(db_path, axis=axis)
-    depth_edges = data["depth_edges"]
+    depth_edges = data["depth_edges"] + depth_offset
     interstitials = data["interstitials"]
     vacancies = data["vacancies"]
     plot(depth_edges, interstitials, "Interstitials", path_sias, transpose)
@@ -470,6 +478,7 @@ def plot_clustering_fraction_1d(
     db_path: Path,
     path_plot: Optional[Path] = None,
     axis: str = "x",
+    depth_offset: float = 0.0,
 ) -> None:
     """Plot the clustering fraction as a function of depth.
 
@@ -489,10 +498,12 @@ def plot_clustering_fraction_1d(
     axis : str, optional
         Axis along which the histogram was computed. It can be `"x"`, `"y"`, or `"z"`.
         Default: `"x"`.
+    depth_offset : float, optional
+        Offset to add to the depth values. Default is `0.0`.
     """
 
     data = read_clusters_1d(db_path, axis=axis)
-    depth_edges = data["depth_edges"]
+    depth_edges = data["depth_edges"] + depth_offset
     interstitials = data["interstitials"]
     vacancies = data["vacancies"]
 

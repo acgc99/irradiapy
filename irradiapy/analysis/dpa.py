@@ -1,7 +1,7 @@
 """dpa analysis module."""
 
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -24,7 +24,7 @@ def get_dpa_1d(
     fluence: float,
     axis: str = "x",
     nbins: int = 100,
-    depth_offset: Union[int, float, np.number] = 0.0,
+    depth_offset: float = 0.0,
 ) -> None:
     """Perform a dpa histogram as a function of depth along a specified axis.
 
@@ -138,6 +138,7 @@ def plot_dpa_1d(
     path_plot: Optional[Path] = None,
     path_fit: Optional[Path] = None,
     axis: str = "x",
+    depth_offset: float = 0.0,
     dpi: int = 300,
     p0: Optional[float] = None,
     asymmetry: float = 1.0,
@@ -155,6 +156,8 @@ def plot_dpa_1d(
     axis : str, optional
         Axis along which the histogram was computed. It can be `"x"`, `"y"`, or `"z"`.
         Default: `"x"`.
+    depth_offset : float, optional
+        Offset to add to the depth values. Default: `0.0`.
     dpi : int, optional
         Dots per inch, by default 300.
     p0 : float, optional
@@ -164,7 +167,7 @@ def plot_dpa_1d(
     """
 
     data = read_dpa_1d(path_db, axis=axis)
-    depth_centers = data["depth_centers"]
+    depth_centers = data["depth_centers"] + depth_offset
     dpa_nrt = data["dpa_nrt"]
     dpa_fer_arc = data["dpa_fer_arc"]
     dpa_debris = data["dpa_debris"]
