@@ -551,7 +551,7 @@ def plot_clustering_fraction_1d(
     plt.close(fig)
 
 
-def plot_mddb_cluster_size_distribution(
+def plot_mddb_cluster_size(
     target_dir: Path,
     sia_cutoff: float,
     vac_cutoff: float,
