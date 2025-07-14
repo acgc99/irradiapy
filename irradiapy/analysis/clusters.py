@@ -354,13 +354,14 @@ def read_clusters_1d(path_db: Path, axis: str = "x") -> dict[str, np.ndarray]:
 # region Plots
 
 
-def plot_depth_size_histogram(
+def plot_size_1d(
     db_path: Path,
     path_sias: Optional[Path] = None,
     path_vacs: Optional[Path] = None,
+    axis: str = "x",
     transpose: bool = True,
 ) -> None:
-    """Plot the depth-size histogram for interstitials and vacancies.
+    """Plot the depth-size 1D histogram for interstitials and vacancies.
 
     Note
     ----
@@ -378,6 +379,9 @@ def plot_depth_size_histogram(
     path_vacs : Path, optional
         Path to save the vacancies plot. If `None`, the plot is shown instead of saved.
         Default is `None`.
+    axis : str, optional
+        Axis along which the histogram was computed. It can be `"x"`, `"y"`, or `"z"`.
+        Default: `"x"`.
     transpose : bool, optional
         If `True`, the depth is on the x-axis and size on the y-axis. If `False`, the
         axes are swapped. Default is `True`.
@@ -454,7 +458,7 @@ def plot_depth_size_histogram(
             plt.show()
         plt.close(fig)
 
-    data = read_clusters_1d(db_path)
+    data = read_clusters_1d(db_path, axis=axis)
     depth_edges = data["depth_edges"]
     interstitials = data["interstitials"]
     vacancies = data["vacancies"]
@@ -462,10 +466,11 @@ def plot_depth_size_histogram(
     plot(depth_edges, vacancies, "Vacancies", path_vacs, transpose)
 
 
-def plot_clustering_fraction(
+def plot_clustering_fraction_1d(
     db_path: Path,
     path_sias: Optional[Path] = None,
     path_vacs: Optional[Path] = None,
+    axis: str = "x",
 ) -> None:
     """Plot the clustering fraction as a function of depth.
 
@@ -485,6 +490,9 @@ def plot_clustering_fraction(
     path_vacs : Path, optional
         Path to save the vacancies clustering fraction plot. If `None`, the plot is shown
         instead of saved. Default is `None`.
+    axis : str, optional
+        Axis along which the histogram was computed. It can be `"x"`, `"y"`, or `"z"`.
+        Default: `"x"`.
     """
 
     def plot(
@@ -520,7 +528,7 @@ def plot_clustering_fraction(
             plt.show()
         plt.close(fig)
 
-    data = read_clusters_1d(db_path)
+    data = read_clusters_1d(db_path, axis=axis)
     depth_edges = data["depth_edges"]
     interstitials = data["interstitials"]
     vacancies = data["vacancies"]

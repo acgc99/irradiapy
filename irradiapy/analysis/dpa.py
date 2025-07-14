@@ -43,7 +43,8 @@ def get_dpa_1d(
     fluence : float
         Fluence, in ions/A2.
     axis : str, optional
-        Axis along which to perform the dpa calculation. Default is "x".
+        Axis along which the histogram was computed. It can be `"x"`, `"y"`, or `"z"`.
+        Default: `"x"`.
     nbins : int, optional
         Number of depth bins. Depth range determined from `path_debris` defect positions.
         Default: `100`.
@@ -101,7 +102,7 @@ def get_dpa_1d(
     # Save to database
     utils.sqlite.insert_array(
         path_db,
-        "dpa_1D",
+        f"dpa_1D_{axis}",
         depth_centers=depth_centers + depth_offset,
         dpa_nrt=dpa_nrt,
         dpa_fer_arc=dpa_fer_arc,
@@ -109,20 +110,23 @@ def get_dpa_1d(
     )
 
 
-def read_dpa_1d(path_db: Path) -> dict[str, np.ndarray]:
+def read_dpa_1d(path_db: Path, axis: str = "x") -> dict[str, np.ndarray]:
     """Read the 1D dpa histogram from the database.
 
     Parameters
     ----------
     path_db : Path
         Path to the SQLite database file.
+    axis : str, optional
+        Axis along which the histogram was computed. It can be `"x"`, `"y"`, or `"z"`.
+        Default: `"x"`.
 
     Returns
     -------
     dict[str, np.ndarray]
         A dictionary containing the 1D dpa histogram data.
     """
-    data = utils.sqlite.read_array(path_db, "dpa_1D")
+    data = utils.sqlite.read_array(path_db, f"dpa_1D_{axis}")
     return data
 
 
@@ -133,6 +137,7 @@ def plot_dpa_1d(
     path_db: Path,
     path_plot: Optional[Path] = None,
     path_fit: Optional[Path] = None,
+    axis: str = "x",
     dpi: int = 300,
     p0: Optional[float] = None,
     asymmetry: float = 1.0,
@@ -147,6 +152,9 @@ def plot_dpa_1d(
         Output path for the plot, by default None. If None, the plot is shown.
     path_fit : Path, optional
         Output path for the fit parameters, by default None.
+    axis : str, optional
+        Axis along which the histogram was computed. It can be `"x"`, `"y"`, or `"z"`.
+        Default: `"x"`.
     dpi : int, optional
         Dots per inch, by default 300.
     p0 : float, optional
@@ -155,7 +163,7 @@ def plot_dpa_1d(
         Asymmetry fit parameter bound, by default 1.0.
     """
 
-    data = read_dpa_1d(path_db)
+    data = read_dpa_1d(path_db, axis=axis)
     depth_centers = data["depth_centers"]
     dpa_nrt = data["dpa_nrt"]
     dpa_fer_arc = data["dpa_fer_arc"]
