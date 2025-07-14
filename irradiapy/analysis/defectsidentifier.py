@@ -2,7 +2,6 @@
 
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Optional, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -87,7 +86,7 @@ class DefectsIdentifier:
     def __rescale_translate_rotate(
         self,
         atoms: npt.NDArray,
-        a1: Union[float, np.number],
+        a1: float | np.number,
         pos_pka: npt.NDArray[np.float64],
         theta_pka: float,
         phi_pka: float,
@@ -264,11 +263,11 @@ class DefectsIdentifier:
     def identify(
         self,
         data_atoms: defaultdict,
-        a1: Optional[float] = None,
-        pos_pka: Optional[npt.NDArray[np.float64]] = None,
-        theta_pka: Optional[float] = None,
-        phi_pka: Optional[float] = None,
-        transform: Optional[bool] = False,
+        a1: None | float = None,
+        pos_pka: None | npt.NDArray[np.float64] = None,
+        theta_pka: None | float = None,
+        phi_pka: None | float = None,
+        transform: None | bool = False,
     ) -> np.ndarray:
         """Identify defects in the crystalline structure based on atomic positions.
 

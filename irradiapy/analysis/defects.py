@@ -2,7 +2,6 @@
 
 from collections import defaultdict
 from pathlib import Path
-from typing import Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -18,11 +17,11 @@ def identify_defects(
     lattice: str,
     a0: float,
     data_atoms: defaultdict,
-    a1: Optional[float] = None,
-    pos_pka: Optional[npt.NDArray[np.float64]] = None,
-    theta_pka: Optional[float] = None,
-    phi_pka: Optional[float] = None,
-    transform: Optional[bool] = False,
+    a1: None | float = None,
+    pos_pka: None | npt.NDArray[np.float64] = None,
+    theta_pka: None | float = None,
+    phi_pka: None | float = None,
+    transform: None | bool = False,
     debug: bool = False,
 ) -> np.ndarray:
     """Identify defects in a given atomic structure.
@@ -77,11 +76,11 @@ def identify_lammps_dump(
     a0: float,
     path_dump: Path,
     path_dump_defects: Path,
-    a1: Optional[float] = None,
-    pos_pka: Optional[npt.NDArray[np.float64]] = None,
-    theta_pka: Optional[float] = None,
-    phi_pka: Optional[float] = None,
-    transform: Optional[bool] = False,
+    a1: None | float = None,
+    pos_pka: None | npt.NDArray[np.float64] = None,
+    theta_pka: None | float = None,
+    phi_pka: None | float = None,
+    transform: None | bool = False,
     overwrite: bool = False,
     debug: bool = False,
 ) -> None:

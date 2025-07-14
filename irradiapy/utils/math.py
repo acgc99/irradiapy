@@ -2,7 +2,7 @@
 
 # pylint: disable=unbalanced-tuple-unpacking
 
-from typing import Callable, Optional, Union
+from typing import Callable
 
 import numpy as np
 from scipy.optimize import curve_fit
@@ -47,7 +47,7 @@ def lorentzian(
     linewidth: float,
     amplitude: float,
     asymmetry: float,
-) -> Union[float, np.ndarray]:
+) -> float | np.ndarray:
     """Evaluate a Lorentzian function.
 
     Parameters
@@ -65,7 +65,7 @@ def lorentzian(
 
     Returns
     -------
-    Union[float, np.ndarray]
+    float | np.ndarray
         Evaluated Lorentzian function.
 
     References
@@ -84,7 +84,7 @@ def lorentzian(
 def fit_lorentzian(
     xs: np.ndarray,
     ys: np.ndarray,
-    p0: Optional[np.ndarray] = None,
+    p0: None | np.ndarray = None,
     asymmetry: float = 1.0,
 ) -> tuple[np.ndarray, np.ndarray, Callable[[np.ndarray], np.ndarray]]:
     """Fit data to a Lorentzian function.
@@ -152,7 +152,7 @@ def gaussian(
     linewidth: float,
     amplitude: float,
     asymmetry: float,
-) -> Union[float, np.ndarray]:
+) -> float | np.ndarray:
     """Evaluate a Gaussian function.
 
     Parameters
@@ -170,7 +170,7 @@ def gaussian(
 
     Returns
     -------
-    Union[float, np.ndarray]
+    float | np.ndarray
         Evaluated Gaussian function.
 
     References
@@ -189,7 +189,7 @@ def gaussian(
 def fit_gaussian(
     xs: np.ndarray,
     ys: np.ndarray,
-    p0: Optional[np.ndarray] = None,
+    p0: None | np.ndarray = None,
     asymmetry: float = 1.0,
 ) -> tuple[np.ndarray, np.ndarray, Callable[[np.ndarray], np.ndarray]]:
     """Fit data to a Gaussian function.

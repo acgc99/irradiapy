@@ -6,7 +6,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import TracebackType
-from typing import Any, Dict, Generator, Optional, TextIO, Tuple, Type, Union
+from typing import Any, Dict, Generator, TextIO, Tuple, Type
 
 import numpy as np
 from mpi4py import MPI
@@ -72,9 +72,9 @@ class LAMMPSReaderMPI(MPIExceptionHandlerMixin):
 
     def __exit__(
         self,
-        exc_type: Optional[type[BaseException]] = None,
-        exc_value: Optional[BaseException] = None,
-        exc_traceback: Optional[TracebackType] = None,
+        exc_type: None | type[BaseException] = None,
+        exc_value: None | BaseException = None,
+        exc_traceback: None | TracebackType = None,
     ) -> bool:
         """Exits the context manager."""
         if self.__rank == 0 and not self.file.closed:
@@ -83,7 +83,7 @@ class LAMMPSReaderMPI(MPIExceptionHandlerMixin):
 
     def __get_dtype(
         self, file: TextIO
-    ) -> Tuple[list[str], list[Type[Union[int, float]]], np.dtype]:
+    ) -> Tuple[list[str], list[Type[int | float]], np.dtype]:
         items = file.readline().split()[2:]
         types = [
             np.int32 if it in ("id", "type", "element", "size") else np.float64

@@ -2,7 +2,6 @@
 
 from collections import defaultdict
 from pathlib import Path
-from typing import Optional
 
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
@@ -228,8 +227,8 @@ def get_clusters_1d(
     axis: str = "x",
     depth_bins: int = 100,
     depth_offset: float = 0.0,
-    min_depth: Optional[float] = None,
-    max_depth: Optional[float] = None,
+    min_depth: None | float = None,
+    max_depth: None | float = None,
     scale: float = 1.0,
 ) -> None:
     """Perform a cluster size histogram as a function of depth along a specified axis.
@@ -361,8 +360,8 @@ def read_clusters_1d(path_db: Path, axis: str = "x") -> dict[str, np.ndarray]:
 
 def plot_size_1d(
     db_path: Path,
-    path_sias: Optional[Path] = None,
-    path_vacs: Optional[Path] = None,
+    path_sias: None | Path = None,
+    path_vacs: None | Path = None,
     axis: str = "x",
     depth_offset: float = 0.0,
     transpose: bool = True,
@@ -476,7 +475,7 @@ def plot_size_1d(
 
 def plot_clustering_fraction_1d(
     db_path: Path,
-    path_plot: Optional[Path] = None,
+    path_plot: None | Path = None,
     axis: str = "x",
     depth_offset: float = 0.0,
 ) -> None:
@@ -558,10 +557,10 @@ def plot_mddb_cluster_size(
     rel: bool,
     sia_bin_width: int = 10,
     vac_bin_width: int = 10,
-    path_sias: Optional[Path] = None,
-    path_vacs: Optional[Path] = None,
-    max_sia: Optional[int] = None,
-    max_vac: Optional[int] = None,
+    path_sias: None | Path = None,
+    path_vacs: None | Path = None,
+    max_sia: None | int = None,
+    max_vac: None | int = None,
     vmin: float = 1e-5,
 ) -> None:
     """Plot the cluster size distribution from a molecular dynamics database.
@@ -700,7 +699,7 @@ def plot_mddb_cluster_size(
         max_size: int,
         bin_width: int,
         title: str,
-        path: Optional[Path] = None,
+        path: None | Path = None,
     ) -> None:
 
         hist = np.ma.masked_where(hist == 0, hist, copy=False)

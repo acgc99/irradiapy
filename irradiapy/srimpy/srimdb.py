@@ -12,7 +12,7 @@ import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import TracebackType
-from typing import Callable, Optional, Union
+from typing import Callable
 
 import numpy as np
 
@@ -89,8 +89,8 @@ class SRIMDB(sqlite3.Connection):
     """
 
     path_db: Path
-    calculation: Optional[str] = None
-    target: Optional[Target] = None
+    calculation: None | str = None
+    target: None | Target = None
     check_interval: float = 0.2
     seed: int = 0
     reminders: int = 0
@@ -163,9 +163,9 @@ class SRIMDB(sqlite3.Connection):
 
     def __exit__(
         self,
-        exc_type: Optional[type[BaseException]] = None,
-        exc_value: Optional[BaseException] = None,
-        exc_traceback: Optional[TracebackType] = None,
+        exc_type: None | type[BaseException] = None,
+        exc_value: None | BaseException = None,
+        exc_traceback: None | TracebackType = None,
     ) -> bool:
         """Exit the runtime context related to this object."""
         self.close()
@@ -634,12 +634,12 @@ class SRIMDB(sqlite3.Connection):
         self,
         atomic_numbers: np.ndarray,
         energies: np.ndarray,
-        depths: Optional[np.ndarray] = None,
-        ys: Optional[np.ndarray] = None,
-        zs: Optional[np.ndarray] = None,
-        cosxs: Optional[np.ndarray] = None,
-        cosys: Optional[np.ndarray] = None,
-        coszs: Optional[np.ndarray] = None,
+        depths: None | np.ndarray = None,
+        ys: None | np.ndarray = None,
+        zs: None | np.ndarray = None,
+        cosxs: None | np.ndarray = None,
+        cosys: None | np.ndarray = None,
+        coszs: None | np.ndarray = None,
     ) -> np.ndarray:
         """Generates `TRIM.DAT` file.
 
@@ -762,13 +762,13 @@ class SRIMDB(sqlite3.Connection):
         atomic_numbers: np.ndarray,
         energies: np.ndarray,
         remove_offsets: bool,
-        depths: Optional[np.ndarray] = None,
-        ys: Optional[np.ndarray] = None,
-        zs: Optional[np.ndarray] = None,
-        cosxs: Optional[np.ndarray] = None,
-        cosys: Optional[np.ndarray] = None,
-        coszs: Optional[np.ndarray] = None,
-        iter_max: Optional[int] = None,
+        depths: None | np.ndarray = None,
+        ys: None | np.ndarray = None,
+        zs: None | np.ndarray = None,
+        cosxs: None | np.ndarray = None,
+        cosys: None | np.ndarray = None,
+        coszs: None | np.ndarray = None,
+        iter_max: None | int = None,
         ignore_32bit_warning: bool = True,
     ) -> None:
         """Runs the SRIM simulation.
@@ -906,12 +906,12 @@ class SRIMDB(sqlite3.Connection):
         target: Target,
         atomic_numbers: np.ndarray,
         energies: np.ndarray,
-        depths: Optional[np.ndarray] = None,
-        ys: Optional[np.ndarray] = None,
-        zs: Optional[np.ndarray] = None,
-        cosxs: Optional[np.ndarray] = None,
-        cosys: Optional[np.ndarray] = None,
-        coszs: Optional[np.ndarray] = None,
+        depths: None | np.ndarray = None,
+        ys: None | np.ndarray = None,
+        zs: None | np.ndarray = None,
+        cosxs: None | np.ndarray = None,
+        cosys: None | np.ndarray = None,
+        coszs: None | np.ndarray = None,
     ) -> np.ndarray:
         """Runs SRIM for a single iteration.
 
@@ -1076,7 +1076,7 @@ class SRIMDB(sqlite3.Connection):
     def _filter_subcollisions(
         self,
         cur: sqlite3.Cursor,
-        nions: Union[int, np.int64],
+        nions: int | np.int64,
         trimdat: np.ndarray,
         nsubcollisions0: np.ndarray,
         criterion: Callable,
@@ -1087,7 +1087,7 @@ class SRIMDB(sqlite3.Connection):
         ----------
         cur : sqlite3.Cursor
             Database cursor.
-        nions : Union[int, np.int64]
+        nions : int | np.int64
             Number of ions.
         trimdat : dtypes.trimdat
             TRIMDAT data.

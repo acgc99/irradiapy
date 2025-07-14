@@ -3,7 +3,7 @@
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import TracebackType
-from typing import Optional, TextIO
+from typing import TextIO
 
 from irradiapy import config
 
@@ -47,9 +47,9 @@ class LAMMPSWriter:
 
     def __exit__(
         self,
-        exc_type: Optional[type[BaseException]] = None,
-        exc_value: Optional[BaseException] = None,
-        exc_traceback: Optional[TracebackType] = None,
+        exc_type: None | type[BaseException] = None,
+        exc_value: None | BaseException = None,
+        exc_traceback: None | TracebackType = None,
     ) -> bool:
         self.file.close()
         return False

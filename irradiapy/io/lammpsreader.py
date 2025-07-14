@@ -3,7 +3,7 @@
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Generator, TextIO, Type, Union
+from typing import Generator, TextIO, Type
 
 import numpy as np
 
@@ -80,7 +80,7 @@ class LAMMPSReader:
 
     def __get_dtype(
         self, line: str
-    ) -> tuple[list[str], list[Type[Union[int, float]]], np.dtype]:
+    ) -> tuple[list[str], list[Type[int | float]], np.dtype]:
         """Get the data type of the simulation data.
 
         Parameters
@@ -90,7 +90,7 @@ class LAMMPSReader:
 
         Returns
         -------
-        tuple[list[str], list[Type[Union[int, float]], np.dtype]
+        tuple[list[str], list[Type[int | float]], np.dtype]
             The names of the data items, the types of the data items,
             and the data type.
         """

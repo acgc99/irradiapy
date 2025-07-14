@@ -3,7 +3,7 @@
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import TracebackType
-from typing import Optional, TextIO
+from typing import TextIO
 
 import numpy.typing as npt
 
@@ -46,9 +46,9 @@ class XYZWriter:
 
     def __exit__(
         self,
-        exc_type: Optional[type[BaseException]] = None,
-        exc_value: Optional[BaseException] = None,
-        exc_traceback: Optional[TracebackType] = None,
+        exc_type: None | type[BaseException] = None,
+        exc_value: None | BaseException = None,
+        exc_traceback: None | TracebackType = None,
     ) -> bool:
         """Exit the runtime context related to this object."""
         if self.file and not self.file.closed:

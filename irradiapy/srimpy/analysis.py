@@ -3,7 +3,7 @@
 from collections import defaultdict
 from itertools import combinations
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -21,10 +21,10 @@ from irradiapy.utils.math import fit_gaussian, fit_scaling_law
 def plot_injected(
     srimdb: SRIMDB,
     bins: int = 100,
-    plot_path: Optional[Path] = None,
+    plot_path: None | Path = None,
     dpi: int = 300,
-    path_fit: Optional[Path] = None,
-    p0: Optional[float] = None,
+    path_fit: None | Path = None,
+    p0: None | float = None,
     asymmetry: float = 1.0,
 ) -> None:
     """Plot injected ions final depth distribution.
@@ -100,9 +100,9 @@ def plot_injected(
 def plot_pka_distribution(
     srimdb: SRIMDB,
     bins: int = 100,
-    plot_path: Optional[Path] = None,
+    plot_path: None | Path = None,
     dpi: int = 300,
-    fit_path: Optional[Path] = None,
+    fit_path: None | Path = None,
 ) -> Callable:
     """Plot the PKA energy distribution and tries to fit it.
 
@@ -173,8 +173,8 @@ def plot_energy_depth(
     depth_bins: int = 100,
     pka_ebins: int = 100,
     pka_e_max: float = 200,
-    plot_high_path: Optional[Path] = None,
-    plot_low_path: Optional[Path] = None,
+    plot_high_path: None | Path = None,
+    plot_low_path: None | Path = None,
     dpi: int = 300,
 ) -> None:
     """Plots the depth-energy distribution of PKAs.
@@ -277,7 +277,7 @@ def plot_distances(
     pka_e_lim: float = 5e3,
     dist_bins: int = 100,
     energy_bins: int = 100,
-    plot_path: Optional[Path] = None,
+    plot_path: None | Path = None,
     dpi: int = 300,
 ) -> None:
     """Plots a 2D histogram of pairwise distances and sum of PKA energies for each ion.
@@ -372,12 +372,12 @@ def generate_debris(
     dpa_mode: "materials.Material.DpaMode",
     add_injected: bool,
     outsiders: bool,
-    seed: Optional[int] = None,
-    depth_offset: Optional[float] = 0.0,
-    ylo: Optional[float] = None,
-    yhi: Optional[float] = None,
-    zlo: Optional[float] = None,
-    zhi: Optional[float] = None,
+    seed: None | int = None,
+    depth_offset: None | float = 0.0,
+    ylo: None | float = None,
+    yhi: None | float = None,
+    zlo: None | float = None,
+    zhi: None | float = None,
 ) -> None:
     """Turns SRIM's collisions into `.xyz` files for the given database of cascades' debris.
 

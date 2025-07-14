@@ -5,7 +5,7 @@
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import TracebackType
-from typing import Any, Optional, TextIO
+from typing import Any, TextIO
 
 import numpy.typing as npt
 from mpi4py import MPI
@@ -72,9 +72,9 @@ class LAMMPSWriterMPI(MPIExceptionHandlerMixin):
 
     def __exit__(
         self,
-        exc_type: Optional[type[BaseException]] = None,
-        exc_value: Optional[BaseException] = None,
-        exc_traceback: Optional[TracebackType] = None,
+        exc_type: None | type[BaseException] = None,
+        exc_value: None | BaseException = None,
+        exc_traceback: None | TracebackType = None,
     ) -> bool:
         if self.__rank == 0 and not self.file.closed:
             self.file.close()

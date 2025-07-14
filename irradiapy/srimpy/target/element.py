@@ -1,7 +1,6 @@
 """This module contains the `Element` class."""
 
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass
@@ -34,4 +33,4 @@ class Element:
     e_d: float
     e_l: float
     e_s: float
-    density: Optional[float] = None
+    density: None | float = None

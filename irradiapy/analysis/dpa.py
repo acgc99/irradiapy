@@ -1,7 +1,6 @@
 """dpa analysis module."""
 
 from pathlib import Path
-from typing import Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -133,12 +132,12 @@ def read_dpa_1d(path_db: Path, axis: str = "x") -> dict[str, np.ndarray]:
 
 def plot_dpa_1d(
     path_db: Path,
-    path_plot: Optional[Path] = None,
-    path_fit: Optional[Path] = None,
+    path_plot: None | Path = None,
+    path_fit: None | Path = None,
     axis: str = "x",
     depth_offset: float = 0.0,
     dpi: int = 300,
-    p0: Optional[float] = None,
+    p0: None | float = None,
     asymmetry: float = 1.0,
 ) -> None:
     """Plot the 1D dpa analysis results from the database.

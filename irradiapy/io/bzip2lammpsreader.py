@@ -4,7 +4,7 @@ import bz2
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import BinaryIO, Generator, Type, Union
+from typing import BinaryIO, Generator, Type
 
 import numpy as np
 
@@ -84,7 +84,7 @@ class BZIP2LAMMPSReader:
 
     def __get_dtype(
         self, line: str
-    ) -> tuple[list[str], list[Type[Union[int, float]]], np.dtype]:
+    ) -> tuple[list[str], list[Type[int | float]], np.dtype]:
         items = line.split()[2:]
         types = [
             int if item in ("id", "type", "element", "size") else float

@@ -2,11 +2,13 @@
 
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Optional, Union
 
 import numpy as np
 
+# pylint: disable=unused-import
 from irradiapy.srimpy.target import element as srim_element
+
+# pylint: enable=unused-import
 
 
 @dataclass
@@ -44,16 +46,16 @@ class Material:
 
     atomic_number: int
     mass_number: float
-    a0: Optional[float] = None
-    cutoff_sia: Optional[float] = None
-    cutoff_vac: Optional[float] = None
-    dist_fp: Optional[float] = None
-    density: Optional[float] = None
-    ed_min: Optional[float] = None
-    ed_avr: Optional[float] = None
-    b_arc: Optional[float] = None
-    c_arc: Optional[float] = None
-    srim_element: Optional["srim_element.Element"] = None
+    a0: None | float = None
+    cutoff_sia: None | float = None
+    cutoff_vac: None | float = None
+    dist_fp: None | float = None
+    density: None | float = None
+    ed_min: None | float = None
+    ed_avr: None | float = None
+    b_arc: None | float = None
+    c_arc: None | float = None
+    srim_element: "None | srim_element.Element" = None
 
     # region Damage energy
 
@@ -150,21 +152,21 @@ class Material:
 
     def tdam_to_dpa(
         self,
-        tdam: Union[int, float, np.ndarray],
+        tdam: int | float | np.ndarray,
         mode: DpaMode = DpaMode.FERARC,
-    ) -> Union[int, np.ndarray]:
+    ) -> int | np.ndarray:
         """Convert damage energy to dpa.
 
         Parameters
         ----------
-        tdam : int, float, or numpy.ndarray
+        tdam : int | float | numpy.ndarray
             Damage energy, in eV.
         mode : Material.DpaMode, optional
             Mode for dpa calculation. Can be one of `Material.DpaMode.NRT`, `Material.DpaMode.ARC`,
             or `Material.DpaMode.FERARC`.
         Returns
         -------
-        int or numpy.ndarray
+        int | numpy.ndarray
             Number of Frenkel pairs predicted by the specified dpa mode.
         """
         if mode == Material.DpaMode.FERARC:
@@ -178,18 +180,18 @@ class Material:
 
     def calc_nrt_dpa(
         self,
-        tdam: Union[int, float, np.ndarray],
-    ) -> Union[int, np.ndarray]:
+        tdam: int | float | np.ndarray,
+    ) -> int | np.ndarray:
         """Calculate the NRT-dpa for the given damage energy.
 
         Parameters
         ----------
-        tdam : int, float, or numpy.ndarray
+        tdam : int | float | numpy.ndarray
             Damage energy in electron volts.
 
         Returns
         -------
-        int or numpy.ndarray
+        int | numpy.ndarray
             Number of Frenkel pairs predicted by NRT-dpa.
         """
         min_threshold = self.ed_avr
@@ -214,18 +216,18 @@ class Material:
 
     def calc_arc_dpa(
         self,
-        tdam: Union[int, float, np.ndarray],
-    ) -> Union[int, np.ndarray]:
+        tdam: int | float | np.ndarray,
+    ) -> int | np.ndarray:
         """Calculate the arc-dpa for the given damage energy in eV.
 
         Parameters
         ----------
-        tdam : int, float, or numpy.ndarray
+        tdam : int | float | numpy.ndarray
             Damage energy in electron volts.
 
         Returns
         -------
-        int or numpy.ndarray
+        int | numpy.ndarray
             Number of Frenkel pairs predicted by arc-dpa.
         """
         min_threshold = self.ed_avr
@@ -256,18 +258,18 @@ class Material:
 
     def calc_fer_arc_dpa(
         self,
-        tdam: Union[int, float, np.ndarray],
-    ) -> Union[int, np.ndarray]:
+        tdam: int | float | np.ndarray,
+    ) -> int | np.ndarray:
         """Calculate the fer-arc-dpa for the given damage energy.
 
         Parameters
         ----------
-        tdam : int, float, or numpy.ndarray
+        tdam : int | float | numpy.ndarray
             Damage energy, in eV.
 
         Returns
         -------
-        int or numpy.ndarray
+        int | numpy.ndarray
             Number of Frenkel pairs predicted by modified arc-dpa.
         """
         min_threshold = self.ed_min
