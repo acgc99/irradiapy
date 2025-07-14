@@ -1,5 +1,6 @@
-"""Utility functions related to PKA for SRIM data."""
+"""Utility functions related to SRIM data analysis and debris production."""
 
+from collections import defaultdict
 from itertools import combinations
 from pathlib import Path
 from typing import Callable, Optional
@@ -8,8 +9,92 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.image import NonUniformImage
 
+from irradiapy import dpa, dtypes, materials
+from irradiapy.damagedb import DamageDB
+from irradiapy.io.lammpswriter import LAMMPSWriter
 from irradiapy.srimpy.srimdb import SRIMDB
-from irradiapy.utils.math import fit_scaling_law
+from irradiapy.utils.math import fit_gaussian, fit_scaling_law
+
+# region range3d
+
+
+def plot_injected(
+    srimdb: SRIMDB,
+    bins: int = 100,
+    plot_path: Optional[Path] = None,
+    dpi: int = 300,
+    path_fit: Optional[Path] = None,
+    p0: Optional[float] = None,
+    asymmetry: float = 1.0,
+) -> None:
+    """Plot injected ions final depth distribution.
+
+    Parameters
+    ----------
+    srimdb : SRIMDB
+        SRIM database class.
+    bins : int, optional
+        Depth bins, by default 100.
+    plot_path : Path, optional
+        Output path for the plot, by default None. If None, the plot is shown.
+    dpi : int, optional
+        Dots per inch, by default 300.
+    path_fit : Path, optional
+        Output path for the fit parameters, by default None.
+    p0 : float, optional
+        Initial guess of fit parameters, by default None.
+    asymmetry : float, optional
+        Asymmetry fit parameter bound, by default 1.0.
+    """
+    # Read
+    depths = np.array([ion[0] for ion in srimdb.range3d.read(what="depth")])
+    # Histogram
+    histogram, depth_edges = np.histogram(depths, bins=bins)
+    depth_centers = (depth_edges[:-1] + depth_edges[1:]) / 2.0
+    # Fit
+    fit, injected_fit = False, None
+    if path_fit:
+        try:
+            popt, _, injected_fit = fit_gaussian(
+                depth_centers, histogram, p0, asymmetry
+            )
+            if path_fit:
+                with open(path_fit, "w", encoding="utf-8") as file:
+                    file.write("Injected atoms gaussian fit: z0, sigma, A, a\n")
+                    file.write(
+                        (
+                            "See Eq. (1) of Nuclear Instruments and Methods in Physics "
+                            "Research B 500-501 (2021) 52-56\n"
+                        )
+                    )
+                    file.write(", ".join(map(str, popt)) + "\n")
+            fit = True
+        except Exception as exc:  # pylint: disable=broad-except
+            print(f"Fit failed: {exc}")
+    # Plot
+    fig = plt.figure()
+    gs = fig.add_gridspec()
+    # Scatter
+    ax = fig.add_subplot(gs[0, 0])
+    ax.set_xlabel(r"Depth ($\mathrm{\AA}$)")
+    ax.set_ylabel("Counts per ion")
+    ax.scatter(depth_centers, histogram)
+    if fit:
+        ax.plot(
+            depth_centers,
+            injected_fit(depth_centers),
+            color=plt.rcParams["axes.prop_cycle"].by_key()["color"][0],
+        )
+    # Finish
+    fig.tight_layout()
+    if plot_path:
+        plt.savefig(plot_path, dpi=dpi)
+    else:
+        plt.show()
+    plt.close()
+
+
+# region collision
 
 
 def plot_pka_distribution(
@@ -273,3 +358,176 @@ def plot_distances(
     else:
         plt.show()
     plt.close()
+
+
+# region Debris
+
+
+def generate_debris(
+    srimdb: SRIMDB,
+    dir_mddb: Path,
+    compute_tdam: bool,
+    path_collisions: Path,
+    dpa_mode: dpa.DpaMode,
+    add_injected: bool,
+    outsiders: bool,
+    seed: Optional[int] = None,
+    depth_offset: Optional[float] = 0.0,
+    ylo: Optional[float] = None,
+    yhi: Optional[float] = None,
+    zlo: Optional[float] = None,
+    zhi: Optional[float] = None,
+) -> None:
+    """Turns SRIM's collisions into `.xyz` files for the given database of cascades' debris.
+
+    Warning
+    -------
+        Assumes a monolayer monoatomic target and same element for all ions.
+
+    Parameters
+    ----------
+    srimdb : SRIMDB
+        SRIM database class.
+    dir_mddb : Path
+        Directory where the database of cascades' debris is stored.
+    compute_tdam : bool
+        Whether to transform the PKA energies into damage energies. It should be `True` for
+        MD simulations without electronic stopping.
+    path_collisions : Path
+        Directory where the ions debris will be stored as `.xyz` files.
+    dpa_mode : dpa.DpaMode
+        Formula to convert the residual energy into Frenkel pairs.
+    add_injected : bool
+        Whether to add the injected interstitial.
+    outsiders : bool
+        Whether to include defects generated outside the material (PKAs close to surfaces).
+        This can cause an inmbalance between the number of vacancies and interstitials.
+    seed : int, optional
+        Random seed for reproducibility.
+    depth_offset : float, optional
+        Offset to add to the depth of the defects, by default 0.0.
+    ylo : float, optional
+        Minimum y-coordinate for the defects, by default None
+        (will be set to minus the target width).
+    yhi : float, optional
+        Maximum y-coordinate for the defects, by default None
+        (will be set to the target width).
+    zlo : float, optional
+        Minimum z-coordinate for the defects, by default None
+        (will be set to minus the target width).
+    zhi : float, optional
+        Maximum z-coordinate for the defects, by default None
+        (will be set to the target width).
+    """
+    xlo, xhi = depth_offset, srimdb.target.layers[0].width + depth_offset
+    if ylo is None:
+        ylo = -xhi
+    if yhi is None:
+        yhi = xhi
+    if zlo is None:
+        zlo = -xhi
+    if zhi is None:
+        zhi = xhi
+    mat_pka = materials.get_material_by_atomic_number(
+        next(
+            iter(srimdb.trimdat.read(what="atom_numb", condition="WHERE ion_numb = 1"))
+        )[0]
+    )
+    mat_target = materials.get_material_by_atomic_number(
+        srimdb.target.layers[0].elements[0].atomic_number
+    )
+    nions = srimdb.nions
+    damagedb = DamageDB(
+        dir_mddb=dir_mddb,
+        compute_tdam=compute_tdam,
+        mat_pka=mat_pka,
+        mat_target=mat_target,
+        dpa_mode=dpa_mode,
+        seed=seed,
+    )
+    with LAMMPSWriter(path_collisions) as writer:
+        for nion in range(1, nions + 1):
+            defects = __generate_ion_defects(srimdb, nion, damagedb, add_injected)
+
+            # Apply offsets and cuts
+            defects["x"] += depth_offset
+            if not outsiders:
+                defects = defects[
+                    (defects["x"] >= xlo)
+                    & (defects["x"] <= xhi)
+                    & (defects["y"] >= ylo)
+                    & (defects["y"] <= yhi)
+                    & (defects["z"] >= zlo)
+                    & (defects["z"] <= zhi)
+                ]
+
+            data_defects = defaultdict(None)
+            data_defects["time"] = 0.0
+            data_defects["timestep"] = 0
+            data_defects["natoms"] = defects.size
+            data_defects["boundary"] = ["ff", "ff", "ff"]
+            data_defects["xlo"] = xlo
+            data_defects["xhi"] = xhi
+            data_defects["ylo"] = ylo
+            data_defects["yhi"] = yhi
+            data_defects["zlo"] = zlo
+            data_defects["zhi"] = zhi
+            data_defects["atoms"] = defects
+            writer.write(data_defects)
+
+
+def __generate_ion_defects(
+    srimdb: SRIMDB,
+    nion: int,
+    damagedb: DamageDB,
+    add_injected: bool,
+) -> np.ndarray:
+    """Generates the defects for a specific ion in the SRIM simulation.
+
+    Parameters
+    ----------
+    srimdb : SRIMDB
+        SRIM database class.
+    nion : int
+        Ion number.
+    damagedb : DamageDB
+        DamageDB class that will choose MD debris.
+    add_injected : bool
+        Whether to add the injected interstitial.
+
+    Returns
+    -------
+    np.ndarray
+        An array containing the defects generated by a single ion.
+    """
+    defects = np.empty(0, dtype=dtypes.defect)
+    for depth, y, z, cosx, cosy, cosz, pka_e in srimdb.collision.read(
+        what="depth, y, z, cosx, cosy, cosz, recoil_energy",
+        condition=f"WHERE ion_numb = {nion}",
+    ):
+        pka_pos = np.array([depth, y, z])
+        pka_dir = np.array([cosx, cosy, cosz])
+        defects_ = damagedb.get_pka_debris(
+            pka_e=pka_e, pka_pos=pka_pos, pka_dir=pka_dir
+        )
+        defects = np.concatenate((defects, defects_))
+
+    if add_injected:
+        injected = list(
+            srimdb.range3d.read(
+                what="depth, y, z", condition=f"WHERE ion_numb = {nion} LIMIT 1"
+            )
+        )
+        # No backscattered or transmitted ion
+        if injected:
+            atom_number = list(
+                srimdb.trimdat.read(
+                    what="atom_numb", condition=f"WHERE ion_numb = {nion}"
+                )
+            )[0][0]
+            injected = np.array(
+                [(atom_number, injected[0][0], injected[0][1], injected[0][2])],
+                dtype=dtypes.defect,
+            )
+            defects = np.concatenate((defects, injected))
+    return defects
