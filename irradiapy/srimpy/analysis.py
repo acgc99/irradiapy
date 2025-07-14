@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.image import NonUniformImage
 
-from irradiapy import dpa, dtypes, materials
+from irradiapy import dtypes, materials
 from irradiapy.damagedb import DamageDB
 from irradiapy.io.lammpswriter import LAMMPSWriter
 from irradiapy.srimpy.srimdb import SRIMDB
@@ -368,7 +368,8 @@ def generate_debris(
     dir_mddb: Path,
     compute_tdam: bool,
     path_collisions: Path,
-    dpa_mode: dpa.DpaMode,
+    tdam_mode: "materials.Material.TdamMode",
+    dpa_mode: "materials.Material.DpaMode",
     add_injected: bool,
     outsiders: bool,
     seed: Optional[int] = None,
@@ -395,7 +396,9 @@ def generate_debris(
         MD simulations without electronic stopping.
     path_collisions : Path
         Directory where the ions debris will be stored as `.xyz` files.
-    dpa_mode : dpa.DpaMode
+    tdam_mode : materials.Material.TdamMode
+        Mode to convert the PKA energy into damage energy.
+    dpa_mode : materials.Material.DpaMode
         Formula to convert the residual energy into Frenkel pairs.
     add_injected : bool
         Whether to add the injected interstitial.
@@ -428,20 +431,19 @@ def generate_debris(
         zlo = -xhi
     if zhi is None:
         zhi = xhi
-    mat_pka = materials.get_material_by_atomic_number(
-        next(
-            iter(srimdb.trimdat.read(what="atom_numb", condition="WHERE ion_numb = 1"))
-        )[0]
-    )
-    mat_target = materials.get_material_by_atomic_number(
-        srimdb.target.layers[0].elements[0].atomic_number
-    )
+    pka_atomic_number = next(
+        iter(srimdb.trimdat.read(what="atom_numb", condition="WHERE ion_numb = 1"))
+    )[0]
+    mat_pka = materials.MATERIALS_BY_ATOMIC_NUMBER[pka_atomic_number]
+    mat_atomic_number = srimdb.target.layers[0].elements[0].atomic_number
+    mat_target = materials.MATERIALS_BY_ATOMIC_NUMBER[mat_atomic_number]
     nions = srimdb.nions
     damagedb = DamageDB(
         dir_mddb=dir_mddb,
         compute_tdam=compute_tdam,
         mat_pka=mat_pka,
         mat_target=mat_target,
+        tdam_mode=tdam_mode,
         dpa_mode=dpa_mode,
         seed=seed,
     )

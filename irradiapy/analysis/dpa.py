@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.lines import Line2D
 
-from irradiapy import dpa, materials, utils
+from irradiapy import materials, utils
 from irradiapy.io import LAMMPSReader
 from irradiapy.srimpy import SRIMDB
 
@@ -51,14 +51,12 @@ def get_dpa_1d(
     """
 
     # Get materials
-    mat1 = materials.get_material_by_atomic_number(
-        list(srimdb.trimdat.read(what="atom_numb", condition="WHERE ion_numb = 1"))[0][
-            0
-        ]
-    )
-    mat2 = materials.get_material_by_atomic_number(
-        srimdb.target.layers[0].elements[0].atomic_number
-    )
+    atomic_number1 = list(
+        srimdb.trimdat.read(what="atom_numb", condition="WHERE ion_numb = 1")
+    )[0][0]
+    mat_pka = materials.MATERIALS_BY_ATOMIC_NUMBER[atomic_number1]
+    atomic_number2 = srimdb.target.layers[0].elements[0].atomic_number
+    mat_target = materials.MATERIALS_BY_ATOMIC_NUMBER[atomic_number2]
     nions = srimdb.nions
 
     # SRIM COLLISON.txt dpa
@@ -66,9 +64,9 @@ def get_dpa_1d(
     what = "depth, recoil_energy" if axis == "x" else f"{axis}, recoil_energy"
     for depth, pka_e in srimdb.collision.read(what=what):
         depths.append(depth)
-        tdam = dpa.compute_damage_energy(pka_e, mat1, mat2)
-        defects_nrt.append(dpa.calc_nrt_dpa(tdam, mat2))
-        defects_fer_arc.append(dpa.calc_fer_arc_dpa(tdam, mat2))
+        tdam = mat_target.epka_to_tdam(mat_pka, pka_e)
+        defects_nrt.append(mat_target.calc_nrt_dpa(tdam))
+        defects_fer_arc.append(mat_target.calc_fer_arc_dpa(tdam))
     depths = np.array(depths)
     defects_nrt = np.array(defects_nrt)
     defects_fer_arc = np.array(defects_fer_arc)
@@ -89,15 +87,15 @@ def get_dpa_1d(
     hist_nrt = np.array(
         [np.sum(defects_nrt[srim_digitize == i]) for i in range(1, nbins + 1)]
     )
-    dpa_nrt = hist_nrt / nions * fluence / mat2.density / width
+    dpa_nrt = hist_nrt / nions * fluence / mat_target.density / width
     # fer-arc-dpa
     hist_fer_arc = np.array(
         [np.sum(defects_fer_arc[srim_digitize == i]) for i in range(1, nbins + 1)]
     )
-    dpa_fer_arc = hist_fer_arc / nions * fluence / mat2.density / width
+    dpa_fer_arc = hist_fer_arc / nions * fluence / mat_target.density / width
     # debris-dpa
     hist_debris, _ = np.histogram(depth_debris, bins=depth_edges)
-    dpa_debris = hist_debris / nions * fluence / mat2.density / width
+    dpa_debris = hist_debris / nions * fluence / mat_target.density / width
 
     # Save to database
     utils.sqlite.insert_array(

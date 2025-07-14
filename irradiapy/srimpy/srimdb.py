@@ -580,7 +580,9 @@ class SRIMDB(sqlite3.Connection):
     ) -> None:
         """Generates `TRIM.IN` file."""
         nions = len(atomic_numbers)
-        atomic_mass = materials.get_mass_number_by_atomic_number(atomic_numbers[0])
+        atomic_mass = materials.MATERIALS_BY_ATOMIC_NUMBER[
+            atomic_numbers[0]
+        ].mass_number
         energy = np.ceil(energies.max()) / 1e3
         if self.calculation == "quick":
             calculation = 4
@@ -1147,9 +1149,9 @@ class SRIMDB(sqlite3.Connection):
                     # Else, save it for later
                     else:
                         atomic_numbers.append(
-                            materials.get_atomic_number_by_name(
+                            materials.MATERIALS_BY_SYMBOL[
                                 subcollision["atom_hit"]
-                            )
+                            ].atomic_number
                         )
                         recoil_energies.append(subcollision["recoil_energy"])
                         depths.append(subcollision["depth"])

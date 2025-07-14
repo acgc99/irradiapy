@@ -9,7 +9,7 @@ import numpy as np
 from matplotlib.gridspec import GridSpec
 from numpy import typing as npt
 
-from irradiapy import dpa, materials, utils
+from irradiapy import materials, utils
 from irradiapy.analysis.defectsidentifier import DefectsIdentifier
 from irradiapy.io import BZIP2LAMMPSReader, LAMMPSReader, LAMMPSWriter
 
@@ -208,9 +208,10 @@ def plot_mddb_nd(
 
     # Calculate NRT- and fer-arc-dpa
     range_epkas = np.linspace(epkas[0], epkas[-1], 1000)
-    range_tdams = dpa.compute_damage_energy(range_epkas, mat_pka, mat_target)
-    nrt_dpa = dpa.calc_nrt_dpa(range_tdams, mat_target)
-    fer_arc_dpa = dpa.calc_fer_arc_dpa(range_tdams, mat_target)
+
+    range_tdams = mat_target.epka_to_tdam(mat_pka, range_epkas)
+    nrt_dpa = mat_target.calc_nrt_dpa(range_tdams)
+    fer_arc_dpa = mat_target.calc_fer_arc_dpa(range_tdams)
 
     fig = plt.figure(figsize=(10, 6))
     gs = GridSpec(1, 1)

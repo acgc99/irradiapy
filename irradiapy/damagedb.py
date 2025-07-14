@@ -10,7 +10,7 @@ from numpy.lib.recfunctions import structured_to_unstructured as str2unstr
 from scipy.spatial.transform import Rotation
 from sklearn.decomposition import PCA
 
-from irradiapy import dpa, dtypes, materials
+from irradiapy import dtypes, materials
 from irradiapy.io.lammpsreader import LAMMPSReader
 
 
@@ -22,14 +22,14 @@ class DamageDB:
     ----------
     dir_mddb : Path
         Directory of the MD debris database.
-    mat_pka : materials.Material
+    mat_pka : Material
         PKA material.
-    mat_target : materials.Material
+    mat_target : Material
         Target material.
     compute_tdam : bool
         Whether to apply Lindhard's formula to the recoil energy. It should be `True` for
         MD simulations without electronic stopping.
-    dpa_mode : dpa.DpaMode
+    dpa_mode : Material.DpaMode
         Mode for dpa calculation.
     force_lss : bool, optional
         If True, force the use of the Lindhard formula for damage energy calculation. Default is
@@ -40,10 +40,10 @@ class DamageDB:
 
     dir_mddb: Path
     compute_tdam: bool
-    mat_pka: materials.Material
-    mat_target: materials.Material
-    dpa_mode: dpa.DpaMode
-    force_lss: bool = False
+    mat_pka: "materials.Material"
+    mat_target: "materials.Material"
+    dpa_mode: "materials.Material.DpaMode"
+    tdam_mode: "materials.Material.TdamMode"
     seed: int = 0
     __rng: np.random.Generator = field(init=False)
     __calc_nd: callable = field(init=False)
@@ -62,24 +62,13 @@ class DamageDB:
         self.__energies = np.array(sorted(self.__files.keys(), reverse=True))
         self.__nenergies = len(self.__energies)
         # PKA energy to damage energy conversion
-        self.__compute_damage_energy = lambda x: dpa.compute_damage_energy(
-            x, self.mat_pka, self.mat_target, force_lss=self.force_lss
+        self.__compute_damage_energy = lambda x: self.mat_pka.epka_to_tdam(
+            mat_pka=self.mat_target, epka=x, mode=self.tdam_mode
         )
         # Select the dpa model for residual energy
-        if self.dpa_mode == dpa.DpaMode.NRT:
-            self.__calc_nd = lambda x: np.round(
-                dpa.calc_nrt_dpa(x, self.mat_target)
-            ).astype(np.int32)
-        elif self.dpa_mode == dpa.DpaMode.ARC:
-            self.__calc_nd = lambda x: np.round(
-                dpa.calc_arc_dpa(x, self.mat_target)
-            ).astype(np.int32)
-        elif self.dpa_mode == dpa.DpaMode.FERARC:
-            self.__calc_nd = lambda x: np.round(
-                dpa.calc_fer_arc_dpa(x, self.mat_target)
-            ).astype(np.int32)
-        else:
-            raise ValueError("Invalid dpa mode")
+        self.__calc_nd = lambda x: self.mat_target.tdam_to_dpa(
+            tdam=x, mode=self.dpa_mode
+        )
 
     def __get_files(self, pka_e: float) -> tuple[dict[float, list[Path]], int]:
         """Get cascade files and number of residual FP for a given PKA energy.
@@ -109,7 +98,7 @@ class DamageDB:
             for i, energy in enumerate(self.__energies)
         }
         # Get the number of residual FP
-        nfp = self.__calc_nd(residual_energy)
+        nfp = np.round(self.__calc_nd(residual_energy)).astype(np.int32)
         return debris_files, nfp
 
     def get_pka_debris(

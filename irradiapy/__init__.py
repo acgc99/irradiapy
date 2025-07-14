@@ -1,3 +1,3 @@
 """irradiapy package"""
 
-from irradiapy import analysis, config, dpa, dtypes, io, materials, srimpy, utils
+from irradiapy import analysis, config, dtypes, io, materials, srimpy, utils
