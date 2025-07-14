@@ -154,6 +154,7 @@ def plot_mddb_nd(
     target_dir: Path,
     mat_pka: materials.Material,
     mat_target: materials.Material,
+    path_plot: Path,
 ) -> None:
     """Plot the number of defects (vacancies) as a function of the PKA energy from a molecular
     dynamics database.
@@ -170,6 +171,8 @@ def plot_mddb_nd(
         Material of the PKA.
     mat_target : materials.Material
         Target material.
+    path_plot : Path, optional
+        Path to save the plot. If `None`, the plot is shown but not saved.
     """
 
     # Extract data from xyz files
@@ -272,5 +275,8 @@ def plot_mddb_nd(
 
     ax.legend(loc="lower right")
     fig.tight_layout()
-    plt.show()
+    if path_plot is not None:
+        fig.savefig(path_plot, dpi=300)
+    else:
+        plt.show()
     plt.close(fig)
