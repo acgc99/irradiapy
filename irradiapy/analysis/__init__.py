@@ -7,7 +7,7 @@ from typing import Optional
 import numpy as np
 from numpy import typing as npt
 
-from irradiapy.analysis import clusters
+from irradiapy.analysis import clusters, dpa
 from irradiapy.analysis.defectsidentifier import DefectsIdentifier
 from irradiapy.io import BZIP2LAMMPSReader, LAMMPSReader, LAMMPSWriter
 

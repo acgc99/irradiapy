@@ -1,6 +1,5 @@
-"""Utility functions related to dpa for SRIM data."""
+"""dpa analysis module."""
 
-import sqlite3
 from pathlib import Path
 from typing import Optional, Union
 
@@ -8,35 +7,49 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.lines import Line2D
 
-from irradiapy import dpa, materials
-from irradiapy.io.lammpsreader import LAMMPSReader
-from irradiapy.srimpy.srimdb import SRIMDB
-from irradiapy.utils.math import fit_lorentzian
+from irradiapy import dpa, materials, utils
+from irradiapy.io import LAMMPSReader
+from irradiapy.srimpy import SRIMDB
+
+# region Histograms
 
 
-def get_dpas(
+# NOTE: The first argument type will determine the calculation method when other BCA methods are
+# implemented.
+# NOTE: SRIM support only for monoelemental targets.
+def get_dpa_1d(
     srimdb: SRIMDB,
-    path_collisions: Path,
-    fluence: float,
+    path_debris: Path,
     path_db: Path,
+    fluence: float,
+    axis: str = "x",
     nbins: int = 100,
     depth_offset: Union[int, float, np.number] = 0.0,
 ) -> None:
-    """Create a table with NRT, fer-arc and debris-dpa in a database.
+    """Perform a dpa histogram as a function of depth along a specified axis.
+
+    Note
+    ----
+    dpa is calculated from vacancies in the debris file.
 
     Parameters
     ----------
     srimdb : SRIMDB
         SRIM database class.
-    path_collisions : Path
+    path_debris : Path
         File containing all collision debris to analyze.
-    fluence : float
-        Fluence, in ions/A2.
     path_db : Path
         Path to the database file.
+    fluence : float
+        Fluence, in ions/A2.
+    axis : str, optional
+        Axis along which to perform the dpa calculation. Default is "x".
     nbins : int, optional
-        Number of depth bins. Default is 100.
+        Number of depth bins. Depth range determined from `path_debris` defect positions.
+        Default: `100`.
     """
+
+    # Get materials
     mat1 = materials.get_material_by_atomic_number(
         list(srimdb.trimdat.read(what="atom_numb", condition="WHERE ion_numb = 1"))[0][
             0
@@ -46,99 +59,85 @@ def get_dpas(
         srimdb.target.layers[0].elements[0].atomic_number
     )
     nions = srimdb.nions
+
     # SRIM COLLISON.txt dpa
     depths, defects_nrt, defects_fer_arc = [], [], []
-    for depth, pka_e in srimdb.collision.read(what="depth, recoil_energy"):
-        depths.append(depth + depth_offset)
+    what = "depth, recoil_energy" if axis == "x" else f"{axis}, recoil_energy"
+    for depth, pka_e in srimdb.collision.read(what=what):
+        depths.append(depth)
         tdam = dpa.compute_damage_energy(pka_e, mat1, mat2)
         defects_nrt.append(dpa.calc_nrt_dpa(tdam, mat2))
         defects_fer_arc.append(dpa.calc_fer_arc_dpa(tdam, mat2))
     depths = np.array(depths)
     defects_nrt = np.array(defects_nrt)
     defects_fer_arc = np.array(defects_fer_arc)
+
     # Debris dpa
     depth_debris = np.array([], dtype=float)
-    nion = 0
-    total_debris = 0
-    for data_defects in LAMMPSReader(path_collisions):
+    for data_defects in LAMMPSReader(path_debris):
         vacs = data_defects["atoms"][data_defects["atoms"]["type"] == 0]
-        depth_debris = np.concatenate((depth_debris, vacs["x"]))
-        nion += 1
-        total_debris += vacs.size
-        if nion % 100 == 0:
-            print(f"{nion}/{nions}")
-    # Depth binning
-    depth_edges = np.histogram_bin_edges(depths, bins=nbins)
+        depth_debris = np.concatenate((depth_debris, vacs[axis]))
+
+    # Depth binning (use debris to set bin edges)
+    depth_edges = np.histogram_bin_edges(depth_debris, bins=nbins)
     depth_centers = (depth_edges[1:] - depth_edges[:-1]) / 2.0 + depth_edges[:-1]
     width = depth_edges[1] - depth_edges[0]
-    depth_digitize = np.digitize(depths, depth_edges)
+    srim_digitize = np.digitize(depths, depth_edges)
+
     # NRT-dpa
     hist_nrt = np.array(
-        [np.sum(defects_nrt[depth_digitize == i]) for i in range(1, nbins + 1)]
+        [np.sum(defects_nrt[srim_digitize == i]) for i in range(1, nbins + 1)]
     )
     dpa_nrt = hist_nrt / nions * fluence / mat2.density / width
     # fer-arc-dpa
     hist_fer_arc = np.array(
-        [np.sum(defects_fer_arc[depth_digitize == i]) for i in range(1, nbins + 1)]
+        [np.sum(defects_fer_arc[srim_digitize == i]) for i in range(1, nbins + 1)]
     )
     dpa_fer_arc = hist_fer_arc / nions * fluence / mat2.density / width
     # debris-dpa
     hist_debris, _ = np.histogram(depth_debris, bins=depth_edges)
     dpa_debris = hist_debris / nions * fluence / mat2.density / width
-    # Save
-    con = sqlite3.connect(path_db)
-    cur = con.cursor()
-    cur.execute("DROP TABLE IF EXISTS dpa")
-    cur.execute("CREATE TABLE dpa (depth REAL, nrt REAL, arc REAL, debris REAL)")
-    cur.executemany(
-        "INSERT INTO dpa (depth, nrt, arc, debris) VALUES (?, ?, ?, ?)",
-        np.column_stack((depth_centers, dpa_nrt, dpa_fer_arc, dpa_debris)),
+
+    # Save to database
+    utils.sqlite.insert_array(
+        path_db,
+        "dpa_1D",
+        depth_centers=depth_centers + depth_offset,
+        dpa_nrt=dpa_nrt,
+        dpa_fer_arc=dpa_fer_arc,
+        dpa_debris=dpa_debris,
     )
-    con.commit()
-    cur.close()
-    con.close()
 
 
-def load_results(path_db: Path, what: str = "*", condition: str = "") -> tuple:
-    """Load results from the table created by `get_dpas`.
+def read_dpa_1d(path_db: Path) -> dict[str, np.ndarray]:
+    """Read the 1D dpa histogram from the database.
 
     Parameters
     ----------
     path_db : Path
-        Path to the database file.
-    what : str, optional
-        Columns to select from the database, by default "*".
-    condition : str, optional
-        SQL condition for the query, by default "".
+        Path to the SQLite database file.
 
     Returns
     -------
-    tuple
-        Tuple containing depth_centers, dpa_nrt, dpa_fer_arc, and dpa_debris arrays.
+    dict[str, np.ndarray]
+        A dictionary containing the 1D dpa histogram data.
     """
-    con = sqlite3.connect(path_db)
-    cur = con.cursor()
-    cur.execute(f"SELECT {what} FROM dpa {condition}")
-    data = np.array(cur.fetchall())
-    depth_centers = data[:, 0]
-    dpa_nrt = data[:, 1]
-    dpa_fer_arc = data[:, 2]
-    dpa_debris = data[:, 3]
-    cur.close()
-    con.close()
-    return depth_centers, dpa_nrt, dpa_fer_arc, dpa_debris
+    data = utils.sqlite.read_array(path_db, "dpa_1D")
+    return data
 
 
-def plot_dpa(
+# region Plots
+
+
+def plot_dpa_1d(
     path_db: Path,
-    # depth_offset: Union[int, float, np.number] = 0.0,
     path_plot: Optional[Path] = None,
-    dpi: int = 300,
     path_fit: Optional[Path] = None,
+    dpi: int = 300,
     p0: Optional[float] = None,
     asymmetry: float = 1.0,
 ) -> None:
-    """Plot the dpa analysis results from the database.
+    """Plot the 1D dpa analysis results from the database.
 
     Parameters
     ----------
@@ -146,21 +145,25 @@ def plot_dpa(
         Path to the database file.
     path_plot : Path, optional
         Output path for the plot, by default None. If None, the plot is shown.
-    depth_offset : Union[int, float, np.number], optional
-        Depth offset to apply to be applied, by default 0.0.
-    dpi : int, optional
-        Dots per inch, by default 300.
     path_fit : Path, optional
         Output path for the fit parameters, by default None.
+    dpi : int, optional
+        Dots per inch, by default 300.
     p0 : float, optional
         Initial guess of fit parameters, by default None.
     asymmetry : float, optional
         Asymmetry fit parameter bound, by default 1.0.
     """
-    depth_centers, dpa_nrt, dpa_fer_arc, dpa_debris = load_results(path_db)
-    # depth_centers += depth_offset
+
+    data = read_dpa_1d(path_db)
+    depth_centers = data["depth_centers"]
+    dpa_nrt = data["dpa_nrt"]
+    dpa_fer_arc = data["dpa_fer_arc"]
+    dpa_debris = data["dpa_debris"]
+
     total_nrt = dpa_nrt.sum()
     total_debris = dpa_debris.sum()
+
     # Fit dpa_debris
     # Plot
     fig = plt.figure()
@@ -172,9 +175,21 @@ def plot_dpa(
     ax.scatter(depth_centers, dpa_nrt, label="NRT-dpa")
     ax.scatter(depth_centers, dpa_fer_arc, label="fer-arc-dpa")
     ax.scatter(depth_centers, dpa_debris, label="debris-dpa")
+    efficiency = [
+        Line2D(
+            [0],
+            [0],
+            color="none",
+            label=r"$\overline{\xi}$ = "
+            + rf"{round(total_debris / total_nrt * 100)} %",
+        )
+    ]
+
     if path_fit:
         try:
-            popt, _, dpa_fit = fit_lorentzian(depth_centers, dpa_debris, p0, asymmetry)
+            popt, _, dpa_fit = utils.math.fit_lorentzian(
+                depth_centers, dpa_debris, p0, asymmetry
+            )
             if path_fit:
                 with open(path_fit, "w", encoding="utf-8") as file:
                     file.write("Debris dpa lorentzian fit: z0, sigma, A, a\n")
@@ -192,15 +207,7 @@ def plot_dpa(
             )
         except Exception as exc:  # pylint: disable=broad-except
             print(f"Fit failed: {exc}")
-    efficiency = [
-        Line2D(
-            [0],
-            [0],
-            color="none",
-            label=r"$\overline{\xi}$ = "
-            + rf"{round(total_debris / total_nrt * 100)} %",
-        )
-    ]
+
     ax.legend(handles=ax.get_legend_handles_labels()[0] + efficiency)
     fig.tight_layout()
     if path_plot:
