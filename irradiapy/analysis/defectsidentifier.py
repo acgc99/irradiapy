@@ -76,7 +76,7 @@ class DefectsIdentifier:
                     [0, 1, 1, 0],
                     [0, 0, 0, 1],
                 ],
-                dtype=np.int32,
+                dtype=np.int64,
             )
             # Scale positions by a0
             self.__pos_ucell *= self.a0
@@ -138,14 +138,14 @@ class DefectsIdentifier:
         atoms["y"] = pos[:, 1]
         atoms["z"] = pos[:, 2]
 
-    def __apply_boundary_conditions(self, idx_atoms: npt.NDArray[np.int32]) -> None:
+    def __apply_boundary_conditions(self, idx_atoms: npt.NDArray[np.int64]) -> None:
         """Applies periodic boundary conditions to atomic index coordinates.
 
         Only one unit cell around the simulation box is considered for periodic boundary conditions.
 
         Parameters
         ----------
-        idx_atoms : npt.NDArray[np.int32]
+        idx_atoms : npt.NDArray[np.int64]
             Array of atomic positions with index coordinates (shape: [N, 4]).
         """
         if self.__perx:
@@ -199,12 +199,12 @@ class DefectsIdentifier:
         x = (ix + 0.5 * ia) * self.a0
         y = (iy + 0.5 * ia) * self.a0
         z = (iz + 0.5 * ia) * self.a0
-        return np.array([x, y, z], dtype=float)
+        return np.array([x, y, z], dtype=np.float64)
 
     def __defect_identification(
         self,
         data_atoms: defaultdict,
-        idx_atoms: npt.NDArray[np.int32],
+        idx_atoms: npt.NDArray[np.int64],
     ) -> dtypes.Defect:
         """Identifies defects based on the assignments.
 
@@ -212,7 +212,7 @@ class DefectsIdentifier:
         ----------
         data_atoms : defaultdict
             Dictionary containing simulation data as given by the LAMMPSReader and similar readers.
-        idx_atoms : npt.NDArray[np.int32]
+        idx_atoms : npt.NDArray[np.int64]
             Array of atomic index coordinates (shape: [N, 4]).
 
         Returns
@@ -313,7 +313,7 @@ class DefectsIdentifier:
         self.__pery = data_atoms["boundary"][1] == "pp"
         self.__perz = data_atoms["boundary"][2] == "pp"
 
-        idx_atoms = np.zeros((data_atoms["natoms"], 4), dtype=np.int32)
+        idx_atoms = np.zeros((data_atoms["natoms"], 4), dtype=np.int64)
         mod_atoms = np.zeros((data_atoms["natoms"], 3), dtype=np.float64)
         idx_atoms[:, 0], mod_atoms[:, 0] = np.divmod(data_atoms["atoms"]["x"], self.a0)
         idx_atoms[:, 1], mod_atoms[:, 1] = np.divmod(data_atoms["atoms"]["y"], self.a0)

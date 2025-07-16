@@ -67,7 +67,7 @@ class LAMMPSLogReader:
                 items = line.split()
                 types = [np.float64] * len(items)
                 if "Step" in items:
-                    types[items.index("Step")] = np.int32
+                    types[items.index("Step")] = np.int64
                 dtype = np.dtype(list(zip(items, types)))
                 self.thermo = np.empty(0, dtype=dtype)
                 expecting_header = False

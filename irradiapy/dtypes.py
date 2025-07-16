@@ -8,7 +8,7 @@ from numpy import typing as npt
 # region General
 atom = np.dtype(
     [
-        ("type", np.int32),
+        ("type", np.int64),
         ("x", np.float64),
         ("y", np.float64),
         ("z", np.float64),
@@ -17,7 +17,7 @@ atom = np.dtype(
 Atom = Annotated[npt.NDArray[Any], atom]
 defect = np.dtype(
     [
-        ("type", np.int32),
+        ("type", np.int64),
         ("x", np.float64),
         ("y", np.float64),
         ("z", np.float64),
@@ -26,21 +26,21 @@ defect = np.dtype(
 Defect = Annotated[npt.NDArray[Any], defect]
 acluster = np.dtype(
     [
-        ("type", np.int32),
+        ("type", np.int64),
         ("x", np.float64),
         ("y", np.float64),
         ("z", np.float64),
-        ("cluster", np.int32),
+        ("cluster", np.int64),
     ]
 )
 Acluster = Annotated[npt.NDArray[Any], acluster]
 ocluster = np.dtype(
     [
-        ("type", np.int32),
+        ("type", np.int64),
         ("x", np.float64),
         ("y", np.float64),
         ("z", np.float64),
-        ("size", np.int32),
+        ("size", np.int64),
     ]
 )
 Ocluster = Annotated[npt.NDArray[Any], ocluster]

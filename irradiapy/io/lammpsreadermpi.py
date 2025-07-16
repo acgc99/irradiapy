@@ -87,7 +87,7 @@ class LAMMPSReaderMPI(MPIExceptionHandlerMixin):
     ) -> Tuple[list[str], list[Type[int | float]], np.dtype]:
         items = file.readline().split()[2:]
         types = [
-            np.int32 if it in ("id", "type", "element", "size") else np.float64
+            np.int64 if it in ("id", "type", "element", "size") else np.float64
             for it in items
         ]
         if all(c in items for c in ("x", "y", "z")):

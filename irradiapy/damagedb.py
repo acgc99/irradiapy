@@ -87,7 +87,7 @@ class DamageDB:
         residual_energy = (
             self.__compute_damage_energy(pka_e) if self.compute_tdam else pka_e
         )
-        cascade_counts = np.zeros(self.__nenergies, dtype=int)
+        cascade_counts = np.zeros(self.__nenergies, dtype=np.int64)
         for i, energy in enumerate(self.__energies):
             cascade_counts[i], residual_energy = divmod(residual_energy, energy)
         # Select the files for each energy
@@ -98,7 +98,7 @@ class DamageDB:
             for i, energy in enumerate(self.__energies)
         }
         # Get the number of residual FP
-        nfp = np.round(self.__calc_nd(residual_energy)).astype(np.int32)
+        nfp = np.round(self.__calc_nd(residual_energy)).astype(np.int64)
         return debris_files, nfp
 
     def get_pka_debris(

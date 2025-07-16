@@ -192,7 +192,7 @@ def get_clusters_0d(
     """
 
     # Extract data
-    isizes, vsizes = np.array([], dtype=np.int32), np.array([], dtype=np.int32)
+    isizes, vsizes = np.array([], dtype=np.int64), np.array([], dtype=np.int64)
     reader = LAMMPSReader(path_oclusters)
     for data_oclusters in reader:
         cond = data_oclusters["atoms"]["type"] == 0
@@ -259,7 +259,7 @@ def get_clusters_1d(
     """
 
     # Extract data
-    isizes, vsizes = np.array([], dtype=np.int32), np.array([], dtype=np.int32)
+    isizes, vsizes = np.array([], dtype=np.int64), np.array([], dtype=np.int64)
     idepths, vdepths = np.array([], dtype=np.float64), np.array([], dtype=np.float64)
     reader = LAMMPSReader(path_oclusters)
     for data_oclusters in reader:
@@ -614,8 +614,8 @@ def plot_mddb_cluster_size(
             continue
         energy = int(energy_dir.name)
         sizes_all_raw[energy] = {
-            "vacs": np.empty(0, dtype=np.int32),
-            "sias": np.empty(0, dtype=np.int32),
+            "vacs": np.empty(0, dtype=np.int64),
+            "sias": np.empty(0, dtype=np.int64),
         }
         for path_defects in energy_dir.glob("*.xyz"):
             nfiles[energy] += 1
@@ -657,7 +657,7 @@ def plot_mddb_cluster_size(
     # Sort energies
     epkas = np.array(
         [int(path.name) for path in target_dir.glob("*") if path.is_dir()],
-        dtype=np.int32,
+        dtype=np.int64,
     )
     epkas.sort()
     # Energy binning

@@ -72,7 +72,7 @@ def get_dpa_1d(
     defects_fer_arc = np.array(defects_fer_arc)
 
     # Debris dpa
-    depth_debris = np.array([], dtype=float)
+    depth_debris = np.array([], dtype=np.float64)
     for data_defects in LAMMPSReader(path_debris):
         vacs = data_defects["atoms"][data_defects["atoms"]["type"] == 0]
         depth_debris = np.concatenate((depth_debris, vacs[axis]))

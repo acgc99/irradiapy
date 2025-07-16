@@ -204,7 +204,7 @@ def plot_mddb_nd(
     # Sort energies
     epkas = np.array(
         [int(path.name) for path in target_dir.glob("*") if path.is_dir()],
-        dtype=np.int32,
+        dtype=np.int64,
     )
     epkas.sort()
 

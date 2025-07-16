@@ -575,7 +575,7 @@ class SRIMDB(sqlite3.Connection):
 
     def generate_trimin(
         self,
-        atomic_numbers: npt.NDArray[np.int32],
+        atomic_numbers: npt.NDArray[np.int64],
         energies: npt.NDArray[np.float64],
         target: Target,
     ) -> None:
@@ -633,7 +633,7 @@ class SRIMDB(sqlite3.Connection):
 
     def generate_trimdat(
         self,
-        atomic_numbers: npt.NDArray[np.int32],
+        atomic_numbers: npt.NDArray[np.int64],
         energies: npt.NDArray[np.float64],
         depths: None | npt.NDArray[np.float64] = None,
         ys: None | npt.NDArray[np.float64] = None,
@@ -646,7 +646,7 @@ class SRIMDB(sqlite3.Connection):
 
         Parameters
         ----------
-        atomic_numbers : npt.NDArray[np.int32]
+        atomic_numbers : npt.NDArray[np.int64]
             Atomic numbers.
         energies : npt.NDArray[np.float64]
             Energies.
@@ -760,7 +760,7 @@ class SRIMDB(sqlite3.Connection):
     def run(
         self,
         criterion: Callable,
-        atomic_numbers: npt.NDArray[np.int32],
+        atomic_numbers: npt.NDArray[np.int64],
         energies: npt.NDArray[np.float64],
         remove_offsets: bool,
         depths: None | npt.NDArray[np.float64] = None,
@@ -782,7 +782,7 @@ class SRIMDB(sqlite3.Connection):
             `criterion(nion, energy, depth, y, z, se, atom_hit,
             pka_e, target_disp)`.
             Recommended to be defined as `def criterion(**kwargs: dict) -> bool:`.
-        atomic_numbers : npt.NDArray[np.int32]
+        atomic_numbers : npt.NDArray[np.int64]
             Ion atomic numbers.
         energies : npt.NDArray[np.float64]
             Ion energies.
@@ -822,7 +822,7 @@ class SRIMDB(sqlite3.Connection):
 
         # First iteration
         nions = len(atomic_numbers)
-        nsubcollisions = np.ones(nions, dtype=int)
+        nsubcollisions = np.ones(nions, dtype=np.int64)
         nsubcollisions0 = nsubcollisions.copy()
         trimdat = self._run_iter(
             self.target,
@@ -905,7 +905,7 @@ class SRIMDB(sqlite3.Connection):
     def _run_iter(
         self,
         target: Target,
-        atomic_numbers: npt.NDArray[np.int32],
+        atomic_numbers: npt.NDArray[np.int64],
         energies: npt.NDArray[np.float64],
         depths: None | npt.NDArray[np.float64] = None,
         ys: None | npt.NDArray[np.float64] = None,
@@ -922,7 +922,7 @@ class SRIMDB(sqlite3.Connection):
             Target material.
         calculation : Calculation
             Calculation parameters.
-        atomic_numbers : npt.NDArray[np.int32]
+        atomic_numbers : npt.NDArray[np.int64]
             Ion atomic numbers.
         energies : npt.NDArray[np.float64]
             Ion energies.
@@ -1079,9 +1079,9 @@ class SRIMDB(sqlite3.Connection):
     def _filter_subcollisions(
         self,
         cur: sqlite3.Cursor,
-        nions: int | np.int32,
+        nions: int | np.int64,
         trimdat: dtypes.Trimdat,
-        nsubcollisions0: npt.NDArray[np.int32],
+        nsubcollisions0: npt.NDArray[np.int64],
         criterion: Callable,
     ) -> tuple:
         """Filters subcollisions.
@@ -1090,11 +1090,11 @@ class SRIMDB(sqlite3.Connection):
         ----------
         cur : sqlite3.Cursor
             Database cursor.
-        nions : int | np.int32
+        nions : int | np.int64
             Number of ions.
         trimdat : dtypes.Trimdat
             TRIMDAT data.
-        nsubcollisions0 : npt.NDArray[np.int32]
+        nsubcollisions0 : npt.NDArray[np.int64]
             Initial number of subcollisions.
         criterion : Callable
             Criterion to repeat calculation, must return False to repeat calculation.
@@ -1110,7 +1110,7 @@ class SRIMDB(sqlite3.Connection):
             [],
             [],
         )
-        nsubcollisions = np.zeros(nions, dtype=np.int32)
+        nsubcollisions = np.zeros(nions, dtype=np.int64)
         for nion in range(nions):
             nsubcollision_min = 0 if nion == 0 else nsubcollision_max
             nsubcollision_max = nsubcollision_min + nsubcollisions0[nion]
@@ -1167,12 +1167,12 @@ class SRIMDB(sqlite3.Connection):
                     pos0 = pos
                     # print(pos0, [cosx, cosy, cosz])
         self.subcollision.empty()
-        atomic_numbers = np.array(atomic_numbers, dtype=int)
+        atomic_numbers = np.array(atomic_numbers, dtype=np.int64)
         recoil_energies, depths, ys, zs = (
-            np.array(recoil_energies),
-            np.array(depths),
-            np.array(ys),
-            np.array(zs),
+            np.array(recoil_energies, dtype=np.float64),
+            np.array(depths, dtype=np.float64),
+            np.array(ys, dtype=np.float64),
+            np.array(zs, dtype=np.float64),
         )
         cosxs, cosys, coszs = np.array(cosxs), np.array(cosys), np.array(coszs)
         return (
