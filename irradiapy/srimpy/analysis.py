@@ -367,7 +367,7 @@ def generate_debris(
     srimdb: SRIMDB,
     dir_mddb: Path,
     compute_tdam: bool,
-    path_collisions: Path,
+    path_debris: Path,
     tdam_mode: "materials.Material.TdamMode",
     dpa_mode: "materials.Material.DpaMode",
     add_injected: bool,
@@ -394,7 +394,7 @@ def generate_debris(
     compute_tdam : bool
         Whether to transform the PKA energies into damage energies. It should be `True` for
         MD simulations without electronic stopping.
-    path_collisions : Path
+    path_debris : Path
         Directory where the ions debris will be stored as `.xyz` files.
     tdam_mode : materials.Material.TdamMode
         Mode to convert the PKA energy into damage energy.
@@ -443,7 +443,7 @@ def generate_debris(
         dpa_mode=dpa_mode,
         seed=seed,
     )
-    with LAMMPSWriter(path_collisions) as writer:
+    with LAMMPSWriter(path_debris) as writer:
         for nion in range(1, nions + 1):
             defects = __generate_ion_defects(srimdb, nion, damagedb, add_injected)
 

@@ -79,7 +79,7 @@ def clusterize(
 
 
 def clusterize_file(
-    path_collisions: Path,
+    path_defects: Path,
     cutoff_sia: float,
     cutoff_vac: float,
     path_aclusters: Path,
@@ -89,7 +89,7 @@ def clusterize_file(
 
     Parameters
     ----------
-    path_collisions : Path
+    path_defects : Path
         Path of the file where defects are.
     cutoff_sia : float
         Cutoff distance for interstitials clustering.
@@ -100,7 +100,7 @@ def clusterize_file(
     path_oclusters : Path
         Where object clusters will be stored.
     """
-    reader = LAMMPSReader(path_collisions)
+    reader = LAMMPSReader(path_defects)
     nsim = 0
     with (
         LAMMPSWriter(path_aclusters) as awriter,
