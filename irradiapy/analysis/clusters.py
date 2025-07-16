@@ -364,6 +364,7 @@ def plot_size_1d(
     axis: str = "x",
     depth_offset: float = 0.0,
     transpose: bool = True,
+    dpi: int = 300,
 ) -> None:
     """Plot the depth-size 1D histogram for interstitials and vacancies.
 
@@ -388,6 +389,8 @@ def plot_size_1d(
     transpose : bool, optional (default=True)
         If `True`, the depth is on the x-axis and size on the y-axis. If `False`, the
         axes are swapped.
+    dpi : int, optional (default=300)
+        Dots per inch.
     """
 
     def plot(
@@ -456,7 +459,7 @@ def plot_size_1d(
         fig.suptitle(title)
         fig.tight_layout()
         if path_plot:
-            plt.savefig(path_plot, dpi=300)
+            plt.savefig(path_plot, dpi=dpi)
         else:
             plt.show()
         plt.close(fig)
@@ -474,6 +477,7 @@ def plot_clustering_fraction_1d(
     path_plot: None | Path = None,
     axis: str = "x",
     depth_offset: float = 0.0,
+    dpi: int = 300,
 ) -> None:
     """Plot the clustering fraction as a function of depth.
 
@@ -493,8 +497,9 @@ def plot_clustering_fraction_1d(
         Axis along which the histogram was computed. It can be `"x"`, `"y"`, or `"z"`.
     depth_offset : float, optional (default=0.0)
         Offset to add to the depth values.
+    dpi : int, optional (default=300)
+        Dots per inch.
     """
-
     data = read_clusters_1d(db_path, axis=axis)
     depth_edges = data["depth_edges"] + depth_offset
     interstitials = data["interstitials"]
@@ -538,7 +543,7 @@ def plot_clustering_fraction_1d(
     fig.suptitle("Clustering fraction")
     fig.tight_layout()
     if path_plot:
-        plt.savefig(path_plot, dpi=300)
+        plt.savefig(path_plot, dpi=dpi)
     else:
         plt.show()
     plt.close(fig)
@@ -556,6 +561,7 @@ def plot_mddb_cluster_size(
     max_sia: None | int = None,
     max_vac: None | int = None,
     vmin: float = 1e-5,
+    dpi: int = 300,
 ) -> None:
     """Plot the cluster size distribution from a molecular dynamics database.
 
@@ -591,6 +597,8 @@ def plot_mddb_cluster_size(
         compare multiple databases with different maximum sizes.
     vmin : float, optional (default=1e-5)
         Minimum value for the color scale if `rel` is `True`.
+    dpi : int, optional (default=300)
+        Dots per inch.
     """
 
     # Extract data from xyz files
@@ -739,7 +747,7 @@ def plot_mddb_cluster_size(
         fig.suptitle(title)
         fig.tight_layout()
         if path:
-            plt.savefig(path, dpi=300)
+            plt.savefig(path, dpi=dpi)
         else:
             plt.show()
         plt.close(fig)

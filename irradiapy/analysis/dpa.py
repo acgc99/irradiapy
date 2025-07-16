@@ -135,9 +135,9 @@ def plot_dpa_1d(
     path_fit: None | Path = None,
     axis: str = "x",
     depth_offset: float = 0.0,
-    dpi: int = 300,
     p0: None | float = None,
     asymmetry: float = 1.0,
+    dpi: int = 300,
 ) -> None:
     """Plot the 1D dpa analysis results from the database.
 
@@ -153,12 +153,12 @@ def plot_dpa_1d(
         Axis along which the histogram was computed. It can be `"x"`, `"y"`, or `"z"`.
     depth_offset : float, optional (default=0.0)
         Offset to add to the depth values.
-    dpi : int, optional (default=300)
-        Dots per inch.
     p0 : float, optional (default=None)
         Initial guess of fit parameters.
     asymmetry : float, optional (default=1.0)
         Asymmetry fit parameter bound.
+    dpi : int, optional (default=300)
+        Dots per inch.
     """
 
     data = read_dpa_1d(path_db, axis=axis)

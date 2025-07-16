@@ -22,10 +22,10 @@ def plot_injected(
     srimdb: SRIMDB,
     bins: int = 100,
     plot_path: None | Path = None,
-    dpi: int = 300,
     path_fit: None | Path = None,
     p0: None | float = None,
     asymmetry: float = 1.0,
+    dpi: int = 300,
 ) -> None:
     """Plot injected ions final depth distribution.
 
@@ -37,14 +37,14 @@ def plot_injected(
         Depth bins.
     plot_path : Path, optional (default=None)
         Output path for the plot. If `None`, the plot is shown.
-    dpi : int, optional (default=300)
-        Dots per inch.
     path_fit : Path, optional (default=None)
         Output path for the fit parameters.
     p0 : float, optional (default=None)
         Initial guess of fit parameters.
     asymmetry : float, optional (default=1.0)
         Asymmetry fit parameter bound.
+    dpi : int, optional (default=300)
+        Dots per inch.
     """
     # Read
     depths = np.array([ion[0] for ion in srimdb.range3d.read(what="depth")])
@@ -101,8 +101,8 @@ def plot_pka_distribution(
     srimdb: SRIMDB,
     bins: int = 100,
     plot_path: None | Path = None,
-    dpi: int = 300,
     fit_path: None | Path = None,
+    dpi: int = 300,
 ) -> Callable:
     """Plot the PKA energy distribution and tries to fit it.
 
@@ -114,10 +114,10 @@ def plot_pka_distribution(
         Energy bins. The fit will be done over non-empty bins.
     plot_path : Path, optional (default=None)
         Output path for the plot. If `None`, the plot is shown.
-    dpi : int, optional (default=300)
-        Dots per inch for the plot.
     fit_path : Path, optional (default=None)
         Output path for the fit parameters.
+    dpi : int, optional (default=300)
+        Dots per inch.
 
     Returns
     -------
