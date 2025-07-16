@@ -216,10 +216,6 @@ class DamageDB:
             for file0 in files[energy]:
                 defects_ = deque(LAMMPSReader(file0), maxlen=1).pop()["atoms"]
 
-                # TODO: why recenter?
-                defects_["x"] -= np.mean(defects_["x"])
-                defects_["y"] -= np.mean(defects_["y"])
-                defects_["z"] -= np.mean(defects_["z"])
                 transform = Rotation.random(rng=self.__rng)
                 pos = str2unstr(defects_[["x", "y", "z"]], dtype=np.float64, copy=False)
                 pos0 = self.__get_parallelepiped_points(*parallelepiped, 1)
