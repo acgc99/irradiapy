@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "irradiapy"
-version = "0.2.4"
+version = "1.0.0"
 description = "This Python package is aimed towards the simulation and analysis of irradiation damage with multiple tools."
 readme = "README.md"
 requires-python = ">=3.10.0"
