@@ -16,16 +16,16 @@ class LAMMPSWriter:
     ----------
     file_path : Path
         The path to the LAMMPS dump file.
-    mode : str
-        The file open mode. Default: `"w"`.
-    excluded_items : list[str]
-        Atom fields to exclude from output. Default: `irradiapy.config.EXCLUDED_ITEMS`.
-    encoding : str
-        The file encoding. Default: `irradiapy.config.ENCODING`.
-    int_format : str
-        The format for integers. Default: `irradiapy.config.INT_FORMAT`.
-    float_format : str
-        The format for floats. Default: `irradiapy.config.FLOAT_FORMAT`.
+    mode : str, optional (default="w")
+        The file open mode.
+    excluded_items : list[str], optional (default=irradiapy.config.EXCLUDED_ITEMS)
+        Atom fields to exclude from output.
+    encoding : str, optional (default=irradiapy.config.ENCODING)
+        The file encoding.
+    int_format : str, optional (default=irradiapy.config.INT_FORMAT)
+        The format for integers.
+    float_format : str, optional (default=irradiapy.config.FLOAT_FORMAT)
+        The format for floats.
     """
 
     file_path: Path

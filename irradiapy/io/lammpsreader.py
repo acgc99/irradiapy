@@ -20,8 +20,8 @@ class LAMMPSReader:
     ----------
     file_path : Path
         The path to the LAMMPS dump file.
-    encoding : str
-        The file encoding. Default: `"utf-8"`.
+    encoding : str, optional (default="utf-8")
+        The file encoding.
     """
 
     file_path: Path

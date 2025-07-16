@@ -36,23 +36,23 @@ def identify_defects(
         Dictionary containing simulation data as given by the LAMMPSReader and similar readers.
         Must include keys: 'atoms', 'natoms', 'boundary', 'xlo', 'xhi', 'ylo', 'yhi', 'zlo',
         'zhi', 'timestep'.
-    a1 : float, optional
+    a1 : float, optional (default=None)
         Final lattice parameter. If provided, defect positions are rescaled to this value
         (independently of the `transform` value).
-    pos_pka : np.ndarray, optional
+    pos_pka : np.ndarray, optional (default=None)
         Position vector of the PKA. If provided with theta_pka and phi_pka, defects are
         recentered and aligned.
-    theta_pka : float, optional
+    theta_pka : float, optional (default=None)
         Polar angle (in radians) for the PKA direction.
-    phi_pka : float, optional
+    phi_pka : float, optional (default=None)
         Azimuthal angle (in radians) for the PKA direction.
-    transform : bool, optional
+    transform : bool, optional (default=False)
         If True, defects are recentered and aligned with the PKA direction (if provided). If
         True but no PKA parameters are provided, defects are recentered based on their
         average position. Note that the box boundaries are not modified for visualization
         purposes, only the atomic positions are transformed.
-    debug : bool, optional
-        If `True`, enables debug mode for additional output. Default is `False`.
+    debug : bool, optional (default=False)
+        If `True`, enables debug mode for additional output.
 
     Returns
     -------
@@ -117,10 +117,10 @@ def identify_lammps_dump(
         True but no PKA parameters are provided, defects are recentered based on their
         average position. Note that the box boundaries are not modified for visualization
         purposes, only the atomic positions are transformed.
-    overwrite : bool, optional
-        If True, allows overwriting the output file if it already exists. Default is False.
-    debug : bool, optional
-        If `True`, enables debug mode for additional output. Default is `False`.
+    overwrite : bool, optional (default=False)
+        If True, allows overwriting the output file if it already exists.
+    debug : bool, optional (default=False)
+        If `True`, enables debug mode for additional output.
     """
     if path_dump_defects.exists():
         if overwrite:

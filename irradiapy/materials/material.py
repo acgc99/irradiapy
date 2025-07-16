@@ -21,27 +21,27 @@ class Material:
         Atomic number.
     mass_number : float
         Mass number (atomic mass units).
-    a0 : float, optional
-        Lattice parameter (Å). Default is None.
-    cutoff_sia : float, optional
-        Cutoff distance for interstitial clusters detection (Å). Default is None.
-    cutoff_vac : float, optional
-        Cutoff distance for vacancy clusters detection (Å). Default is None.
-    dist_fp : float, optional
-        Frenkel pair distance (Å). Default is None.
-    density : float, optional
-        Atomic density (atoms/Å³). Default is None.
-    ed_min : float, optional
-        Minimum displacement energy (eV). Default is None.
-    ed_avr : float, optional
-        Average displacement energy (eV). Default is None.
-    b_arc : float, optional
-        'b' parameter of the arc-dpa fit. Default is None.
-    c_arc : float, optional
-        'c' parameter of the arc-dpa fit. Default is None.
-    srim_element : srim_element.Element, optional
-        SRIM element object. Default is None. Check this reference for recommended values:
-        https://doi.org/10.1016/j.nimb.2021.06.018
+    a0 : float, optional (default=None)
+        Lattice parameter (Å).
+    cutoff_sia : float, optional (default=None)
+        Cutoff distance for interstitial clusters detection (Å).
+    cutoff_vac : float, optional (default=None)
+        Cutoff distance for vacancy clusters detection (Å).
+    dist_fp : float, optional (default=None)
+        Frenkel pair distance (Å).
+    density : float, optional (default=None)
+        Atomic density (atoms/Å³).
+    ed_min : float, optional (default=None)
+        Minimum displacement energy (eV).
+    ed_avr : float, optional (default=None)
+        Average displacement energy (eV).
+    b_arc : float, optional (default=None)
+        'b' parameter of the arc-dpa fit.
+    c_arc : float, optional (default=None)
+        'c' parameter of the arc-dpa fit.
+    srim_element : srim_element.Element, optional (default=None)
+        SRIM element object. Check this reference for recommended values:
+        https://doi.org/10.1016/j.nimb.2021.06.018.
     """
 
     atomic_number: int
@@ -324,10 +324,10 @@ class Material:
             Maximum threshold for dpa.
         scaling_func : callable
             Function to scale damage energy.
-        efficiency_func : callable, optional
-            Efficiency function for high energies. Default is None.
-        middle_func : callable, optional
-            Function for values between thresholds. Default is None.
+        efficiency_func : callable, optional (default=None)
+            Efficiency function for high energies.
+        middle_func : callable, optional (default=None)
+            Function for values between thresholds.
 
         Returns
         -------

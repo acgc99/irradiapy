@@ -22,20 +22,19 @@ class DamageDB:
     ----------
     dir_mddb : Path
         Directory of the MD debris database.
-    mat_pka : Material
-        PKA material.
-    mat_target : Material
-        Target material.
     compute_tdam : bool
         Whether to apply Lindhard's formula to the recoil energy. It should be `True` for
         MD simulations without electronic stopping.
-    dpa_mode : Material.DpaMode
+    mat_pka : materials.Material
+        PKA material.
+    mat_target : materials.Material
+        Target material.
+    dpa_mode : materials.Material.DpaMode
         Mode for dpa calculation.
-    force_lss : bool, optional
-        If True, force the use of the Lindhard formula for damage energy calculation. Default is
-        False.
-    seed : int, optional
-        Random seed for random number generator. Default is 0.
+    tdam_mode : materials.Material.TdamMode
+        Mode for PKA to damage energy calculation.
+    seed : int, optional (default=0)
+        Random seed for random number generator.
     """
 
     dir_mddb: Path

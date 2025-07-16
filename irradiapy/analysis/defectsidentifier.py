@@ -26,8 +26,8 @@ class DefectsIdentifier:
         Lattice type. Currently only "bcc" is supported.
     a0 : float
         Lattice parameter, in angstroms.
-    debug : bool, optional
-        If True, enables debug mode for additional output. Default is False.
+    debug : bool, optional (default=False)
+        If True, enables debug mode for additional output.
     """
 
     lattice: str

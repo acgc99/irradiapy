@@ -95,11 +95,10 @@ def fit_lorentzian(
         X values where the function is evaluated.
     ys : np.ndarray
         Y values at the given xs.
-    p0 : np.ndarray, optional
-        Initial guess of fit parameters. If None, a guess is generated. Default is None.
-    asymmetry : float, optional
+    p0 : np.ndarray, optional (default=None)
+        Initial guess of fit parameters. If None, a guess is generated.
+    asymmetry : float, optional (default=1.0)
         Bound for the asymmetry fit parameter. Fit will be done in (-asymmetry, asymmetry).
-        Default is 1.0.
 
     Returns
     -------
@@ -200,11 +199,10 @@ def fit_gaussian(
         X values where the function is evaluated.
     ys : np.ndarray
         Y values at the given xs.
-    p0 : np.ndarray, optional
-        Initial guess of fit parameters. If None, a guess is generated. Default is None.
-    asymmetry : float, optional
+    p0 : np.ndarray, optional (default=None)
+        Initial guess of fit parameters. If None, a guess is generated.
+    asymmetry : float, optional (default=1.0)
         Bound for the asymmetry fit parameter. Fit will be done in (-asymmetry, asymmetry).
-        Default is 1.0.
 
     Returns
     -------

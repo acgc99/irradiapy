@@ -273,10 +273,10 @@ class Collision(SRIMFile):
 
         Parameters
         ----------
-        what : str, optional
-            Columns to read, by default "*".
-        condition : str, optional
-            Condition to filter data, by default "".
+        what : str, optional (default="*")
+            Columns to read.
+        condition : str, optional (default="")
+            Condition to filter data.
 
         Yields
         ------

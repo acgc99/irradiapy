@@ -31,10 +31,10 @@ class LAMMPSReaderMPI(MPIExceptionHandlerMixin):
     ----------
     file_path : Path
         The path to the LAMMPS dump file.
-    encoding : str
-        The file encoding. Default: `"utf-8"`.
-    comm : MPI.Comm
-        The MPI communicator. Default: `mpi4py.MPI.COMM_WORLD`.
+    encoding : str, optional (default="utf-8")
+        The file encoding.
+    comm : MPI.Comm, optional (default=mpi4py.MPI.COMM_WORLD)
+        The MPI communicator.
     """
 
     file_path: Path

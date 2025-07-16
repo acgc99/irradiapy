@@ -33,18 +33,18 @@ def plot_injected(
     ----------
     srimdb : SRIMDB
         SRIM database class.
-    bins : int, optional
-        Depth bins, by default 100.
-    plot_path : Path, optional
-        Output path for the plot, by default None. If None, the plot is shown.
-    dpi : int, optional
-        Dots per inch, by default 300.
-    path_fit : Path, optional
-        Output path for the fit parameters, by default None.
-    p0 : float, optional
-        Initial guess of fit parameters, by default None.
-    asymmetry : float, optional
-        Asymmetry fit parameter bound, by default 1.0.
+    bins : int, optional (default=100)
+        Depth bins.
+    plot_path : Path, optional (default=None)
+        Output path for the plot. If `None`, the plot is shown.
+    dpi : int, optional (default=300)
+        Dots per inch.
+    path_fit : Path, optional (default=None)
+        Output path for the fit parameters.
+    p0 : float, optional (default=None)
+        Initial guess of fit parameters.
+    asymmetry : float, optional (default=1.0)
+        Asymmetry fit parameter bound.
     """
     # Read
     depths = np.array([ion[0] for ion in srimdb.range3d.read(what="depth")])
@@ -110,14 +110,14 @@ def plot_pka_distribution(
     ----------
     srimdb : SRIMDB
         SRIM database class.
-    bins : int, optional
-        Energy bins, by default 100. The fit will be done over non-empty bins.
-    plot_path : Path, optional
-        Output path for the plot, by default None. If None, the plot is shown.
-    dpi : int, optional
-        Dots per inch for the plot, by default 300.
-    fit_path : Path, optional
-        Output path for the fit parameters, by default None.
+    bins : int, optional (default=100)
+        Energy bins. The fit will be done over non-empty bins.
+    plot_path : Path, optional (default=None)
+        Output path for the plot. If `None`, the plot is shown.
+    dpi : int, optional (default=300)
+        Dots per inch for the plot.
+    fit_path : Path, optional (default=None)
+        Output path for the fit parameters.
 
     Returns
     -------
@@ -183,18 +183,18 @@ def plot_energy_depth(
     ----------
     srimdb : SRIMDB
         SRIM database class.
-    depth_bins : int, optional
-        Number of bins for depth histogram, by default 100.
-    pka_ebins : int, optional
-        Number of bins for PKA energy histogram, by default 100.
-    pka_e_max : float, optional
-        Maximum PKA energy, by default 200.
-    plot_high_path : Path, optional
-        Output path for the high energy plot, by default None. If None, the plot is shown.
-    plot_low_path : Path, optional
-        Output path for the low energy plot, by default None. If None, the plot is shown.
-    dpi : int, optional
-        Dots per inch for the plot, by default 300.
+    depth_bins : int, optional (default=100)
+        Number of bins for depth histogram.
+    pka_ebins : int, optional (default=100)
+        Number of bins for PKA energy histogram.
+    pka_e_max : float, optional (default=200)
+        Maximum PKA energy.
+    plot_high_path : Path, optional (default=None)
+        Output path for the high energy plot. If `None`, the plot is shown.
+    plot_low_path : Path, optional (default=None)
+        Output path for the low energy plot. If `None`, the plot is shown.
+    dpi : int, optional (default=300)
+        Dots per inch for the plot.
     """
     # Read
     nions = srimdb.nions
@@ -286,16 +286,16 @@ def plot_distances(
     ----------
     srimdb : SRIMDB
         SRIM database class.
-    pka_elim : float, optional
-        Minimum recoil energy to consider, by default 5e3.
-    dist_bins : int, optional
-        Number of bins for the distance histogram, by default 100.
-    energy_bins : int, optional
-        Number of bins for the energy histogram, by default 100.
-    plot_path : Path, optional
-        Output path for the plot, by default None. If None, the plot is shown.
-    dpi : int, optional
-        Dots per inch for the plot, by default 300.
+    pka_elim : float, optional (default=5e3)
+        Minimum recoil energy to consider.
+    dist_bins : int, optional (default=100)
+        Number of bins for the distance histogram.
+    energy_bins : int, optional (default=100)
+        Number of bins for the energy histogram.
+    plot_path : Path, optional (default=None)
+        Output path for the plot. If `None`, the plot is shown.
+    dpi : int, optional (default=300)
+        Dots per inch for the plot.
     """
     nions = srimdb.nions
     distances = []
@@ -407,20 +407,16 @@ def generate_debris(
         This can cause an inmbalance between the number of vacancies and interstitials.
     seed : int, optional
         Random seed for reproducibility.
-    depth_offset : float, optional
-        Offset to add to the depth of the defects, by default 0.0.
-    ylo : float, optional
-        Minimum y-coordinate for the defects, by default None
-        (will be set to minus the target width).
-    yhi : float, optional
-        Maximum y-coordinate for the defects, by default None
-        (will be set to the target width).
-    zlo : float, optional
-        Minimum z-coordinate for the defects, by default None
-        (will be set to minus the target width).
-    zhi : float, optional
-        Maximum z-coordinate for the defects, by default None
-        (will be set to the target width).
+    depth_offset : float, optional (default=0.0)
+        Offset to add to the depth of the defects.
+    ylo : float, optional (default=None)
+        Minimum y-coordinate for the defects. If `None`, will be set to minus the target width.
+    yhi : float, optional (default=None)
+        Maximum y-coordinate for the defects. If `None`, will be set to the target width.
+    zlo : float, optional (default=None)
+        Minimum z-coordinate for the defects. If `None`, will be set to minus the target width.
+    zhi : float, optional (default=None)
+        Maximum z-coordinate for the defects. If `None`, will be set to the target width.
     """
     xlo, xhi = depth_offset, srimdb.target.layers[0].width + depth_offset
     if ylo is None:

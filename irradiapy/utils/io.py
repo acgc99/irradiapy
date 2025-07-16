@@ -18,8 +18,8 @@ def compress_file_bz2(
         Path to the input file to be compressed.
     output_path : str
         Path where the compressed file will be saved.
-    compresslevel : int, optional
-        Compression level for bzip2 (default 9).
+    compresslevel : int, optional (default=9)
+        Compression level for bzip2.
     """
     with (
         open(input_path, "rb") as f_in,

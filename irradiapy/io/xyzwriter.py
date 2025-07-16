@@ -18,14 +18,14 @@ class XYZWriter:
     ----------
     file_path : Path
         Path to the file where data will be written.
-    mode : str, optional
-        File open mode. Default: `"w"`.
-    encoding : str, optional
-        File encoding. Default: `irradiapy.config.ENCODING`.
-    int_format : str, optional
-        Format for integers. Default: `irradiapy.config.INT_FORMAT`.
-    float_format : str, optional
-        Format for floats. Default: `irradiapy.config.FLOAT_FORMAT`.
+    mode : str, optional (default="w")
+        File open mode.
+    encoding : str, optional (default=irradiapy.config.ENCODING)
+        The file encoding.
+    int_format : str, optional (default=irradiapy.config.INT_FORMAT)
+        Format for integers.
+    float_format : str, optional (default=irradiapy.config.FLOAT_FORMAT)
+        Format for floats.
     """
 
     file_path: Path

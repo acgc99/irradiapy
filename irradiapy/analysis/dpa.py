@@ -41,12 +41,12 @@ def get_dpa_1d(
         Path to the database file.
     fluence : float
         Fluence, in ions/A2.
-    axis : str, optional
+    axis : str, optional (default="x")
         Axis along which the histogram was computed. It can be `"x"`, `"y"`, or `"z"`.
-        Default: `"x"`.
-    nbins : int, optional
+    nbins : int, optional (default=100)
         Number of depth bins. Depth range determined from `path_debris` defect positions.
-        Default: `100`.
+    depth_offset : float, optional (default=0.0)
+        Offset to add to the depth values.
     """
 
     # Get materials
@@ -114,9 +114,8 @@ def read_dpa_1d(path_db: Path, axis: str = "x") -> dict[str, np.ndarray]:
     ----------
     path_db : Path
         Path to the SQLite database file.
-    axis : str, optional
+    axis : str, optional (default="x")
         Axis along which the histogram was computed. It can be `"x"`, `"y"`, or `"z"`.
-        Default: `"x"`.
 
     Returns
     -------
@@ -146,21 +145,20 @@ def plot_dpa_1d(
     ----------
     path_db : Path
         Path to the database file.
-    path_plot : Path, optional
-        Output path for the plot, by default None. If None, the plot is shown.
-    path_fit : Path, optional
-        Output path for the fit parameters, by default None.
-    axis : str, optional
+    path_plot : Path, optional (default=None)
+        Output path for the plot. If None, the plot is shown.
+    path_fit : Path, optional (default=None)
+        Output path for the fit parameters.
+    axis : str, optional (default="x")
         Axis along which the histogram was computed. It can be `"x"`, `"y"`, or `"z"`.
-        Default: `"x"`.
-    depth_offset : float, optional
-        Offset to add to the depth values. Default: `0.0`.
-    dpi : int, optional
-        Dots per inch, by default 300.
-    p0 : float, optional
-        Initial guess of fit parameters, by default None.
-    asymmetry : float, optional
-        Asymmetry fit parameter bound, by default 1.0.
+    depth_offset : float, optional (default=0.0)
+        Offset to add to the depth values.
+    dpi : int, optional (default=300)
+        Dots per inch.
+    p0 : float, optional (default=None)
+        Initial guess of fit parameters.
+    asymmetry : float, optional (default=1.0)
+        Asymmetry fit parameter bound.
     """
 
     data = read_dpa_1d(path_db, axis=axis)

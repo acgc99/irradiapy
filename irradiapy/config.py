@@ -6,11 +6,11 @@ import matplotlib.pyplot as plt
 
 # region General
 
-#: str: Default format for integers in output files.
+#: str: Format for integers in output files.
 INT_FORMAT = "%d"
-#: str: Default format for floats in output files.
+#: str: Format for floats in output files.
 FLOAT_FORMAT = "%g"
-#: str: Default encoding for text files.
+#: str: Encoding for text files.
 ENCODING = "utf-8"
 #: list[str]: List of atom fields to exclude from output in LAMMPS files.
 EXCLUDED_ITEMS = ["xs", "ys", "zs"]
@@ -23,9 +23,9 @@ def use_style(latex: bool = False) -> None:
 
     Parameters
     ----------
-    latex : bool, optional
-        If True, use LaTeX for text rendering in plots (slower). Default is False. I might require
-        other software to be installed on your system.
+    latex : bool, optional (default=False)
+        If True, use LaTeX for text rendering in plots (slower). I might require other software to
+        be installed on your system.
     """
     if latex:
         plt.style.use("irradiapy.styles.latex")

@@ -114,11 +114,11 @@ class SRIMDB(sqlite3.Connection):
         ----------
         path_db : Path
             Output database path.
-        target : Target, optional
-            SRIM target. Do not provide this argument for read only. By default None.
-        calculation : Calculation, optional
-            SRIM calculation. Do not provide this argument for read only. By default None.
-        check_interval : float
+        target : Target, optional (default=None)
+            SRIM target. Do not provide this argument for read only.
+        calculation : Calculation, optional (default=None)
+            SRIM calculation. Do not provide this argument for read only.
+        check_interval : float, optional (default=0.2)
             Interval to check for SRIM window/popups.
         """
         super().__init__(self.path_db)
@@ -799,8 +799,8 @@ class SRIMDB(sqlite3.Connection):
             Ion initial y directions.
         coszs : np.ndarray, optional
             Ion initial z directions.
-        iter_max : int, optional
-            Maximum number of iterations, by default None.
+        iter_max : int, optional (default=None)
+            Maximum number of iterations.
         """
         if ignore_32bit_warning:
             warnings.filterwarnings(
