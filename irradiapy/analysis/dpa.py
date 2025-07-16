@@ -9,7 +9,7 @@ from numpy import typing as npt
 
 from irradiapy import materials, utils
 from irradiapy.io import LAMMPSReader
-from irradiapy.srimpy import SRIMDB
+from irradiapy.srim import SRIMDB
 
 # region Histograms
 

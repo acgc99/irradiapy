@@ -38,7 +38,8 @@ class BZIP2LAMMPSReader:
         self.file = bz2.open(self.file_path, mode="rt", encoding=self.encoding)
 
     def __del__(self) -> None:
-        self.file.close()
+        if self.file is not None:
+            self.file.close()
 
     def __iter__(
         self,
