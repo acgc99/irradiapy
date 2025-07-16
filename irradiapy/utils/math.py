@@ -5,6 +5,7 @@
 from typing import Callable
 
 import numpy as np
+from numpy import typing as npt
 from scipy.optimize import curve_fit
 
 
@@ -42,17 +43,17 @@ def repeated_prime_factors(n: int) -> list[int]:
 
 
 def lorentzian(
-    xs: np.ndarray,
+    xs: npt.NDArray[np.float64],
     x_peak: float,
     linewidth: float,
     amplitude: float,
     asymmetry: float,
-) -> float | np.ndarray:
+) -> float | npt.NDArray[np.float64]:
     """Evaluate a Lorentzian function.
 
     Parameters
     ----------
-    xs : np.ndarray
+    xs : npt.NDArray[np.float64]
         Where to evaluate the function.
     x_peak : float
         Position with maximum value.
@@ -65,7 +66,7 @@ def lorentzian(
 
     Returns
     -------
-    float | np.ndarray
+    float | npt.NDArray[np.float64]
         Evaluated Lorentzian function.
 
     References
@@ -82,31 +83,35 @@ def lorentzian(
 
 
 def fit_lorentzian(
-    xs: np.ndarray,
-    ys: np.ndarray,
-    p0: None | np.ndarray = None,
+    xs: npt.NDArray[np.float64],
+    ys: npt.NDArray[np.float64],
+    p0: None | npt.NDArray[np.float64] = None,
     asymmetry: float = 1.0,
-) -> tuple[np.ndarray, np.ndarray, Callable[[np.ndarray], np.ndarray]]:
+) -> tuple[
+    npt.NDArray[np.float64],
+    npt.NDArray[np.float64],
+    Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]],
+]:
     """Fit data to a Lorentzian function.
 
     Parameters
     ----------
-    xs : np.ndarray
+    xs : npt.NDArray[np.float64]
         X values where the function is evaluated.
-    ys : np.ndarray
+    ys : npt.NDArray[np.float64]
         Y values at the given xs.
-    p0 : np.ndarray, optional (default=None)
+    p0 : npt.NDArray[np.float64], optional (default=None)
         Initial guess of fit parameters. If None, a guess is generated.
     asymmetry : float, optional (default=1.0)
         Bound for the asymmetry fit parameter. Fit will be done in (-asymmetry, asymmetry).
 
     Returns
     -------
-    popt : np.ndarray
+    popt : npt.NDArray[np.float64]
         Optimal values for the parameters.
-    pcov : np.ndarray
+    pcov : npt.NDArray[np.float64]
         Covariance of popt.
-    fit_function : Callable[[np.ndarray], np.ndarray]
+    fit_function : Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]
         Function that evaluates the fitted Lorentzian.
     """
     if p0 is None:
@@ -136,7 +141,7 @@ def fit_lorentzian(
         ),
     )
 
-    def fit_function(xs_fit: np.ndarray) -> np.ndarray:
+    def fit_function(xs_fit: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         return lorentzian(xs_fit, *popt)
 
     return popt, pcov, fit_function
@@ -146,17 +151,17 @@ def fit_lorentzian(
 
 
 def gaussian(
-    xs: np.ndarray,
+    xs: npt.NDArray[np.float64],
     x_peak: float,
     linewidth: float,
     amplitude: float,
     asymmetry: float,
-) -> float | np.ndarray:
+) -> float | npt.NDArray[np.float64]:
     """Evaluate a Gaussian function.
 
     Parameters
     ----------
-    xs : np.ndarray
+    xs : npt.NDArray[np.float64]
         Where to evaluate the function.
     x_peak : float
         Position with maximum value.
@@ -169,7 +174,7 @@ def gaussian(
 
     Returns
     -------
-    float | np.ndarray
+    float | npt.NDArray[np.float64]
         Evaluated Gaussian function.
 
     References
@@ -186,31 +191,35 @@ def gaussian(
 
 
 def fit_gaussian(
-    xs: np.ndarray,
-    ys: np.ndarray,
-    p0: None | np.ndarray = None,
+    xs: npt.NDArray[np.float64],
+    ys: npt.NDArray[np.float64],
+    p0: None | npt.NDArray[np.float64] = None,
     asymmetry: float = 1.0,
-) -> tuple[np.ndarray, np.ndarray, Callable[[np.ndarray], np.ndarray]]:
+) -> tuple[
+    npt.NDArray[np.float64],
+    npt.NDArray[np.float64],
+    Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]],
+]:
     """Fit data to a Gaussian function.
 
     Parameters
     ----------
-    xs : np.ndarray
+    xs : npt.NDArray[np.float64]
         X values where the function is evaluated.
-    ys : np.ndarray
+    ys : npt.NDArray[np.float64]
         Y values at the given xs.
-    p0 : np.ndarray, optional (default=None)
+    p0 : npt.NDArray[np.float64], optional (default=None)
         Initial guess of fit parameters. If None, a guess is generated.
     asymmetry : float, optional (default=1.0)
         Bound for the asymmetry fit parameter. Fit will be done in (-asymmetry, asymmetry).
 
     Returns
     -------
-    popt : np.ndarray
+    popt : npt.NDArray[np.float64]
         Optimal values for the parameters.
-    pcov : np.ndarray
+    pcov : npt.NDArray[np.float64]
         Covariance of popt.
-    fit_function : Callable[[np.ndarray], np.ndarray]
+    fit_function : Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]
         Function that evaluates the fitted Gaussian.
     """
     if p0 is None:
@@ -240,7 +249,7 @@ def fit_gaussian(
         ),
     )
 
-    def fit_function(xs_fit: np.ndarray) -> np.ndarray:
+    def fit_function(xs_fit: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         return gaussian(xs_fit, *popt)
 
     return popt, pcov, fit_function
@@ -249,12 +258,14 @@ def fit_gaussian(
 # region Power law
 
 
-def scaling_law(x: np.ndarray, a: float, s: float) -> np.ndarray:
+def scaling_law(
+    x: npt.NDArray[np.float64], a: float, s: float
+) -> npt.NDArray[np.float64]:
     """Evaluate the scaling law function a / x**s.
 
     Parameters
     ----------
-    x : np.ndarray
+    x : npt.NDArray[np.float64]
         Input values.
     a : float
         Prefactor.
@@ -263,22 +274,22 @@ def scaling_law(x: np.ndarray, a: float, s: float) -> np.ndarray:
 
     Returns
     -------
-    np.ndarray
+    npt.NDArray[np.float64]
         Evaluated scaling law.
     """
     return a / x**s
 
 
 def fit_scaling_law(
-    centers: np.ndarray, counts: np.ndarray
-) -> tuple[float, float, Callable[[np.ndarray], np.ndarray]]:
+    centers: npt.NDArray[np.float64], counts: npt.NDArray[np.float64]
+) -> tuple[float, float, Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]]:
     """Fit a scaling law to the given histogram data.
 
     Parameters
     ----------
-    centers : np.ndarray
+    centers : npt.NDArray[np.float64]
         The centers of the bins.
-    counts : np.ndarray
+    counts : npt.NDArray[np.float64]
         The values of the histogram.
 
     Returns
@@ -291,7 +302,7 @@ def fit_scaling_law(
     a, s = popt
     a, s = 10.0**a, -s
 
-    def fit_function(x: np.ndarray) -> np.ndarray:
+    def fit_function(x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         return scaling_law(x, a, s)
 
     return a, s, fit_function

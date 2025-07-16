@@ -5,6 +5,7 @@ import sqlite3
 from pathlib import Path
 
 import numpy as np
+from numpy import typing as npt
 
 
 def insert_array(path_db: Path, name: str, **kargs) -> None:
@@ -35,7 +36,7 @@ def insert_array(path_db: Path, name: str, **kargs) -> None:
     conn.close()
 
 
-def read_array(path_db: Path, name: str) -> dict[str, np.ndarray]:
+def read_array(path_db: Path, name: str) -> dict[str, npt.NDArray]:
     """Read an array from the arrays table.
 
     Parameters
@@ -47,7 +48,7 @@ def read_array(path_db: Path, name: str) -> dict[str, np.ndarray]:
 
     Returns
     -------
-    dict[str, np.ndarray]
+    dict[str, npt.NDArray]
         Dictionary containing the array data.
     """
     conn = sqlite3.connect(path_db)

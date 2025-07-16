@@ -5,6 +5,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.lines import Line2D
+from numpy import typing as npt
 
 from irradiapy import materials, utils
 from irradiapy.io import LAMMPSReader
@@ -107,7 +108,7 @@ def get_dpa_1d(
     )
 
 
-def read_dpa_1d(path_db: Path, axis: str = "x") -> dict[str, np.ndarray]:
+def read_dpa_1d(path_db: Path, axis: str = "x") -> dict[str, npt.NDArray[np.float64]]:
     """Read the 1D dpa histogram from the database.
 
     Parameters
@@ -119,7 +120,7 @@ def read_dpa_1d(path_db: Path, axis: str = "x") -> dict[str, np.ndarray]:
 
     Returns
     -------
-    dict[str, np.ndarray]
+    dict[str, npt.NDArray[np.float64]]
         A dictionary containing the 1D dpa histogram data.
     """
     data = utils.sqlite.read_array(path_db, f"dpa_1D_{axis}")

@@ -10,6 +10,7 @@ from typing import Any, Dict, Generator, TextIO, Tuple, Type
 
 import numpy as np
 from mpi4py import MPI
+from numpy import typing as npt
 
 from irradiapy.utils.mpi import (
     MPIExceptionHandlerMixin,
@@ -119,7 +120,7 @@ class LAMMPSReaderMPI(MPIExceptionHandlerMixin):
         return data
 
     @mpi_safe_method
-    def __iter__(self) -> Generator[Tuple[Dict[str, Any], np.ndarray], None, None]:
+    def __iter__(self) -> Generator[Tuple[Dict[str, Any], npt.NDArray], None, None]:
         while True:
             # header broadcast
             data = self.comm.bcast(

@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
+from numpy import typing as npt
 from numpy.lib.recfunctions import structured_to_unstructured as str2unstr
 from scipy.spatial.transform import Rotation
 from sklearn.decomposition import PCA
@@ -47,7 +48,7 @@ class DamageDB:
     __rng: np.random.Generator = field(init=False)
     __calc_nd: callable = field(init=False)
     __files: dict[float, list[Path]] = field(init=False)
-    __energies: np.ndarray = field(init=False)
+    __energies: npt.NDArray[np.float64] = field(init=False)
     __nenergies: int = field(init=False)
 
     def __post_init__(self) -> None:
@@ -101,23 +102,26 @@ class DamageDB:
         return debris_files, nfp
 
     def get_pka_debris(
-        self, pka_e: float, pka_pos: np.ndarray, pka_dir: np.ndarray
-    ) -> np.ndarray:
+        self,
+        pka_e: float,
+        pka_pos: npt.NDArray[np.float64],
+        pka_dir: npt.NDArray[np.float64],
+    ) -> dtypes.Defect:
         """Get PKA debris from its energy position, and direction.
 
         Parameters
         ----------
         pka_e : float
             PKA energy.
-        pka_pos : np.ndarray
+        pka_pos : npt.NDArray[np.float64]
             PKA position.
-        pka_dir : np.ndarray
+        pka_dir : npt.NDArray[np.float64]
             PKA direction.
 
         Returns
         -------
 
-        np.ndarray
+        dtypes.Defect
             Defects after the cascades.
         """
         files, nfp = self.__get_files(pka_e)
@@ -149,9 +153,9 @@ class DamageDB:
         self,
         files: dict,
         db_emax: float,
-        pka_pos: np.ndarray,
-        pka_dir: np.ndarray,
-    ) -> np.ndarray:
+        pka_pos: npt.NDArray[np.float64],
+        pka_dir: npt.NDArray[np.float64],
+    ) -> dtypes.Defect:
         """Process the highest energy cascade.
 
         Parameters
@@ -160,14 +164,14 @@ class DamageDB:
             Dictionary of files for each energy.
         db_emax : float
             Energy of the highest energy cascade.
-        pka_pos : np.ndarray
+        pka_pos : npt.NDArray[np.float64]
             PKA position.
-        pka_dir : np.ndarray
+        pka_dir : npt.NDArray[np.float64]
             PKA direction.
 
         Returns
         -------
-        np.ndarray
+        dtypes.Defect
             Defects after the highest energy cascade.
         """
         file = files[db_emax][0]
@@ -189,23 +193,23 @@ class DamageDB:
     def __place_other_debris(
         self,
         files: dict,
-        defects: np.ndarray,
-        parallelepiped: tuple[PCA, np.ndarray, np.ndarray],
-    ) -> np.ndarray:
+        defects: dtypes.Defect,
+        parallelepiped: tuple[PCA, npt.NDArray, npt.NDArray],
+    ) -> dtypes.Defect:
         """Place other debris in the parallelepiped.
 
         Parameters
         ----------
         files : dict
             Dictionary of files for each energy.
-        defects : np.ndarray
+        defects : dtypes.Defect
             Defects after the highest energy cascade.
-        parallelepiped : tuple[PCA, np.ndarray, np.ndarray]
+        parallelepiped : tuple[PCA, npt.NDArray, npt.NDArray]
             Parallelepiped definition.
 
         Returns
         -------
-        np.ndarray
+        dtypes.Defect
             Defects after placing the other debris.
         """
         for energy in self.__energies:
@@ -229,24 +233,24 @@ class DamageDB:
 
     def __place_fps_in_parallelepiped(
         self,
-        defects: np.ndarray,
+        defects: dtypes.Defect,
         nfp: int,
-        parallelepiped: tuple[PCA, np.ndarray, np.ndarray],
-    ) -> np.ndarray:
+        parallelepiped: tuple[PCA, npt.NDArray, npt.NDArray],
+    ) -> dtypes.Defect:
         """Place FPs anywhere in the parallelepiped.
 
         Parameters
         ----------
-        defects : np.ndarray
+        defects : dtypes.Defect
             Defects after placing the other debris.
         nfp : int
             Number of FPs.
-        parallelepiped : tuple[PCA, np.ndarray, np.ndarray]
+        parallelepiped : tuple[PCA, npt.NDArray, npt.NDArray]
             Parallelepiped definition.
 
         Returns
         -------
-        np.ndarray
+        dtypes.Defect
             Defects after placing the FPs.
         """
         defects_ = np.zeros(2 * nfp, dtype=dtypes.defect)
@@ -265,22 +269,25 @@ class DamageDB:
         return np.concatenate((defects, defects_))
 
     def __place_fps_in_sphere(
-        self, nfp: int, pka_pos: np.ndarray, pka_dir: np.ndarray
-    ) -> np.ndarray:
+        self,
+        nfp: int,
+        pka_pos: npt.NDArray[np.float64],
+        pka_dir: npt.NDArray[np.float64],
+    ) -> dtypes.Defect:
         """Generate FPs in a sphere.
 
         Parameters
         ----------
         nfp : int
             Number of FPs.
-        pka_pos : np.ndarray
+        pka_pos : npt.NDArray[np.float64]
             PKA position.
-        pka_dir : np.ndarray
+        pka_dir : npt.NDArray[np.float64]
             PKA direction.
 
         Returns
         -------
-        np.ndarray
+        dtypes.Defect
             Defects after generating.
         """
         defects_ = np.zeros(2 * nfp, dtype=dtypes.defect)
@@ -309,13 +316,13 @@ class DamageDB:
 
         return defects_
 
-    def __get_parallelepiped(self, atoms: np.ndarray) -> tuple:
+    def __get_parallelepiped(self, atoms: dtypes.Atom) -> tuple:
         """
         Define a parallelepiped from the atomic positions using PCA.
 
         Parameters
         ----------
-        atoms : np.ndarray
+        atoms : dtypes.Atom
             Atomic positions.
 
         Returns
@@ -334,10 +341,10 @@ class DamageDB:
     def __get_parallelepiped_points(
         self,
         pca: PCA,
-        min_pca: np.ndarray,
-        max_pca: np.ndarray,
+        min_pca: npt.NDArray[np.float64],
+        max_pca: npt.NDArray[np.float64],
         npoints: int,
-    ) -> np.ndarray:
+    ) -> npt.NDArray[np.float64]:
         """
         Generate random points within a parallelepiped.
 
@@ -345,16 +352,16 @@ class DamageDB:
         ----------
         pca : PCA
             PCA object.
-        min_pca : np.ndarray
+        min_pca : npt.NDArray[np.float64]
             Minimum PCA coordinates.
-        max_pca : np.ndarray
+        max_pca : npt.NDArray[np.float64]
             Maximum PCA coordinates.
         npoints : int
             Number of points to generate.
 
         Returns
         -------
-        np.ndarray
+        npt.NDArray[np.float64]
             Random points within the parallelepiped.
         """
         random_points_pca = self.__rng.uniform(min_pca, max_pca, size=(npoints, 3))

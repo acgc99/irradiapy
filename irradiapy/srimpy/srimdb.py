@@ -15,6 +15,7 @@ from types import TracebackType
 from typing import Callable
 
 import numpy as np
+from numpy import typing as npt
 
 from irradiapy import config, dtypes, materials
 from irradiapy.srimpy.ofiles.backscat import Backscat
@@ -574,8 +575,8 @@ class SRIMDB(sqlite3.Connection):
 
     def generate_trimin(
         self,
-        atomic_numbers: np.ndarray,
-        energies: np.ndarray,
+        atomic_numbers: npt.NDArray[np.int32],
+        energies: npt.NDArray[np.float64],
         target: Target,
     ) -> None:
         """Generates `TRIM.IN` file."""
@@ -632,39 +633,39 @@ class SRIMDB(sqlite3.Connection):
 
     def generate_trimdat(
         self,
-        atomic_numbers: np.ndarray,
-        energies: np.ndarray,
-        depths: None | np.ndarray = None,
-        ys: None | np.ndarray = None,
-        zs: None | np.ndarray = None,
-        cosxs: None | np.ndarray = None,
-        cosys: None | np.ndarray = None,
-        coszs: None | np.ndarray = None,
-    ) -> np.ndarray:
+        atomic_numbers: npt.NDArray[np.int32],
+        energies: npt.NDArray[np.float64],
+        depths: None | npt.NDArray[np.float64] = None,
+        ys: None | npt.NDArray[np.float64] = None,
+        zs: None | npt.NDArray[np.float64] = None,
+        cosxs: None | npt.NDArray[np.float64] = None,
+        cosys: None | npt.NDArray[np.float64] = None,
+        coszs: None | npt.NDArray[np.float64] = None,
+    ) -> npt.NDArray[np.float64]:
         """Generates `TRIM.DAT` file.
 
         Parameters
         ----------
-        atomic_numbers : np.ndarray
+        atomic_numbers : npt.NDArray[np.int32]
             Atomic numbers.
-        energies : np.ndarray
+        energies : npt.NDArray[np.float64]
             Energies.
-        depths : np.ndarray, optional
+        depths : npt.NDArray[np.float64], optional
             Depths.
-        ys : np.ndarray, optional
+        ys : npt.NDArray[np.float64], optional
             Y positions.
-        zs : np.ndarray, optional
+        zs : npt.NDArray[np.float64], optional
             Z positions.
-        cosxs : np.ndarray, optional
+        cosxs : npt.NDArray[np.float64], optional
             X directions.
-        cosys : np.ndarray, optional
+        cosys : npt.NDArray[np.float64], optional
             Y directions.
-        coszs : np.ndarray, optional
+        coszs : npt.NDArray[np.float64], optional
             Z directions.
 
         Returns
         -------
-        np.ndarray
+        npt.NDArray[np.float64]
             `TRIM.DAT` data.
         """
         trimdat_path = self.dir_srim / "TRIM.DAT"
@@ -759,15 +760,15 @@ class SRIMDB(sqlite3.Connection):
     def run(
         self,
         criterion: Callable,
-        atomic_numbers: np.ndarray,
-        energies: np.ndarray,
+        atomic_numbers: npt.NDArray[np.int32],
+        energies: npt.NDArray[np.float64],
         remove_offsets: bool,
-        depths: None | np.ndarray = None,
-        ys: None | np.ndarray = None,
-        zs: None | np.ndarray = None,
-        cosxs: None | np.ndarray = None,
-        cosys: None | np.ndarray = None,
-        coszs: None | np.ndarray = None,
+        depths: None | npt.NDArray[np.float64] = None,
+        ys: None | npt.NDArray[np.float64] = None,
+        zs: None | npt.NDArray[np.float64] = None,
+        cosxs: None | npt.NDArray[np.float64] = None,
+        cosys: None | npt.NDArray[np.float64] = None,
+        coszs: None | npt.NDArray[np.float64] = None,
         iter_max: None | int = None,
         ignore_32bit_warning: bool = True,
     ) -> None:
@@ -781,23 +782,23 @@ class SRIMDB(sqlite3.Connection):
             `criterion(nion, energy, depth, y, z, se, atom_hit,
             pka_e, target_disp)`.
             Recommended to be defined as `def criterion(**kwargs: dict) -> bool:`.
-        atomic_numbers : np.ndarray
+        atomic_numbers : npt.NDArray[np.int32]
             Ion atomic numbers.
-        energies : np.ndarray
+        energies : npt.NDArray[np.float64]
             Ion energies.
         remove_offsets : bool
             Whether to remove initial depth offsets or not.
-        depths : np.ndarray, optional
+        depths : npt.NDArray[np.float64], optional
             Ion initial depths.
-        ys : np.ndarray, optional
+        ys : npt.NDArray[np.float64], optional
             Ion initial y positions.
-        zs : np.ndarray, optional
+        zs : npt.NDArray[np.float64], optional
             Ion initial z positions.
-        cosxs : np.ndarray, optional
+        cosxs : npt.NDArray[np.float64], optional
             Ion initial x directions.
-        cosys : np.ndarray, optional
+        cosys : npt.NDArray[np.float64], optional
             Ion initial y directions.
-        coszs : np.ndarray, optional
+        coszs : npt.NDArray[np.float64], optional
             Ion initial z directions.
         iter_max : int, optional (default=None)
             Maximum number of iterations.
@@ -904,15 +905,15 @@ class SRIMDB(sqlite3.Connection):
     def _run_iter(
         self,
         target: Target,
-        atomic_numbers: np.ndarray,
-        energies: np.ndarray,
-        depths: None | np.ndarray = None,
-        ys: None | np.ndarray = None,
-        zs: None | np.ndarray = None,
-        cosxs: None | np.ndarray = None,
-        cosys: None | np.ndarray = None,
-        coszs: None | np.ndarray = None,
-    ) -> np.ndarray:
+        atomic_numbers: npt.NDArray[np.int32],
+        energies: npt.NDArray[np.float64],
+        depths: None | npt.NDArray[np.float64] = None,
+        ys: None | npt.NDArray[np.float64] = None,
+        zs: None | npt.NDArray[np.float64] = None,
+        cosxs: None | npt.NDArray[np.float64] = None,
+        cosys: None | npt.NDArray[np.float64] = None,
+        coszs: None | npt.NDArray[np.float64] = None,
+    ) -> dtypes.Trimdat:
         """Runs SRIM for a single iteration.
 
         Parameters
@@ -921,26 +922,26 @@ class SRIMDB(sqlite3.Connection):
             Target material.
         calculation : Calculation
             Calculation parameters.
-        atomic_numbers : np.ndarray
+        atomic_numbers : npt.NDArray[np.int32]
             Ion atomic numbers.
-        energies : np.ndarray
+        energies : npt.NDArray[np.float64]
             Ion energies.
-        depths : np.ndarray, optional
+        depths : npt.NDArray[np.float64], optional
             Ion initial depths.
-        ys : np.ndarray, optional
+        ys : npt.NDArray[np.float64], optional
             Ion initial y positions.
-        zs : np.ndarray, optional
+        zs : npt.NDArray[np.float64], optional
             Ion initial z positions.
-        cosxs : np.ndarray, optional
+        cosxs : npt.NDArray[np.float64], optional
             Ion initial x directions.
-        cosys : np.ndarray, optional
+        cosys : npt.NDArray[np.float64], optional
             Ion initial y directions.
-        coszs : np.ndarray, optional
+        coszs : npt.NDArray[np.float64], optional
             Ion initial z directions.
 
         Returns
         -------
-        dtypes.trimdat
+        dtypes.Trimdat
             `TRIM.DAT` data.
         """
         self.__generate_trimauto()
@@ -994,13 +995,15 @@ class SRIMDB(sqlite3.Connection):
         if self.calculation in ["full", "mono"]:
             self.append_novac(self.dir_srim / "NOVAC.txt")
 
-    def _get_dir(self, pos0: np.ndarray, pos: np.ndarray) -> np.ndarray:
+    def _get_dir(
+        self, pos0: npt.NDArray[np.float64], pos: npt.NDArray[np.float64]
+    ) -> npt.NDArray[np.float64]:
         """Gets the direction from two positions.
 
         Parameters
-        pos0 : np.ndarray
+        pos0 : npt.NDArray[np.float64]
             Initial position.
-        pos : np.ndarray
+        pos : npt.NDArray[np.float64]
             Final position.
         """
         diff = pos - pos0
@@ -1076,9 +1079,9 @@ class SRIMDB(sqlite3.Connection):
     def _filter_subcollisions(
         self,
         cur: sqlite3.Cursor,
-        nions: int | np.int64,
-        trimdat: np.ndarray,
-        nsubcollisions0: np.ndarray,
+        nions: int | np.int32,
+        trimdat: dtypes.Trimdat,
+        nsubcollisions0: npt.NDArray[np.int32],
         criterion: Callable,
     ) -> tuple:
         """Filters subcollisions.
@@ -1087,11 +1090,11 @@ class SRIMDB(sqlite3.Connection):
         ----------
         cur : sqlite3.Cursor
             Database cursor.
-        nions : int | np.int64
+        nions : int | np.int32
             Number of ions.
-        trimdat : dtypes.trimdat
+        trimdat : dtypes.Trimdat
             TRIMDAT data.
-        nsubcollisions0 : np.ndarray
+        nsubcollisions0 : npt.NDArray[np.int32]
             Initial number of subcollisions.
         criterion : Callable
             Criterion to repeat calculation, must return False to repeat calculation.
@@ -1107,7 +1110,7 @@ class SRIMDB(sqlite3.Connection):
             [],
             [],
         )
-        nsubcollisions = np.zeros(nions, dtype=int)
+        nsubcollisions = np.zeros(nions, dtype=np.int32)
         for nion in range(nions):
             nsubcollision_min = 0 if nion == 0 else nsubcollision_max
             nsubcollision_max = nsubcollision_min + nsubcollisions0[nion]

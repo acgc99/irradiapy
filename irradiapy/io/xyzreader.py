@@ -38,7 +38,7 @@ class XYZReader:
 
         Yields
         ------
-        np.ndarray
+        npt.NDArray
             Array of atom data for each subfile.
         """
         while True:

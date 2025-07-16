@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any, Generator
 
 import numpy as np
+from numpy import typing as npt
 
 
 @dataclass
@@ -29,7 +30,7 @@ class LAMMPSLogReader:
 
     path_log: Path
     data: dict = field(default_factory=lambda: {"thermo": None}, init=False)
-    thermo: np.ndarray = field(
+    thermo: npt.NDArray[np.float64] = field(
         default_factory=lambda: np.empty(0, dtype=np.dtype([])), init=False
     )
 
@@ -43,7 +44,7 @@ class LAMMPSLogReader:
 
         Returns
         -------
-        np.ndarray
+        npt.NDArray
             The data as a structured array.
         """
         self.__reset()

@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from enum import Enum, auto
 
 import numpy as np
+from numpy import typing as npt
 
 # pylint: disable=unused-import
 from irradiapy.srimpy.target import element as srim_element
@@ -152,36 +153,34 @@ class Material:
 
     def tdam_to_dpa(
         self,
-        tdam: int | float | np.ndarray,
+        tdam: float | npt.NDArray[np.float64],
         mode: DpaMode = DpaMode.FERARC,
-    ) -> int | np.ndarray:
+    ) -> int | npt.NDArray[np.float64]:
         """Convert damage energy to dpa.
 
         Parameters
         ----------
-        tdam : int | float | numpy.ndarray
+        tdam : float | npt.NDArray[np.float64]
             Damage energy, in eV.
         mode : Material.DpaMode, optional
             Mode for dpa calculation. Can be one of `Material.DpaMode.NRT`, `Material.DpaMode.ARC`,
             or `Material.DpaMode.FERARC`.
         Returns
         -------
-        int | numpy.ndarray
+        float | npt.NDArray[np.float64]
             Number of Frenkel pairs predicted by the specified dpa mode.
         """
         if mode == Material.DpaMode.FERARC:
             return self.calc_fer_arc_dpa(tdam)
         elif mode == Material.DpaMode.ARC:
             return self.calc_arc_dpa(tdam)
-        else:  # if mode == Material.DpaMode.NRT:
+        else:
             return self.calc_nrt_dpa(tdam)
-        # else:
-        #     raise ValueError("Invalid dpa calculation mode.")
 
     def calc_nrt_dpa(
         self,
-        tdam: int | float | np.ndarray,
-    ) -> int | np.ndarray:
+        tdam: float | npt.NDArray[np.float64],
+    ) -> float | npt.NDArray[np.float64]:
         """Calculate the NRT-dpa for the given damage energy.
 
         Parameters
@@ -216,18 +215,18 @@ class Material:
 
     def calc_arc_dpa(
         self,
-        tdam: int | float | np.ndarray,
-    ) -> int | np.ndarray:
+        tdam: float | npt.NDArray[np.float64],
+    ) -> float | npt.NDArray[np.float64]:
         """Calculate the arc-dpa for the given damage energy in eV.
 
         Parameters
         ----------
-        tdam : int | float | numpy.ndarray
+        tdam : float | npt.NDArray[np.float64]
             Damage energy in electron volts.
 
         Returns
         -------
-        int | numpy.ndarray
+        float | npt.NDArray[np.float64]
             Number of Frenkel pairs predicted by arc-dpa.
         """
         min_threshold = self.ed_avr
@@ -258,18 +257,18 @@ class Material:
 
     def calc_fer_arc_dpa(
         self,
-        tdam: int | float | np.ndarray,
-    ) -> int | np.ndarray:
+        tdam: float | npt.NDArray[np.float64],
+    ) -> float | npt.NDArray[np.float64]:
         """Calculate the fer-arc-dpa for the given damage energy.
 
         Parameters
         ----------
-        tdam : int | float | numpy.ndarray
+        tdam : float | npt.NDArray[np.float64]
             Damage energy, in eV.
 
         Returns
         -------
-        int | numpy.ndarray
+        float | npt.NDArray[np.float64]
             Number of Frenkel pairs predicted by modified arc-dpa.
         """
         min_threshold = self.ed_min
@@ -305,18 +304,18 @@ class Material:
 
     @staticmethod
     def __apply_dpa_thresholds(
-        tdam: np.ndarray,
+        tdam: npt.NDArray[np.float64],
         min_threshold: float,
         max_threshold: float,
         scaling_func: callable,
         efficiency_func: callable = None,
         middle_func: callable = None,
-    ):
+    ) -> npt.NDArray[np.float64]:
         """Apply dpa thresholds and scaling/efficiency functions.
 
         Parameters
         ----------
-        tdam : np.ndarray
+        tdam : npt.NDArray[np.float64]
             Damage energy array.
         min_threshold : float
             Minimum threshold for dpa.
@@ -331,7 +330,7 @@ class Material:
 
         Returns
         -------
-        np.ndarray
+        npt.NDArray[np.float64]
             Array of dpa values.
         """
         result = np.ones_like(tdam, dtype=np.float64)

@@ -8,7 +8,7 @@ import numpy.typing as npt
 from numpy.lib.recfunctions import structured_to_unstructured as str2unstr
 from scipy.spatial.transform import Rotation as R
 
-import irradiapy as irpy
+from irradiapy import dtypes
 
 
 @dataclass
@@ -85,7 +85,7 @@ class DefectsIdentifier:
 
     def __rescale_translate_rotate(
         self,
-        atoms: npt.NDArray,
+        atoms: dtypes.Atom,
         a1: float | np.number,
         pos_pka: npt.NDArray[np.float64],
         theta_pka: float,
@@ -95,11 +95,11 @@ class DefectsIdentifier:
 
         Parameters
         ----------
-        atoms : np.ndarray
+        atoms : dtypes.Atom
             Structured array of atomic positions (fields: x, y, z).
         a1 : float
             Final lattice parameter to rescale positions.
-        pos_pka : np.ndarray
+        pos_pka : npt.NDArray[np.float64]
             Position vector of the PKA for translation.
         theta_pka : float
             Polar angle (in radians) for the PKA direction (for rotation).
@@ -138,14 +138,14 @@ class DefectsIdentifier:
         atoms["y"] = pos[:, 1]
         atoms["z"] = pos[:, 2]
 
-    def __apply_boundary_conditions(self, idx_atoms: np.ndarray) -> None:
+    def __apply_boundary_conditions(self, idx_atoms: npt.NDArray[np.int32]) -> None:
         """Applies periodic boundary conditions to atomic index coordinates.
 
         Only one unit cell around the simulation box is considered for periodic boundary conditions.
 
         Parameters
         ----------
-        idx_atoms : np.ndarray
+        idx_atoms : npt.NDArray[np.int32]
             Array of atomic positions with index coordinates (shape: [N, 4]).
         """
         if self.__perx:
@@ -192,7 +192,7 @@ class DefectsIdentifier:
 
         Returns
         -------
-        np.ndarray
+        npt.NDArray[np.float64]
             Cartesian coordinates (x, y, z) corresponding to the site ID.
         """
         ix, iy, iz, ia = self.__site_id_to_indices(i)
@@ -203,21 +203,21 @@ class DefectsIdentifier:
 
     def __defect_identification(
         self,
-        data_atoms: np.ndarray,
-        idx_atoms: np.ndarray,
-    ) -> np.ndarray:
+        data_atoms: defaultdict,
+        idx_atoms: npt.NDArray[np.int32],
+    ) -> dtypes.Defect:
         """Identifies defects based on the assignments.
 
         Parameters
         ----------
-        data_atoms : np.ndarray
-            Structured array of atomic coordinates and element types.
-        idx_atoms : np.ndarray
+        data_atoms : defaultdict
+            Dictionary containing simulation data as given by the LAMMPSReader and similar readers.
+        idx_atoms : npt.NDArray[np.int32]
             Array of atomic index coordinates (shape: [N, 4]).
 
         Returns
         -------
-        np.ndarray
+        dtypes.Defect
             Array of defects (structured array with fields: type, x, y, z).
         """
         # Build unique site IDs from idx_atoms
@@ -234,12 +234,12 @@ class DefectsIdentifier:
         split_points = np.cumsum(np.bincount(site_sorted, minlength=nsites))[:-1]
         grouped = np.split(sort_idx, split_points)
 
-        defects = np.empty(0, dtype=irpy.dtypes.defect)
+        defects = np.empty(0, dtype=dtypes.defect)
         for i, grp in enumerate(grouped):
             if len(grp) == 0:
                 # Vacancy
                 vac = np.array(
-                    [(0, *self.__site_id_to_cartesian(i))], dtype=irpy.dtypes.defect
+                    [(0, *self.__site_id_to_cartesian(i))], dtype=dtypes.defect
                 )
                 defects = np.concatenate((defects, vac))
             elif len(grp) > 1:
@@ -252,7 +252,7 @@ class DefectsIdentifier:
                 inters_idx[keep_idx] = False
                 if np.any(inters_idx):
                     count = np.count_nonzero(inters_idx)
-                    inters = np.zeros(count, dtype=irpy.dtypes.defect)
+                    inters = np.zeros(count, dtype=dtypes.defect)
                     inters["type"] = data_atoms["atoms"]["element"][grp][inters_idx]
                     inters["x"] = coords[inters_idx, 0]
                     inters["y"] = coords[inters_idx, 1]
@@ -268,7 +268,7 @@ class DefectsIdentifier:
         theta_pka: None | float = None,
         phi_pka: None | float = None,
         transform: None | bool = False,
-    ) -> np.ndarray:
+    ) -> defaultdict:
         """Identify defects in the crystalline structure based on atomic positions.
 
         Parameters
@@ -280,7 +280,7 @@ class DefectsIdentifier:
         a1 : float, optional
             Final lattice parameter. If provided, defect positions are rescaled to this value
             (independently of the `transform` value).
-        pos_pka : np.ndarray, optional
+        pos_pka : npt.NDArray[np.float64], optional
             Position vector of the PKA. If provided with theta_pka and phi_pka, defects are
             recentered and aligned.
         theta_pka : float, optional
@@ -295,7 +295,7 @@ class DefectsIdentifier:
 
         Returns
         -------
-        data_defects : dict
+        data_defects : defaultdict
             Dictionary containing the defects found in the structure. Keys are the same as in
             `data_atoms`, but the 'atoms' key contains only defects and
             'natoms' reflects the number of defects found.

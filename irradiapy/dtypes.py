@@ -1,6 +1,9 @@
 """Numpy structured array dtypes."""
 
+from typing import Annotated, Any
+
 import numpy as np
+from numpy import typing as npt
 
 # region General
 atom = np.dtype(
@@ -11,6 +14,7 @@ atom = np.dtype(
         ("z", np.float64),
     ]
 )
+Atom = Annotated[npt.NDArray[Any], atom]
 defect = np.dtype(
     [
         ("type", np.int32),
@@ -19,6 +23,7 @@ defect = np.dtype(
         ("z", np.float64),
     ]
 )
+Defect = Annotated[npt.NDArray[Any], defect]
 acluster = np.dtype(
     [
         ("type", np.int32),
@@ -28,6 +33,7 @@ acluster = np.dtype(
         ("cluster", np.int32),
     ]
 )
+Acluster = Annotated[npt.NDArray[Any], acluster]
 ocluster = np.dtype(
     [
         ("type", np.int32),
@@ -37,7 +43,7 @@ ocluster = np.dtype(
         ("size", np.int32),
     ]
 )
-
+Ocluster = Annotated[npt.NDArray[Any], ocluster]
 # region SRIM
 trimdat = np.dtype(
     [
@@ -48,3 +54,4 @@ trimdat = np.dtype(
         ("dir", float, 3),
     ]
 )
+Trimdat = Annotated[npt.NDArray[Any], trimdat]

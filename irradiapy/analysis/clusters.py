@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.gridspec import GridSpec
 from matplotlib.image import NonUniformImage
+from numpy import typing as npt
 
 from irradiapy import dtypes, utils
 from irradiapy.io.lammpsreader import LAMMPSReader
@@ -16,7 +17,9 @@ from irradiapy.io.lammpswriter import LAMMPSWriter
 # region Clustering
 
 
-def clusterize(defects: np.ndarray, cutoff: float) -> tuple[np.ndarray, np.ndarray]:
+def clusterize(
+    defects: dtypes.Atom, cutoff: float
+) -> tuple[dtypes.Acluster, dtypes.Ocluster]:
     """Identify atom clusters.
 
     Note
@@ -27,14 +30,14 @@ def clusterize(defects: np.ndarray, cutoff: float) -> tuple[np.ndarray, np.ndarr
 
     Parameters
     ----------
-    atoms : np.ndarray
+    atoms : dtypes.Atom
         Array of atoms with fields "type", "x", "y", "z".
     cutoff : float
         Cutoff distance for clustering.
 
     Returns
     -------
-    tuple[np.ndarray, np.ndarray]
+    tuple[dtypes.Acluster, dtypes.Ocluster]
         Atomic and object clusters.
     """
     cutoff2 = cutoff**2
@@ -141,17 +144,17 @@ def clusterize_file(
             owriter.write(data_oclusters)
 
 
-def atom_to_object(aclusters: np.ndarray) -> np.ndarray:
+def atom_to_object(aclusters: dtypes.Acluster) -> dtypes.Ocluster:
     """Transform atom clusters into object clusters.
 
     Parameters
     ----------
-    aclusters : np.ndarray
+    aclusters : dtypes.Acluster
         Atomic clusters.
 
     Returns
     -------
-    np.ndarray
+    dtypes.Ocluster
         Object clusters.
     """
     nclusters = np.unique(aclusters["cluster"])
@@ -309,7 +312,7 @@ def get_clusters_1d(
     )
 
 
-def read_clusters_0d(path_db: Path) -> dict[str, np.ndarray]:
+def read_clusters_0d(path_db: Path) -> dict[str, npt.NDArray[np.float64]]:
     """Read the 0D cluster size histogram from the database.
 
     This is useful for cluster analysis and cluster dynamics codes.
@@ -321,7 +324,7 @@ def read_clusters_0d(path_db: Path) -> dict[str, np.ndarray]:
 
     Returns
     -------
-    dict[str, np.ndarray]
+    dict[str, npt.NDArray[np.float64]]
         A dictionary containing:
         - "interstitials": The histogram of interstitial sizes.
         - "vacancies": The histogram of vacancy sizes.
@@ -330,7 +333,9 @@ def read_clusters_0d(path_db: Path) -> dict[str, np.ndarray]:
     return data
 
 
-def read_clusters_1d(path_db: Path, axis: str = "x") -> dict[str, np.ndarray]:
+def read_clusters_1d(
+    path_db: Path, axis: str = "x"
+) -> dict[str, npt.NDArray[np.float64]]:
     """Read the 1D cluster size histogram from the database.
 
     This is useful for cluster analysis and cluster dynamics codes.
@@ -344,7 +349,7 @@ def read_clusters_1d(path_db: Path, axis: str = "x") -> dict[str, np.ndarray]:
 
     Returns
     -------
-    dict[str, np.ndarray]
+    dict[str, npt.NDArray[np.float64]]
         A dictionary containing:
         - "depth_edges": The edges of the depth bins.
         - "interstitials": The histogram of interstitial sizes for each depth bin.
@@ -394,8 +399,8 @@ def plot_size_1d(
     """
 
     def plot(
-        depth_edges: np.ndarray,
-        histogram: np.ndarray,
+        depth_edges: npt.NDArray[np.float64],
+        histogram: npt.NDArray[np.float64],
         title: str,
         path_plot: Path,
         transpose: bool = True,
@@ -696,8 +701,8 @@ def plot_mddb_cluster_size(
             vhist[i] = hist / nfiles[epka]
 
     def plot(
-        hist: np.ndarray,
-        edges: np.ndarray,
+        hist: npt.NDArray[np.float64],
+        edges: npt.NDArray[np.float64],
         max_size: int,
         bin_width: int,
         title: str,

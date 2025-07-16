@@ -87,7 +87,7 @@ class LAMMPSWriterMPI(MPIExceptionHandlerMixin):
 
         Parameters
         ----------
-        atoms_rank : np.ndarray
+        atoms_rank : npt.NDArray
             The atoms_rank array to be converted.
         field_names : list[str]
             The names of the fields in the structured array.

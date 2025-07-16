@@ -8,7 +8,7 @@ import numpy as np
 from matplotlib.gridspec import GridSpec
 from numpy import typing as npt
 
-from irradiapy import materials, utils
+from irradiapy import dtypes, materials, utils
 from irradiapy.analysis.defectsidentifier import DefectsIdentifier
 from irradiapy.io import BZIP2LAMMPSReader, LAMMPSReader, LAMMPSWriter
 
@@ -23,7 +23,7 @@ def identify_defects(
     phi_pka: None | float = None,
     transform: None | bool = False,
     debug: bool = False,
-) -> np.ndarray:
+) -> dtypes.Defect:
     """Identify defects in a given atomic structure.
 
     Parameters
@@ -39,7 +39,7 @@ def identify_defects(
     a1 : float, optional (default=None)
         Final lattice parameter. If provided, defect positions are rescaled to this value
         (independently of the `transform` value).
-    pos_pka : np.ndarray, optional (default=None)
+    pos_pka : npt.NDArray[np.float64], optional (default=None)
         Position vector of the PKA. If provided with theta_pka and phi_pka, defects are
         recentered and aligned.
     theta_pka : float, optional (default=None)
@@ -56,7 +56,7 @@ def identify_defects(
 
     Returns
     -------
-    np.ndarray
+    dtypes.Defect
         An array of identified defects in the structure.
     """
     defects_finder = DefectsIdentifier(lattice=lattice, a0=a0, debug=debug)
@@ -105,7 +105,7 @@ def identify_lammps_dump(
     a1 : float, optional
         Final lattice parameter. If provided, defect positions are rescaled to this value
         (independently of the `transform` value).
-    pos_pka : np.ndarray, optional
+    pos_pka : npt.NDArray[np.float64], optional
         Position vector of the PKA. If provided with theta_pka and phi_pka, defects are
         recentered and aligned.
     theta_pka : float, optional
