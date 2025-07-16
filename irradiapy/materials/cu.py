@@ -3,7 +3,7 @@
 from math import sqrt
 
 from irradiapy.materials.material import Material
-from irradiapy.srimpy.target import element as srim_element
+from irradiapy.srim.target import element as srim_element
 
 Cu = Material(
     atomic_number=29,

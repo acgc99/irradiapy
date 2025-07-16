@@ -7,7 +7,7 @@ import numpy as np
 from numpy import typing as npt
 
 # pylint: disable=unused-import
-from irradiapy.srimpy.target import element as srim_element
+from irradiapy.srim.target import element as srim_element
 
 # pylint: enable=unused-import
 

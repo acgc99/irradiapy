@@ -5,10 +5,10 @@ from typing import TYPE_CHECKING, Generator
 
 import numpy as np
 
-from irradiapy.srimpy.ofiles.srimfile import SRIMFile
+from irradiapy.srim.ofiles.srimfile import SRIMFile
 
 if TYPE_CHECKING:
-    from irradiapy.srimpy.srimdb import SRIMDB
+    from irradiapy.srim.srimdb import SRIMDB
 
 
 class Lateral(SRIMFile):

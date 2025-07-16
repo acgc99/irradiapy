@@ -1,4 +1,4 @@
 """This subpackage provides a Python interface for SRIM for simulating collisional cascades."""
 
-from irradiapy.srimpy import analysis
-from irradiapy.srimpy.srimdb import SRIMDB
+from irradiapy.srim import analysis
+from irradiapy.srim.srimdb import SRIMDB
