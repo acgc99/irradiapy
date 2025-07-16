@@ -1,8 +1,9 @@
 """This module contains the `LAMMPSReader` class."""
 
-from dataclasses import dataclass
+from collections import defaultdict
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Generator, Type, Union
+from typing import Generator, TextIO, Type
 
 import numpy as np
 
@@ -19,13 +20,67 @@ class LAMMPSReader:
     ----------
     file_path : Path
         The path to the LAMMPS dump file.
+    encoding : str, optional (default="utf-8")
+        The file encoding.
     """
 
     file_path: Path
+    encoding: str = "utf-8"
+    file: TextIO = field(default=None, init=False)
+
+    def __post_init__(self) -> None:
+        self.file = open(self.file_path, encoding=self.encoding)
+
+    def __del__(self) -> None:
+        self.file.close()
+
+    def __iter__(
+        self,
+    ) -> Generator[
+        dict,  # Changed from tuple[...] to dict
+        None,
+        None,
+    ]:
+        """Read the file as an iterator, timestep by timestep.
+
+        Yields
+        ------
+        dict
+            A dictionary containing the timestep data with keys:
+            'time' (optional), 'timestep', 'natoms', 'boundary', 'xlo', 'xhi',
+            'ylo', 'yhi', 'zlo', 'zhi', and 'atoms' (as a numpy structured array).
+        """
+        while True:
+            data = defaultdict(None)
+            line = self.file.readline()
+            if not line:
+                break
+            if line == "ITEM: TIME\n":
+                data["time"] = float(self.file.readline())
+                self.file.readline()
+            data["timestep"] = int(self.file.readline())
+            self.file.readline()
+            data["natoms"] = int(self.file.readline())
+            data["boundary"] = self.file.readline().split()[-3:]
+            data["xlo"], data["xhi"] = map(float, self.file.readline().split())
+            data["ylo"], data["yhi"] = map(float, self.file.readline().split())
+            data["zlo"], data["zhi"] = map(float, self.file.readline().split())
+
+            line = self.file.readline()
+            items, types, dtype = self.__get_dtype(line)
+
+            data["atoms"] = np.empty(data["natoms"], dtype=dtype)
+            for i in range(data["natoms"]):
+                line = self.file.readline().split()
+                for j, item in enumerate(items):
+                    data["atoms"][i][item] = types[j](line[j])
+            yield data
+
+        self.file.close()
 
     def __get_dtype(
         self, line: str
-    ) -> tuple[list[str], list[Type[Union[int, float]]], np.dtype]:
+    ) -> tuple[list[str], list[Type[int | float]], np.dtype]:
         """Get the data type of the simulation data.
 
         Parameters
@@ -35,61 +90,18 @@ class LAMMPSReader:
 
         Returns
         -------
-        tuple[list[str], list[Type[Union[int, float]], np.dtype]
+        tuple[list[str], list[Type[int | float]], np.dtype]
             The names of the data items, the types of the data items,
             and the data type.
         """
         items = line.split()[2:]
-        types = [int if item in ["id", "type", "element"] else float for item in items]
+        types = [
+            int if item in ("id", "type", "element", "size") else float
+            for item in items
+        ]
         dtype = np.dtype([(item, type) for item, type in zip(items, types)])
         return items, types, dtype
 
-    def __iter__(
-        self,
-    ) -> Generator[
-        tuple[
-            Union[float, None],
-            int,
-            int,
-            tuple[str, str, str],
-            tuple[float, float],
-            tuple[float, float],
-            tuple[float, float],
-            np.ndarray,
-        ],
-        None,
-        None,
-    ]:
-        """Read the file as an iterator, timestep by timestep.
-
-        Yields
-        ------
-        tuple[int, np.ndarray]
-            The timestep and the data at that timestep.
-        """
-        with open(self.file_path, encoding="utf-8") as file:
-            while True:
-                line = file.readline()
-                if not line:
-                    break
-                time = None
-                if line == "ITEM: TIME\n":
-                    time = float(file.readline())
-                    file.readline()
-                timestep = int(file.readline())
-                file.readline()
-                natoms = int(file.readline())
-                boundary = list(file.readline().split()[-3:])
-                boundary = (boundary[0][0], boundary[1][0], boundary[2][0])
-                dimsx = tuple(map(float, file.readline().split()))
-                dimsy = tuple(map(float, file.readline().split()))
-                dimsz = tuple(map(float, file.readline().split()))
-
-                line = file.readline()
-                items, types, dtype = self.__get_dtype(line)
-                data = np.empty(natoms, dtype=dtype)
-                for i in range(natoms):
-                    line = file.readline().split()
-                    for j, item in enumerate(items):
-                        data[i][item] = types[j](line[j])
-                yield time, timestep, natoms, boundary, dimsx, dimsy, dimsz, data
+    def close(self) -> None:
+        """Close the file associated with this reader."""
+        self.file.close()

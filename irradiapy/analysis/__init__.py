@@ -1,5 +1,3 @@
-"""This subpackage provides a tool for irradiation damage analysis."""
+"""This subpackage provides tools for irradiation damage analysis."""
 
-from irradiapy.analysis import clusters
-from irradiapy.analysis.defectsfinder import DefectsFinder
-from irradiapy.analysis.defectsfinderold import DefectsFinderOld
+from irradiapy.analysis import clusters, defects, dpa

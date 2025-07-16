@@ -1,22 +1,26 @@
-"""This module contains the `LAMMPSWriter` class."""
+"""This module contains the `BZIP2LAMMPSWriter` class."""
 
+import bz2
 from dataclasses import dataclass, field
 from pathlib import Path
-from types import TracebackType
-from typing import TextIO
+from typing import BinaryIO
 
 from irradiapy import config
 
 
 @dataclass
-class LAMMPSWriter:
-    """A class to write data like a LAMMPS dump file.
+class BZIP2LAMMPSWriter:
+    """A class to write data like a LAMMPS dump file, but compressed with bzip2.
+
+    Note
+    ----
+    If you only need to compress a file, use `irradiapy.io.io_utils.compress_file_bz2` instead.
 
     Attributes
     ----------
     file_path : Path
-        The path to the LAMMPS dump file.
-    mode : str, optional (default="w")
+        The path to the bzip2-compressed LAMMPS dump file.
+    mode : str, optional (default="wt")
         The file open mode.
     excluded_items : list[str], optional (default=irradiapy.config.EXCLUDED_ITEMS)
         Atom fields to exclude from output.
@@ -26,31 +30,34 @@ class LAMMPSWriter:
         The format for integers.
     float_format : str, optional (default=irradiapy.config.FLOAT_FORMAT)
         The format for floats.
+    compresslevel : int, optional (default=9)
+        The bzip2 compression level.
     """
 
     file_path: Path
-    mode: str = "w"
+    mode: str = "wt"
     excluded_items: list[str] = field(default_factory=lambda: config.EXCLUDED_ITEMS)
     encoding: str = field(default_factory=lambda: config.ENCODING)
     int_format: str = field(default_factory=lambda: config.INT_FORMAT)
     float_format: str = field(default_factory=lambda: config.FLOAT_FORMAT)
-    file: TextIO = field(default=None, init=False)
+    compresslevel: int = 9
+    file: BinaryIO = field(default=None, init=False)
 
     def __post_init__(self) -> None:
-        self.file = open(self.file_path, self.mode, encoding=self.encoding)
+        self.file = bz2.open(
+            self.file_path,
+            self.mode,
+            encoding=self.encoding,
+            compresslevel=self.compresslevel,
+        )
 
-    def __enter__(self) -> "LAMMPSWriter":
+    def __enter__(self) -> "BZIP2LAMMPSWriter":
         return self
 
     def __del__(self) -> None:
         self.file.close()
 
-    def __exit__(
-        self,
-        exc_type: None | type[BaseException] = None,
-        exc_value: None | BaseException = None,
-        exc_traceback: None | TracebackType = None,
-    ) -> bool:
+    def __exit__(self, exc_type=None, exc_value=None, exc_traceback=None) -> bool:
         self.file.close()
         return False
 
@@ -64,7 +71,7 @@ class LAMMPSWriter:
         Parameters
         ----------
         data : dict
-            The dictionary containing the timestep data.
+            The dictionary containing the data.
         """
         if data.get("time") is not None:
             self.file.write(f"ITEM: TIME\n{data['time']}\n")

@@ -17,12 +17,12 @@ class Layer:
         The phase of the layer. 0 = solid, 1 = gas.
     density : float
         The density of the layer in g/cm^3.
-    bragg : int = 1 (default)
-        Stopping corrections for special bonding in compound targets.
     elements : list[Element]
         The list of elements in the layer.
     stoichs : list[float]
         The list of stoichiometries for the elements in the layer.
+    bragg : int, optional (default=1)
+        Stopping corrections for special bonding in compound targets.
     """
 
     width: float
@@ -34,5 +34,4 @@ class Layer:
     nelements: int = field(init=False)
 
     def __post_init__(self) -> None:
-        self.nelements = len(self.elements)
         self.nelements = len(self.elements)

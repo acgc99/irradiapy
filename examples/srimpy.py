@@ -60,7 +60,7 @@ def criterion(**kwargs: dict) -> bool:
 
 # Output files.
 path_db = out_dir / "srimdb.db"
-path_collisions = out_dir / "collisions.xyz"
+path_debris = out_dir / "collisions.xyz"
 path_aclusters = out_dir / "aclusters.xyz"
 path_oclusters = out_dir / "oclusters.xyz"
 if not out_dir.exists():
@@ -70,7 +70,7 @@ if path_db.exists():
 
 
 # Target
-element = irp.srimpy.target.element.Fe
+element = irp.materials.Fe.srim_element
 layer = irp.srimpy.target.Layer(
     width=width, phase=0, density=element.density, elements=[element], stoichs=[1.0]
 )
@@ -96,7 +96,7 @@ irp.srimpy.debris.generate_debris(
     runner,
     dir_mddb=dir_mddb,
     compute_tdam=compute_tdam,
-    path_collisions=path_collisions,
+    path_debris=path_debris,
     dpa_mode=dpaMode,
     add_injected=add_injected,
     outsiders=outsiders,
@@ -119,14 +119,14 @@ irp.srimpy.pka.plot_energy_depth(
     plot_high_path=out_dir / "pka_high.png",
 )
 irp.srimpy.dpa.get_dpas(
-    runner, path_db=path_db, path_collisions=path_collisions, fluence=fluence
+    runner, path_db=path_db, path_debris=path_debris, fluence=fluence
 )
 irp.srimpy.dpa.plot_dpa(
     path_db=path_db, path_plot=out_dir / "dpa.png", path_fit=out_dir / "dpa_fit.txt"
 )
 
 irp.analysis.clusters.clusterize_file(
-    path_collisions=path_collisions,
+    path_debris=path_debris,
     path_aclusters=path_aclusters,
     path_oclusters=path_oclusters,
     cutoff_sia=cutoff_sia,
