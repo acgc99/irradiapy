@@ -67,7 +67,7 @@ class LAMMPSWriterMPI(MPIExceptionHandlerMixin):
         return self
 
     def __del__(self) -> None:
-        if self.__rank == 0 and not self.file.closed:
+        if self.__rank == 0 and self.file is not None:
             self.file.close()
 
     def __exit__(
@@ -76,7 +76,7 @@ class LAMMPSWriterMPI(MPIExceptionHandlerMixin):
         exc_value: None | BaseException = None,
         exc_traceback: None | TracebackType = None,
     ) -> bool:
-        if self.__rank == 0 and not self.file.closed:
+        if self.__rank == 0 and self.file is not None:
             self.file.close()
         return False
 

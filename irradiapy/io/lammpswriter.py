@@ -43,7 +43,8 @@ class LAMMPSWriter:
         return self
 
     def __del__(self) -> None:
-        self.file.close()
+        if self.file is not None:
+            self.file.close()
 
     def __exit__(
         self,
@@ -51,12 +52,14 @@ class LAMMPSWriter:
         exc_value: None | BaseException = None,
         exc_traceback: None | TracebackType = None,
     ) -> bool:
-        self.file.close()
+        if self.file is not None:
+            self.file.close()
         return False
 
     def close(self) -> None:
         """Closes the file associated with this writer."""
-        self.file.close()
+        if self.file is not None:
+            self.file.close()
 
     def write(self, data: dict) -> None:
         """Writes the data (from LAMMPSReader/BZIP2LAMMPSReader) to the file.

@@ -1,21 +1,21 @@
-"""This module contains the `E2Recoil` class."""
+"""This module contains the `Range` class."""
 
 from pathlib import Path
 from typing import TYPE_CHECKING, Generator
 
 import numpy as np
 
-from irradiapy.srimpy.ofiles.srimfile import SRIMFile
+from irradiapy.srim.ofiles.srimfile import SRIMFile
 
 if TYPE_CHECKING:
-    from irradiapy.srimpy.srimdb import SRIMDB
+    from irradiapy.srim.srimdb import SRIMDB
 
 
-class E2Recoil(SRIMFile):
-    """Class to handle `E2RECOIL.txt` file."""
+class Range(SRIMFile):
+    """Class to handle `RANGE.txt` file."""
 
     def __init__(self, srimdb: "SRIMDB") -> None:
-        """Initializes the `E2Recoil` object.
+        """Initializes the `Range` object.
 
         Parameters
         ----------
@@ -30,94 +30,94 @@ class E2Recoil(SRIMFile):
             self.process_file = self.__process_file_fc
             self.merge = self.__merge_fc
 
-    def __process_file_qc(self, e2recoil_path: Path) -> None:
-        """Processes `E2RECOIL.txt` file in Quick-Calculation mode.
+    def __process_file_qc(self, range_path: Path) -> None:
+        """Processes `RANGE.txt` file in Quick-Calculation mode.
 
         Parameters
         ----------
-        e2recoil_path : Path
-            `E2RECOIL.txt` path.
+        range_path : Path
+            `RANGE.txt` path.
         """
         cur = self.cursor()
         cur.execute(
             (
-                "CREATE TABLE e2recoil"
-                "(depth REAL, energy_ions REAL, energy_absorbed REAL)"
+                "CREATE TABLE range"
+                "(depth REAL,"
+                "ions REAL,"
+                "recoil_distribution REAL)"
             )
         )
-        with open(e2recoil_path, "r", encoding="utf-8") as file:
+        with open(range_path, "r", encoding="utf-8") as file:
             for line in file:
                 if line.startswith("   DEPTH"):
                     break
-            next(file)
             next(file)
             next(file)
             for _ in range(100):
                 line = next(file)
                 data = list(map(float, line[:-1].split()))
                 depth = data[0]
-                energy_ions = data[1]
-                energy_absorbed = data[2]
+                ions = data[1]
+                recoil_distribution = data[2]
                 cur.execute(
-                    "INSERT INTO e2recoil(depth, energy_ions, energy_absorbed) VALUES(?, ?, ?)",
-                    [depth, energy_ions, energy_absorbed],
+                    (
+                        "INSERT INTO range(depth, ions, recoil_distribution)"
+                        "VALUES(?, ?, ?)"
+                    ),
+                    [depth, ions, recoil_distribution],
                 )
         cur.close()
         self.srim.commit()
 
-    def __process_file_fc(self, e2recoil_path: Path) -> None:
-        """Processes `E2RECOIL.txt` file in Full-Calculation mode.
+    def __process_file_fc(self, range_path: Path) -> None:
+        """Processes `RANGE.txt` file in Full-Calculation mode.
 
         Parameters
         ----------
-        e2recoil_path : Path
-            `E2RECOIL.txt` path.
+        range_path : Path
+            `RANGE.txt` path.
         """
-        energy_absorbed_1 = ", ".join(
-            f"energy_absorbed_{i}_{j} REAL"
+        target_atoms_1 = ", ".join(
+            f"tgt_atoms_{i}_{j} REAL"
             for i, layer in enumerate(self.srim.target.layers)
             for j in range(len(layer.elements))
         )
-        energy_absorbed_2 = ", ".join(
-            f"energy_absorbed_{i}_{j}"
+        target_atoms_2 = ", ".join(
+            f"tgt_atoms_{i}_{j}"
             for i, layer in enumerate(self.srim.target.layers)
             for j in range(len(layer.elements))
         )
-        energy_absorbed_3 = ", ".join(
-            ["?" for _ in range(len(energy_absorbed_1.split(", ")))]
+        target_atoms_3 = ", ".join(
+            ["?" for _ in range(len(target_atoms_1.split(", ")))]
         )
         cur = self.cursor()
         cur.execute(
-            (
-                "CREATE TABLE e2recoil"
-                f"(depth REAL, energy_ions REAL, {energy_absorbed_1})"
-            )
+            ("CREATE TABLE range" "(depth REAL," "ions REAL," f"{target_atoms_1})")
         )
-        with open(e2recoil_path, "r", encoding="utf-8") as file:
+        with open(range_path, "r", encoding="utf-8") as file:
             for line in file:
                 if line.startswith("   DEPTH"):
                     break
-            next(file)
             next(file)
             next(file)
             for _ in range(100):
                 line = next(file)
                 data = list(map(float, line[:-1].split()))
                 depth = data[0]
-                energy_ions = data[1]
-                energy_absorbed = data[2:]
+                ions = data[1]
+                tgt_atoms = data[2:]
                 cur.execute(
                     (
-                        f"INSERT INTO e2recoil(depth, energy_ions, {energy_absorbed_2})"
-                        f"VALUES(?, ?, {energy_absorbed_3})"
+                        f"INSERT INTO range(depth, ions, {target_atoms_2})"
+                        f"VALUES(?, ?, {target_atoms_3})"
                     ),
-                    [depth, energy_ions, *energy_absorbed],
+                    [depth, ions, *tgt_atoms],
                 )
         cur.close()
         self.srim.commit()
 
     def __merge_qc(self, srimdb2: "SRIMDB") -> None:
-        """Merges the e2recoil table with another database for Quick-Calculation mode.
+        """Merges the range table with another database.
 
         Parameters
         ----------
@@ -127,23 +127,25 @@ class E2Recoil(SRIMFile):
         nions1 = self.srim.nions
         nions2 = srimdb2.nions
         nions = nions1 + nions2
-        e2recoil1 = np.array(list(self.read()))
-        e2recoil2 = np.array(list(srimdb2.e2recoil.read()))
-        e2recoil1[:, 1:] *= nions1
-        e2recoil2[:, 1:] *= nions2
-        e2recoil1[:, 1:] += e2recoil2[:, 1:]
-        e2recoil1[:, 1:] /= nions
+        range1 = np.array(list(self.read()))
+        range2 = np.array(list(srimdb2.range.read()))
+
+        range1[:, 1:] *= nions1
+        range2[:, 1:] *= nions2
+        range1[:, 1:] += range2[:, 1:]
+        range1[:, 1:] /= nions
+
         cur = self.cursor()
-        cur.execute("DELETE FROM e2recoil")
+        cur.execute("DELETE FROM range")
         cur.executemany(
-            "INSERT INTO e2recoil(depth, energy_ions, energy_absorbed) VALUES(?, ?, ?)",
-            e2recoil1,
+            "INSERT INTO range(depth, ions, recoil_distribution) VALUES(?, ?, ?)",
+            range1,
         )
         cur.close()
         self.srim.commit()
 
     def __merge_fc(self, srimdb2: "SRIMDB") -> None:
-        """Merges the e2recoil table with another database for Full-Calculation mode.
+        """Merges the range table with another database.
 
         Parameters
         ----------
@@ -153,33 +155,33 @@ class E2Recoil(SRIMFile):
         nions1 = self.srim.nions
         nions2 = srimdb2.nions
         nions = nions1 + nions2
-        e2recoil1 = np.array(list(self.read()))
-        e2recoil2 = np.array(list(srimdb2.e2recoil.read()))
-        e2recoil1[:, 1:] *= nions1
-        e2recoil2[:, 1:] *= nions2
-        e2recoil1[:, 1:] += e2recoil2[:, 1:]
-        e2recoil1[:, 1:] /= nions
-        energy_absorbed_1 = ", ".join(
-            f"energy_absorbed_{i}_{j} REAL"
+        range1 = np.array(list(self.read()))
+        range2 = np.array(list(srimdb2.range.read()))
+        range1[:, 1:] *= nions1
+        range2[:, 1:] *= nions2
+        range1[:, 1:] += range2[:, 1:]
+        range1[:, 1:] /= nions
+        target_atoms_1 = ", ".join(
+            f"tgt_atoms_{i}_{j} REAL"
             for i, layer in enumerate(self.srim.target.layers)
             for j in range(len(layer.elements))
         )
-        energy_absorbed_2 = ", ".join(
-            f"energy_absorbed_{i}_{j}"
+        target_atoms_2 = ", ".join(
+            f"tgt_atoms_{i}_{j}"
             for i, layer in enumerate(self.srim.target.layers)
             for j in range(len(layer.elements))
         )
-        energy_absorbed_3 = ", ".join(
-            ["?" for _ in range(len(energy_absorbed_1.split(", ")))]
+        target_atoms_3 = ", ".join(
+            ["?" for _ in range(len(target_atoms_1.split(", ")))]
         )
         cur = self.cursor()
-        cur.execute("DELETE FROM e2recoil")
+        cur.execute("DELETE FROM range")
         cur.executemany(
             (
-                f"INSERT INTO e2recoil(depth, energy_ions, {energy_absorbed_2})"
-                f"VALUES(?, ?, {energy_absorbed_3})"
+                f"INSERT INTO range(depth, ions, {target_atoms_2})"
+                f"VALUES(?, ?, {target_atoms_3})"
             ),
-            e2recoil1,
+            range1,
         )
         cur.close()
         self.srim.commit()
@@ -187,7 +189,7 @@ class E2Recoil(SRIMFile):
     def read(
         self, what: str = "*", condition: str = ""
     ) -> Generator[tuple, None, None]:
-        """Reads e2recoil data from the database as a generator.
+        """Reads range data from the database as a generator.
 
         Parameters
         ----------
@@ -202,7 +204,7 @@ class E2Recoil(SRIMFile):
             Data from the database.
         """
         cur = self.cursor()
-        cur.execute(f"SELECT {what} FROM e2recoil {condition}")
+        cur.execute(f"SELECT {what} FROM range {condition}")
         while True:
             data = cur.fetchone()
             if data:

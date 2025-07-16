@@ -1,7 +1,7 @@
 """Ag material."""
 
 from irradiapy.materials.material import Material
-from irradiapy.srimpy.target import element as srim_element
+from irradiapy.srim.target import element as srim_element
 
 Ag = Material(
     atomic_number=47,

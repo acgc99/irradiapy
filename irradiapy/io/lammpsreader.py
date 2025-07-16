@@ -32,7 +32,8 @@ class LAMMPSReader:
         self.file = open(self.file_path, encoding=self.encoding)
 
     def __del__(self) -> None:
-        self.file.close()
+        if self.file is not None:
+            self.file.close()
 
     def __iter__(
         self,

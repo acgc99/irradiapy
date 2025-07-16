@@ -12,7 +12,7 @@ from matplotlib.image import NonUniformImage
 from irradiapy import dtypes, materials
 from irradiapy.damagedb import DamageDB
 from irradiapy.io.lammpswriter import LAMMPSWriter
-from irradiapy.srimpy.srimdb import SRIMDB
+from irradiapy.srim.srimdb import SRIMDB
 from irradiapy.utils.math import fit_gaussian, fit_scaling_law
 
 # region range3d

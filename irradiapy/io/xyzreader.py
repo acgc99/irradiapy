@@ -31,7 +31,8 @@ class XYZReader:
         self.file = self.file_path.open(encoding=self.encoding)
 
     def __del__(self) -> None:
-        self.file.close()
+        if self.file is not None:
+            self.file.close()
 
     def __iter__(self) -> Generator[Any, None, None]:
         """Iterate over subfiles in the XYZ file.

@@ -68,7 +68,7 @@ class LAMMPSReaderMPI(MPIExceptionHandlerMixin):
         return self
 
     def __del__(self) -> None:
-        if self.__rank == 0 and not self.file.closed:
+        if self.__rank == 0 and self.file is not None:
             self.file.close()
 
     def __exit__(
@@ -78,7 +78,7 @@ class LAMMPSReaderMPI(MPIExceptionHandlerMixin):
         exc_traceback: None | TracebackType = None,
     ) -> bool:
         """Exits the context manager."""
-        if self.__rank == 0 and not self.file.closed:
+        if self.__rank == 0 and self.file is not None:
             self.file.close()
         return False
 

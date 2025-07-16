@@ -18,23 +18,23 @@ import numpy as np
 from numpy import typing as npt
 
 from irradiapy import config, dtypes, materials
-from irradiapy.srimpy.ofiles.backscat import Backscat
-from irradiapy.srimpy.ofiles.collision import Collision
-from irradiapy.srimpy.ofiles.e2recoil import E2Recoil
-from irradiapy.srimpy.ofiles.ioniz import Ioniz
-from irradiapy.srimpy.ofiles.lateral import Lateral
-from irradiapy.srimpy.ofiles.novac import Novac
-from irradiapy.srimpy.ofiles.phonon import Phonon
-from irradiapy.srimpy.ofiles.range import Range
-from irradiapy.srimpy.ofiles.range3d import Range3D
-from irradiapy.srimpy.ofiles.sputter import Sputter
-from irradiapy.srimpy.ofiles.subcollision import Subcollision
-from irradiapy.srimpy.ofiles.transmit import Transmit
-from irradiapy.srimpy.ofiles.trimdat import Trimdat
-from irradiapy.srimpy.ofiles.vacancy import Vacancy
-from irradiapy.srimpy.target.element import Element
-from irradiapy.srimpy.target.layer import Layer
-from irradiapy.srimpy.target.target import Target
+from irradiapy.srim.ofiles.backscat import Backscat
+from irradiapy.srim.ofiles.collision import Collision
+from irradiapy.srim.ofiles.e2recoil import E2Recoil
+from irradiapy.srim.ofiles.ioniz import Ioniz
+from irradiapy.srim.ofiles.lateral import Lateral
+from irradiapy.srim.ofiles.novac import Novac
+from irradiapy.srim.ofiles.phonon import Phonon
+from irradiapy.srim.ofiles.range import Range
+from irradiapy.srim.ofiles.range3d import Range3D
+from irradiapy.srim.ofiles.sputter import Sputter
+from irradiapy.srim.ofiles.subcollision import Subcollision
+from irradiapy.srim.ofiles.transmit import Transmit
+from irradiapy.srim.ofiles.trimdat import Trimdat
+from irradiapy.srim.ofiles.vacancy import Vacancy
+from irradiapy.srim.target.element import Element
+from irradiapy.srim.target.layer import Layer
+from irradiapy.srim.target.target import Target
 
 platform = platform.system()
 if platform == "Windows":

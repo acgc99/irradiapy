@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from irradiapy.srimpy.srimdb import SRIMDB
+    from irradiapy.srim.srimdb import SRIMDB
 
 
 @dataclass

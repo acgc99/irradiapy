@@ -42,7 +42,8 @@ class XYZWriter:
         return self
 
     def __del__(self) -> None:
-        self.file.close()
+        if self.file is not None:
+            self.file.close()
 
     def __exit__(
         self,
@@ -51,7 +52,7 @@ class XYZWriter:
         exc_traceback: None | TracebackType = None,
     ) -> bool:
         """Exit the runtime context related to this object."""
-        if self.file and not self.file.closed:
+        if self.file is not None:
             self.file.close()
         return False
 

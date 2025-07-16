@@ -1,21 +1,21 @@
-"""This module contains the `Vacancy` class."""
+"""This module contains the `E2Recoil` class."""
 
 from pathlib import Path
 from typing import TYPE_CHECKING, Generator
 
 import numpy as np
 
-from irradiapy.srimpy.ofiles.srimfile import SRIMFile
+from irradiapy.srim.ofiles.srimfile import SRIMFile
 
 if TYPE_CHECKING:
-    from irradiapy.srimpy.srimdb import SRIMDB
+    from irradiapy.srim.srimdb import SRIMDB
 
 
-class Vacancy(SRIMFile):
-    """Class to handle `VACANCY.txt` file."""
+class E2Recoil(SRIMFile):
+    """Class to handle `E2RECOIL.txt` file."""
 
     def __init__(self, srimdb: "SRIMDB") -> None:
-        """Initializes the `Vacancy` object.
+        """Initializes the `E2Recoil` object.
 
         Parameters
         ----------
@@ -30,24 +30,24 @@ class Vacancy(SRIMFile):
             self.process_file = self.__process_file_fc
             self.merge = self.__merge_fc
 
-    def __process_file_qc(self, vacancy_path: Path) -> None:
-        """Processes `VACANCY.txt` file in Quick-Calculation mode.
+    def __process_file_qc(self, e2recoil_path: Path) -> None:
+        """Processes `E2RECOIL.txt` file in Quick-Calculation mode.
 
         Parameters
         ----------
-        vacancy_path : Path
-            `VACANCY.txt` path.
+        e2recoil_path : Path
+            `E2RECOIL.txt` path.
         """
         cur = self.cursor()
         cur.execute(
             (
-                "CREATE TABLE vacancy"
-                "(depth REAL, vacancies_ions REAL, vacancies_recoils REAL)"
+                "CREATE TABLE e2recoil"
+                "(depth REAL, energy_ions REAL, energy_absorbed REAL)"
             )
         )
-        with open(vacancy_path, "r", encoding="utf-8") as file:
+        with open(e2recoil_path, "r", encoding="utf-8") as file:
             for line in file:
-                if line.startswith("   TARGET"):
+                if line.startswith("   DEPTH"):
                     break
             next(file)
             next(file)
@@ -56,45 +56,46 @@ class Vacancy(SRIMFile):
                 line = next(file)
                 data = list(map(float, line[:-1].split()))
                 depth = data[0]
-                vacancies_ions = data[1]
-                vacancies_recoils = data[2]
+                energy_ions = data[1]
+                energy_absorbed = data[2]
                 cur.execute(
-                    (
-                        "INSERT INTO vacancy"
-                        "(depth, vacancies_ions, vacancies_recoils)"
-                        "VALUES(?, ?, ?)"
-                    ),
-                    [depth, vacancies_ions, vacancies_recoils],
+                    "INSERT INTO e2recoil(depth, energy_ions, energy_absorbed) VALUES(?, ?, ?)",
+                    [depth, energy_ions, energy_absorbed],
                 )
         cur.close()
         self.srim.commit()
 
-    def __process_file_fc(self, vacancy_path: Path) -> None:
-        """Processes `VACANCY.txt` file in Full-Calculation mode.
+    def __process_file_fc(self, e2recoil_path: Path) -> None:
+        """Processes `E2RECOIL.txt` file in Full-Calculation mode.
 
         Parameters
         ----------
-        vacancy_path : Path
-            `VACANCY.txt` path.
+        e2recoil_path : Path
+            `E2RECOIL.txt` path.
         """
-        vacancies_1 = ", ".join(
-            f"vacancies_{i}_{j} REAL"
+        energy_absorbed_1 = ", ".join(
+            f"energy_absorbed_{i}_{j} REAL"
             for i, layer in enumerate(self.srim.target.layers)
             for j in range(len(layer.elements))
         )
-        vacancies_2 = ", ".join(
-            f"vacancies_{i}_{j}"
+        energy_absorbed_2 = ", ".join(
+            f"energy_absorbed_{i}_{j}"
             for i, layer in enumerate(self.srim.target.layers)
             for j in range(len(layer.elements))
         )
-        vacancies_3 = ", ".join(["?" for _ in range(len(vacancies_1.split(", ")))])
+        energy_absorbed_3 = ", ".join(
+            ["?" for _ in range(len(energy_absorbed_1.split(", ")))]
+        )
         cur = self.cursor()
         cur.execute(
-            ("CREATE TABLE vacancy" f"(depth REAL, knock_ons REAL, {vacancies_1})")
+            (
+                "CREATE TABLE e2recoil"
+                f"(depth REAL, energy_ions REAL, {energy_absorbed_1})"
+            )
         )
-        with open(vacancy_path, "r", encoding="utf-8") as file:
+        with open(e2recoil_path, "r", encoding="utf-8") as file:
             for line in file:
-                if line.startswith("   TARGET"):
+                if line.startswith("   DEPTH"):
                     break
             next(file)
             next(file)
@@ -103,15 +104,14 @@ class Vacancy(SRIMFile):
                 line = next(file)
                 data = list(map(float, line[:-1].split()))
                 depth = data[0]
-                knock_ons = data[1]
-                vacancies = data[2:]
+                energy_ions = data[1]
+                energy_absorbed = data[2:]
                 cur.execute(
                     (
-                        "INSERT INTO vacancy"
-                        f"(depth, knock_ons, {vacancies_2})"
-                        f"VALUES(?, ?, {vacancies_3})"
+                        f"INSERT INTO e2recoil(depth, energy_ions, {energy_absorbed_2})"
+                        f"VALUES(?, ?, {energy_absorbed_3})"
                     ),
-                    [depth, knock_ons, *vacancies],
+                    [depth, energy_ions, *energy_absorbed],
                 )
         cur.close()
         self.srim.commit()
@@ -122,65 +122,64 @@ class Vacancy(SRIMFile):
         Parameters
         ----------
         srimdb2 : SRIMDB
-            SRIM database to merge with.
+            SRIM database to merge.
         """
         nions1 = self.srim.nions
         nions2 = srimdb2.nions
         nions = nions1 + nions2
-        vacancy1 = np.array(list(self.read()))
-        vacancy2 = np.array(list(srimdb2.vacancy.read()))
-        vacancy1[:, 1:] *= nions1
-        vacancy2[:, 1:] *= nions2
-        vacancy1[:, 1:] += vacancy2[:, 1:]
-        vacancy1[:, 1:] /= nions
+        e2recoil1 = np.array(list(self.read()))
+        e2recoil2 = np.array(list(srimdb2.e2recoil.read()))
+        e2recoil1[:, 1:] *= nions1
+        e2recoil2[:, 1:] *= nions2
+        e2recoil1[:, 1:] += e2recoil2[:, 1:]
+        e2recoil1[:, 1:] /= nions
         cur = self.cursor()
-        cur.execute("DELETE FROM vacancy")
+        cur.execute("DELETE FROM e2recoil")
         cur.executemany(
-            (
-                "INSERT INTO vacancy(depth, vacancies_ions, vacancies_recoils)"
-                "VALUES(?, ?, ?)"
-            ),
-            vacancy1,
+            "INSERT INTO e2recoil(depth, energy_ions, energy_absorbed) VALUES(?, ?, ?)",
+            e2recoil1,
         )
         cur.close()
         self.srim.commit()
 
     def __merge_fc(self, srimdb2: "SRIMDB") -> None:
-        """Merges the vacancy table with another database for Full-Calculation mode.
+        """Merges the e2recoil table with another database for Full-Calculation mode.
 
         Parameters
         ----------
         srimdb2 : SRIMDB
-            SRIM database to merge with
+            SRIM database to merge.
         """
         nions1 = self.srim.nions
         nions2 = srimdb2.nions
         nions = nions1 + nions2
-        vacancy1 = np.array(list(self.read()))
-        vacancy2 = np.array(list(srimdb2.vacancy.read()))
-        vacancy1[:, 1:] *= nions1
-        vacancy2[:, 1:] *= nions2
-        vacancy1[:, 1:] += vacancy2[:, 1:]
-        vacancy1[:, 1:] /= nions
-        vacancies_1 = ", ".join(
-            f"vacancies_{i}_{j} REAL"
+        e2recoil1 = np.array(list(self.read()))
+        e2recoil2 = np.array(list(srimdb2.e2recoil.read()))
+        e2recoil1[:, 1:] *= nions1
+        e2recoil2[:, 1:] *= nions2
+        e2recoil1[:, 1:] += e2recoil2[:, 1:]
+        e2recoil1[:, 1:] /= nions
+        energy_absorbed_1 = ", ".join(
+            f"energy_absorbed_{i}_{j} REAL"
             for i, layer in enumerate(self.srim.target.layers)
             for j in range(len(layer.elements))
         )
-        vacancies_2 = ", ".join(
-            f"vacancies_{i}_{j}"
+        energy_absorbed_2 = ", ".join(
+            f"energy_absorbed_{i}_{j}"
             for i, layer in enumerate(self.srim.target.layers)
             for j in range(len(layer.elements))
         )
-        vacancies_3 = ", ".join(["?" for _ in range(len(vacancies_1.split(", ")))])
+        energy_absorbed_3 = ", ".join(
+            ["?" for _ in range(len(energy_absorbed_1.split(", ")))]
+        )
         cur = self.cursor()
-        cur.execute("DELETE FROM vacancy")
+        cur.execute("DELETE FROM e2recoil")
         cur.executemany(
             (
-                f"INSERT INTO vacancy(depth, knock_ons, {vacancies_2})"
-                f"VALUES(?, ?, {vacancies_3})"
+                f"INSERT INTO e2recoil(depth, energy_ions, {energy_absorbed_2})"
+                f"VALUES(?, ?, {energy_absorbed_3})"
             ),
-            vacancy1,
+            e2recoil1,
         )
         cur.close()
         self.srim.commit()
@@ -188,7 +187,7 @@ class Vacancy(SRIMFile):
     def read(
         self, what: str = "*", condition: str = ""
     ) -> Generator[tuple, None, None]:
-        """Reads vacancy data from the database as a generator.
+        """Reads e2recoil data from the database as a generator.
 
         Parameters
         ----------
@@ -203,7 +202,7 @@ class Vacancy(SRIMFile):
             Data from the database.
         """
         cur = self.cursor()
-        cur.execute(f"SELECT {what} FROM vacancy {condition}")
+        cur.execute(f"SELECT {what} FROM e2recoil {condition}")
         while True:
             data = cur.fetchone()
             if data:
