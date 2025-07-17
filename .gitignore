@@ -79,8 +79,12 @@ docs/_build/
 # PyBuilder
 .pybuilder/
 target/
-!irradiapy/srimpy/target/
-!irradiapy/srimpy/target/** 
+!irradiapy/srim/target/
+!irradiapy/srim/target/** 
+irradiapy/srim/target/__pycache__/__init__.cpython-313.pyc
+irradiapy/srim/target/__pycache__/element.cpython-313.pyc
+irradiapy/srim/target/__pycache__/layer.cpython-313.pyc
+irradiapy/srim/target/__pycache__/target.cpython-313.pyc
 
 # Jupyter Notebook
 .ipynb_checkpoints
@@ -180,7 +184,3 @@ cython_debug/
 # VS Code
 .vs
 .vscode
-irradiapy/srimpy/target/__pycache__/__init__.cpython-313.pyc
-irradiapy/srimpy/target/__pycache__/element.cpython-313.pyc
-irradiapy/srimpy/target/__pycache__/layer.cpython-313.pyc
-irradiapy/srimpy/target/__pycache__/target.cpython-313.pyc
