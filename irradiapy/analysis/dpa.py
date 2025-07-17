@@ -8,10 +8,52 @@ from matplotlib.lines import Line2D
 from numpy import typing as npt
 
 from irradiapy import materials, utils
-from irradiapy.io import LAMMPSReader
+from irradiapy.io import BZIP2LAMMPSReader, LAMMPSReader
 from irradiapy.srim import SRIMDB
 
 # region Histograms
+
+
+def get_dpa_lammps_dump(path: Path, lattice: str, a0: float) -> npt.NDArray[np.float64]:
+    """Get the dpa (from vacancies) in the full box from a LAMMPS dump file.
+
+    Parameters
+    ----------
+    path : Path
+        Path to the LAMMPS dump file.
+    lattice : str
+        Lattice type, either `"bcc"` or `"fcc"`.
+    a0 : float
+        Lattice constant.
+
+    Returns
+    -------
+    npt.NDArray[np.float64]
+        Array of dpa values for each snapshot in the dump file.
+    """
+    if path.suffix == ".bz2":
+        reader = BZIP2LAMMPSReader(path)
+    else:
+        reader = LAMMPSReader(path)
+
+    dpas = []
+    for data_defects in reader:
+        xlo, xhi = data_defects["xlo"], data_defects["xhi"]
+        ylo, yhi = data_defects["ylo"], data_defects["yhi"]
+        zlo, zhi = data_defects["zlo"], data_defects["zhi"]
+        volume = (xhi - xlo) * (yhi - ylo) * (zhi - zlo)
+        if lattice == "bcc":
+            natoms = int(2.0 * volume / a0**3)
+        elif lattice == "fcc":
+            natoms = int(4.0 * volume / a0**3)
+        else:
+            raise ValueError(f"Unsupported lattice type: {lattice}")
+        cond = data_defects["atoms"]["type"] == 0
+        nvacs = len(data_defects["atoms"][cond])
+        dpa = nvacs / natoms
+        dpas.append(dpa)
+    dpas = np.array(dpas, dtype=np.float64)
+    return dpas
 
 
 # NOTE: The first argument type will determine the calculation method when other BCA methods are
@@ -28,9 +70,11 @@ def get_dpa_1d(
 ) -> None:
     """Perform a dpa histogram as a function of depth along a specified axis.
 
-    Note
-    ----
+    Notes
+    -----
     dpa is calculated from vacancies in the debris file.
+
+    Depth range is determined from the defect positions in the debris file.
 
     Parameters
     ----------
