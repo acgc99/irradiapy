@@ -1,5 +1,6 @@
 """This module contains the `Material` class."""
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum, auto
 
@@ -307,9 +308,9 @@ class Material:
         tdam: npt.NDArray[np.float64],
         min_threshold: float,
         max_threshold: float,
-        scaling_func: callable,
-        efficiency_func: callable = None,
-        middle_func: callable = None,
+        scaling_func: Callable[[float], float],
+        efficiency_func: Callable[[float], float] = None,
+        middle_func: Callable[[float], float] = None,
     ) -> npt.NDArray[np.float64]:
         """Apply dpa thresholds and scaling/efficiency functions.
 
@@ -321,11 +322,11 @@ class Material:
             Minimum threshold for dpa.
         max_threshold : float
             Maximum threshold for dpa.
-        scaling_func : callable
+        scaling_func : Callable[[float], float]
             Function to scale damage energy.
-        efficiency_func : callable, optional (default=None)
+        efficiency_func : Callable[[float], float], optional (default=None)
             Efficiency function for high energies.
-        middle_func : callable, optional (default=None)
+        middle_func : Callable[[float], float], optional (default=None)
             Function for values between thresholds.
 
         Returns

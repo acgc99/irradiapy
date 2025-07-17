@@ -2,6 +2,7 @@
 
 import warnings
 from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -46,7 +47,7 @@ class DamageDB:
     tdam_mode: "materials.Material.TdamMode"
     seed: int = 0
     __rng: np.random.Generator = field(init=False)
-    __calc_nd: callable = field(init=False)
+    __calc_nd: Callable[[float], float] = field(init=False)
     __files: dict[float, list[Path]] = field(init=False)
     __energies: npt.NDArray[np.float64] = field(init=False)
     __nenergies: int = field(init=False)
