@@ -4,7 +4,14 @@ import bz2
 from collections import defaultdict, deque
 from pathlib import Path
 
-from irradiapy.io import LAMMPSReader
+import numpy as np
+
+from irradiapy.io import (
+    BZIP2LAMMPSReader,
+    BZIP2LAMMPSWriter,
+    LAMMPSReader,
+    LAMMPSWriter,
+)
 
 
 def compress_file_bz2(
@@ -58,3 +65,61 @@ def get_last_lammps_dump(path: Path) -> defaultdict:
         The last snapshot from the LAMMPS dump file.
     """
     return deque(LAMMPSReader(path), maxlen=1).pop()
+
+
+def merge_lammps_snapshots(
+    path_in: Path, path_out: Path, overwrite: bool = False
+) -> defaultdict:
+    """Merge multiple snapshots in a LAMMPS file into a single snapshot.
+
+    Parameters
+    ----------
+    path_in : Path
+        Path to the input LAMMPS file (bzip2 compressed or not).
+    path_out : Path
+        Path to the output LAMMPS file (bzip2 compressed or not).
+    overwrite : bool, optional (default=False)
+        Whether to overwrite the output file if it exists.
+
+    Returns
+    -------
+    defaultdict
+        A dictionary containing the merged snapshot data.
+    """
+
+    if not overwrite and path_out.exists():
+        raise FileExistsError(f"Output file {path_out} already exists.")
+    elif path_out.exists():
+        path_out.unlink()
+    if path_in.suffix == ".bz2":
+        reader = BZIP2LAMMPSReader(path_in)
+    else:
+        reader = LAMMPSReader(path_in)
+    if path_out.suffix == ".bz2":
+        writer = BZIP2LAMMPSWriter(path_out, mode="a")
+    else:
+        writer = LAMMPSWriter(path_out, mode="a")
+
+    data_atoms_list = []
+    for data_atoms in reader:
+        data_atoms_list.append(data_atoms)
+    reader.close()
+    data_atoms_merged = defaultdict(None)
+    data_atoms_merged["timestep"] = data_atoms_list[-1]["timestep"]
+    data_atoms_merged["time"] = data_atoms_list[-1]["time"]
+    data_atoms_merged["boundary"] = data_atoms_list[-1]["boundary"]
+    data_atoms_merged["xlo"] = data_atoms_list[-1]["xlo"]
+    data_atoms_merged["xhi"] = data_atoms_list[-1]["xhi"]
+    data_atoms_merged["ylo"] = data_atoms_list[-1]["ylo"]
+    data_atoms_merged["yhi"] = data_atoms_list[-1]["yhi"]
+    data_atoms_merged["zlo"] = data_atoms_list[-1]["zlo"]
+    data_atoms_merged["zhi"] = data_atoms_list[-1]["zhi"]
+    data_atoms_merged["natoms"] = np.sum(
+        data_atoms["natoms"] for data_atoms in data_atoms_list
+    )
+    data_atoms_merged["atoms"] = np.concatenate(
+        [data_atoms["atoms"] for data_atoms in data_atoms_list]
+    )
+    writer.write(data_atoms_merged)
+    writer.close()
+    return data_atoms_merged
