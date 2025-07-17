@@ -123,3 +123,72 @@ def merge_lammps_snapshots(
     writer.write(data_atoms_merged)
     writer.close()
     return data_atoms_merged
+
+
+def apply_periodic_boundary_conditions_to_lammps(
+    path_in: Path, path_out: Path, x: bool, y: bool, z: bool, overwrite: bool = False
+) -> None:
+    """Apply periodic boundary conditions to a LAMMPS dump file.
+
+    Parameters
+    ----------
+    path_in : Path
+        Path to the input LAMMPS file (bzip2 compressed or not).
+    path_out : Path
+        Path to the output LAMMPS file (bzip2 compressed or not).
+    x : bool
+        Whether to apply boundary conditions in the x direction.
+    y : bool
+        Whether to apply boundary conditions in the y direction.
+    z : bool
+        Whether to apply boundary conditions in the z direction.
+    overwrite : bool, optional (default=False)
+        Whether to overwrite the output file if it exists.
+    """
+
+    if not overwrite and path_out.exists():
+        raise FileExistsError(f"Output file {path_out} already exists.")
+    elif path_out.exists():
+        path_out.unlink()
+    if path_in.suffix == ".bz2":
+        reader = BZIP2LAMMPSReader(path_in)
+    else:
+        reader = LAMMPSReader(path_in)
+    if path_out.suffix == ".bz2":
+        writer = BZIP2LAMMPSWriter(path_out, mode="a")
+    else:
+        writer = LAMMPSWriter(path_out, mode="a")
+
+    for data_atoms in reader:
+        xlo, xhi = data_atoms["xlo"], data_atoms["xhi"]
+        ylo, yhi = data_atoms["ylo"], data_atoms["yhi"]
+        zlo, zhi = data_atoms["zlo"], data_atoms["zhi"]
+        dx = xhi - xlo
+        dy = yhi - ylo
+        dz = zhi - zlo
+        atoms = data_atoms["atoms"]
+        if x:
+            atoms["x"] = np.where(
+                atoms["x"] < xlo,
+                atoms["x"] + dx,
+                np.where(atoms["x"] > xhi, atoms["x"] - dx, atoms["x"]),
+            )
+            data_atoms["boundary"][0] = "pp"
+        if y:
+            atoms["y"] = np.where(
+                atoms["y"] < ylo,
+                atoms["y"] + dy,
+                np.where(atoms["y"] > yhi, atoms["y"] - dy, atoms["y"]),
+            )
+            data_atoms["boundary"][1] = "pp"
+        if z:
+            atoms["z"] = np.where(
+                atoms["z"] < zlo,
+                atoms["z"] + dz,
+                np.where(atoms["z"] > zhi, atoms["z"] - dz, atoms["z"]),
+            )
+            data_atoms["boundary"][2] = "pp"
+        data_atoms["atoms"] = atoms
+        writer.write(data_atoms)
+    reader.close()
+    writer.close()
