@@ -178,10 +178,21 @@ class Material:
             Number of Frenkel pairs predicted by the specified dpa mode.
         """
         if mode == Material.DpaMode.FERARC:
+            if (
+                self.ed_min is None
+                or self.ed_avr is None
+                or self.b_arc is None
+                or self.c_arc is None
+            ):
+                raise ValueError("Missing parameters for fer-arc-dpa calculation.")
             return self.calc_fer_arc_dpa(tdam)
         elif mode == Material.DpaMode.ARC:
+            if self.ed_avr is None or self.b_arc is None or self.c_arc is None:
+                raise ValueError("Missing parameters for arc-dpa calculation.")
             return self.calc_arc_dpa(tdam)
         else:
+            if self.ed_avr is None:
+                raise ValueError("Missing parameters for NRT-dpa calculation.")
             return self.calc_nrt_dpa(tdam)
 
     def calc_nrt_dpa(
