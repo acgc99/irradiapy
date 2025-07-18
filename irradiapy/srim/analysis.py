@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.image import NonUniformImage
 
-from irradiapy import dtypes, materials
+from irradiapy import dtypes, materials, utils
 from irradiapy.damagedb import DamageDB
 from irradiapy.io.lammpswriter import LAMMPSWriter
 from irradiapy.srim.srimdb import SRIMDB
@@ -447,17 +447,7 @@ def generate_debris(
         for nion in range(1, nions + 1):
             defects = __generate_ion_defects(srimdb, nion, damagedb, add_injected)
 
-            # Apply offsets and cuts
             defects["x"] += depth_offset
-            if not outsiders:
-                defects = defects[
-                    (defects["x"] >= xlo)
-                    & (defects["x"] <= xhi)
-                    & (defects["y"] >= ylo)
-                    & (defects["y"] <= yhi)
-                    & (defects["z"] >= zlo)
-                    & (defects["z"] <= zhi)
-                ]
 
             data_defects = defaultdict(None)
             data_defects["time"] = 0.0
@@ -471,6 +461,12 @@ def generate_debris(
             data_defects["zlo"] = zlo
             data_defects["zhi"] = zhi
             data_defects["atoms"] = defects
+
+            if not outsiders:
+                data_defects = utils.math.apply_boundary_conditions(
+                    data_defects, False, False, False
+                )
+
             writer.write(data_defects)
 
 
