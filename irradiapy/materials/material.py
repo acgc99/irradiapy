@@ -94,10 +94,16 @@ class Material:
             if self.atomic_number == mat_pka.atomic_number == 74:  # W
                 # SRIM Quick-Calculation, D1
                 return 752e-3 * epka - 216e-9 * np.square(epka)
-        else:  # mode == Material.TdamMode.LINDHARD:
+            raise ValueError(
+                (
+                    "This combination of ion-target is not supported for SRIM damage energy "
+                    "calculation. Use `Material.TdamMode.LINDHARD` mode instead."
+                )
+            )
+        elif mode == Material.TdamMode.LINDHARD:
             return self.epka_to_tdam_lindhard(mat_pka, epka)
-        # else:
-        #     raise ValueError("Invalid damage energy calculation mode.")
+        else:
+            raise ValueError("Invalid damage energy calculation mode.")
 
     def epka_to_tdam_lindhard(self, mat_pka: "Material", epka: float) -> float:
         """Convert PKA energy to damage energy using the Lindhard equation.
