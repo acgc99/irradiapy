@@ -168,25 +168,13 @@ def apply_periodic_boundary_conditions_to_lammps(
         dz = zhi - zlo
         atoms = data_atoms["atoms"]
         if x:
-            atoms["x"] = np.where(
-                atoms["x"] < xlo,
-                atoms["x"] + dx,
-                np.where(atoms["x"] > xhi, atoms["x"] - dx, atoms["x"]),
-            )
+            atoms["x"] = ((atoms["x"] - xlo) % dx) + xlo
             data_atoms["boundary"][0] = "pp"
         if y:
-            atoms["y"] = np.where(
-                atoms["y"] < ylo,
-                atoms["y"] + dy,
-                np.where(atoms["y"] > yhi, atoms["y"] - dy, atoms["y"]),
-            )
+            atoms["y"] = ((atoms["y"] - ylo) % dy) + ylo
             data_atoms["boundary"][1] = "pp"
         if z:
-            atoms["z"] = np.where(
-                atoms["z"] < zlo,
-                atoms["z"] + dz,
-                np.where(atoms["z"] > zhi, atoms["z"] - dz, atoms["z"]),
-            )
+            atoms["z"] = ((atoms["z"] - zlo) % dz) + zlo
             data_atoms["boundary"][2] = "pp"
         data_atoms["atoms"] = atoms
         writer.write(data_atoms)
