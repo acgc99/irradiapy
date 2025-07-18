@@ -409,6 +409,7 @@ def recombine_in_radius(
     vac_to_remove = []
     sia_to_remove = []
 
+    radius2 = radius**2
     # For each vacancy, find closest interstitial within radius
     for i, vpos in enumerate(vac_pos):
         # Compute vector distances to all interstitials
@@ -417,12 +418,12 @@ def recombine_in_radius(
         for d in range(3):
             if boundary[d] == "pp":
                 delta[:, d] -= box_size[d] * np.round(delta[:, d] / box_size[d])
-        dist = np.linalg.norm(delta, axis=1)
+        dist2 = np.sum(np.square(delta), axis=1)
         # Mask out already recombined interstitials
-        dist[sia_used] = np.inf
-        # Find closest interstitial within radius
-        min_idx = np.argmin(dist)
-        if dist[min_idx] <= radius:
+        dist2[sia_used] = np.inf
+        # Find closest interstitial within squared radius
+        min_idx = np.argmin(dist2)
+        if dist2[min_idx] <= radius2:
             vac_to_remove.append(i)
             sia_to_remove.append(min_idx)
             sia_used[min_idx] = True
