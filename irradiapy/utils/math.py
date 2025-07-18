@@ -7,6 +7,7 @@ from typing import Any, Callable
 
 import numpy as np
 from numpy import typing as npt
+from numpy.lib.recfunctions import structured_to_unstructured as str2unstr
 from scipy.optimize import curve_fit
 
 # region Math
@@ -365,3 +366,75 @@ def apply_boundary_conditions(
         data_atoms["boundary"][2] = "ff"
     data_atoms["atoms"] = atoms
     return data_atoms
+
+
+def recombine_in_radius(
+    data_defects: defaultdict[str, Any], radius: float
+) -> defaultdict[str, Any]:
+    """Recombine defects (interstitials and vacancies) within a given radius.
+
+    Takes into account periodic boundary conditions.
+
+    Parameters
+    ----------
+    data_defects : defaultdict[str, Any]
+        Defects data containing defect positions and boundaries.
+    radius : float
+        Radius within which to recombine defects.
+
+    Returns
+    -------
+    defaultdict[str, Any]
+        Updated defects data with recombined defects.
+    """
+
+    defects = data_defects["atoms"]
+    boundary = data_defects["boundary"]
+    xlo, xhi = data_defects["xlo"], data_defects["xhi"]
+    ylo, yhi = data_defects["ylo"], data_defects["yhi"]
+    zlo, zhi = data_defects["zlo"], data_defects["zhi"]
+
+    cond = defects["type"] == 0
+    vacs = defects[cond]
+    sias = defects[~cond]
+
+    box = np.array([[xlo, xhi], [ylo, yhi], [zlo, zhi]])
+    box_size = box[:, 1] - box[:, 0]
+
+    vac_pos = str2unstr(vacs[["x", "y", "z"]])
+    sia_pos = str2unstr(sias[["x", "y", "z"]])
+    # Mask to keep track of recombined interstitials
+    sia_used = np.zeros(len(sias), dtype=bool)
+    # List to keep indices of vacancies and interstitials to remove
+    vac_to_remove = []
+    sia_to_remove = []
+
+    # For each vacancy, find closest interstitial within radius
+    for i, vpos in enumerate(vac_pos):
+        # Compute vector distances to all interstitials
+        delta = sia_pos - vpos
+        # Apply minimum image convention for periodic boundary conditions
+        for d in range(3):
+            if boundary[d] == "pp":
+                delta[:, d] -= box_size[d] * np.round(delta[:, d] / box_size[d])
+        dist = np.linalg.norm(delta, axis=1)
+        # Mask out already recombined interstitials
+        dist[sia_used] = np.inf
+        # Find closest interstitial within radius
+        min_idx = np.argmin(dist)
+        if dist[min_idx] <= radius:
+            vac_to_remove.append(i)
+            sia_to_remove.append(min_idx)
+            sia_used[min_idx] = True
+
+    # Remove recombined vacancies and interstitials
+    vac_mask = np.ones(len(vacs), dtype=bool)
+    vac_mask[vac_to_remove] = False
+    sia_mask = np.ones(len(sias), dtype=bool)
+    sia_mask[sia_to_remove] = False
+    defects = np.concatenate([vacs[vac_mask], sias[sia_mask]])
+
+    data_defects["atoms"] = defects
+    data_defects["natoms"] = len(defects)
+
+    return data_defects
