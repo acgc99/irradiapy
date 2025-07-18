@@ -12,6 +12,7 @@ from irradiapy.io import (
     LAMMPSReader,
     LAMMPSWriter,
 )
+from irradiapy.utils.math import apply_boundary_conditions
 
 
 def compress_file_bz2(
@@ -125,7 +126,7 @@ def merge_lammps_snapshots(
     return data_atoms_merged
 
 
-def apply_periodic_boundary_conditions_to_lammps(
+def apply_boundary_conditions_to_lammps(
     path_in: Path, path_out: Path, x: bool, y: bool, z: bool, overwrite: bool = False
 ) -> None:
     """Apply periodic boundary conditions to a LAMMPS dump file.
@@ -137,11 +138,11 @@ def apply_periodic_boundary_conditions_to_lammps(
     path_out : Path
         Path to the output LAMMPS file (bzip2 compressed or not).
     x : bool
-        Whether to apply boundary conditions in the x direction.
+        Whether to apply periodic boundary conditions in the x direction.
     y : bool
-        Whether to apply boundary conditions in the y direction.
+        Whether to apply periodic boundary conditions in the y direction.
     z : bool
-        Whether to apply boundary conditions in the z direction.
+        Whether to apply periodic boundary conditions in the z direction.
     overwrite : bool, optional (default=False)
         Whether to overwrite the output file if it exists.
     """
@@ -160,23 +161,12 @@ def apply_periodic_boundary_conditions_to_lammps(
         writer = LAMMPSWriter(path_out, mode="a")
 
     for data_atoms in reader:
-        xlo, xhi = data_atoms["xlo"], data_atoms["xhi"]
-        ylo, yhi = data_atoms["ylo"], data_atoms["yhi"]
-        zlo, zhi = data_atoms["zlo"], data_atoms["zhi"]
-        dx = xhi - xlo
-        dy = yhi - ylo
-        dz = zhi - zlo
-        atoms = data_atoms["atoms"]
-        if x:
-            atoms["x"] = ((atoms["x"] - xlo) % dx) + xlo
-            data_atoms["boundary"][0] = "pp"
-        if y:
-            atoms["y"] = ((atoms["y"] - ylo) % dy) + ylo
-            data_atoms["boundary"][1] = "pp"
-        if z:
-            atoms["z"] = ((atoms["z"] - zlo) % dz) + zlo
-            data_atoms["boundary"][2] = "pp"
-        data_atoms["atoms"] = atoms
+        data_atoms = apply_boundary_conditions(
+            data_atoms=data_atoms,
+            x=x,
+            y=y,
+            z=z,
+        )
         writer.write(data_atoms)
     reader.close()
     writer.close()

@@ -2,11 +2,14 @@
 
 # pylint: disable=unbalanced-tuple-unpacking
 
-from typing import Callable
+from collections import defaultdict
+from typing import Any, Callable
 
 import numpy as np
 from numpy import typing as npt
 from scipy.optimize import curve_fit
+
+# region Math
 
 
 def repeated_prime_factors(n: int) -> list[int]:
@@ -306,3 +309,59 @@ def fit_scaling_law(
         return scaling_law(x, a, s)
 
     return a, s, fit_function
+
+
+# region Atoms quick calculations
+
+
+def apply_boundary_conditions(
+    data_atoms: defaultdict[str, Any],
+    x: bool,
+    y: bool,
+    z: bool,
+) -> defaultdict[str, Any]:
+    """Apply boundary conditions to atoms.
+
+    Parameters
+    ----------
+    data_atoms : defaultdict[str, Any]
+        Atoms data containing atom positions and boundaries.
+    x : bool
+        Whether to apply periodic boundary conditions in the x direction.
+    y : bool
+        Whether to apply periodic boundary conditions in the y direction.
+    z : bool
+        Whether to apply periodic boundary conditions in the z direction.
+
+    Returns
+    -------
+    defaultdict[str, Any]
+        Updated atoms data with applied boundary conditions.
+    """
+    xlo, xhi = data_atoms["xlo"], data_atoms["xhi"]
+    ylo, yhi = data_atoms["ylo"], data_atoms["yhi"]
+    zlo, zhi = data_atoms["zlo"], data_atoms["zhi"]
+    dx = xhi - xlo
+    dy = yhi - ylo
+    dz = zhi - zlo
+    atoms = data_atoms["atoms"]
+    if x:
+        atoms["x"] = ((atoms["x"] - xlo) % dx) + xlo
+        data_atoms["boundary"][0] = "pp"
+    else:
+        atoms["x"] = np.clip(atoms["x"], xlo, xhi)
+        data_atoms["boundary"][0] = "ff"
+    if y:
+        atoms["y"] = ((atoms["y"] - ylo) % dy) + ylo
+        data_atoms["boundary"][1] = "pp"
+    else:
+        atoms["y"] = np.clip(atoms["y"], ylo, yhi)
+        data_atoms["boundary"][1] = "ff"
+    if z:
+        atoms["z"] = ((atoms["z"] - zlo) % dz) + zlo
+        data_atoms["boundary"][2] = "pp"
+    else:
+        atoms["z"] = np.clip(atoms["z"], zlo, zhi)
+        data_atoms["boundary"][2] = "ff"
+    data_atoms["atoms"] = atoms
+    return data_atoms
