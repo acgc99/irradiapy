@@ -2,7 +2,7 @@
 
 This Python package is aimed towards the simulation and analysis of irradiation damage with multiple tools.
 
-You can find examples under the [`examples`](https://github.com/acgc99/irradiapy/tree/214650c478d5a6744fb24d46cb06deb8819b4aa1/examples) folder. More examples will be provided as new functionalities are implemented. A documentation page is under development, but code is fairly documented.
+You can find examples under the [`examples`](https://github.com/acgc99/irradiapy/tree/214650c478d5a6744fb24d46cb06deb8819b4aa1/examples) folder. More examples will be provided as new functionalities are implemented. A documentation page is hosted in Read the Docs [here](https://irradiapy.readthedocs.io/en/stable/).
 
 If you have any question about the use of `irradiapy`, feel free to start a discussion. Otherwise, if you find a bug or you want to suggest a feature, open an issue. Note that not all materials have been implemented, only the ones that I have used. Open an issue and I will update the code as soon as possible.
 
