@@ -6,6 +6,7 @@ from irradiapy.srim.target import element as srim_element
 Ag = Material(
     atomic_number=47,
     mass_number=107.87,
+    symbol="Ag",
     srim_element=srim_element.Element(
         symbol="Ag",
         atomic_number=47,

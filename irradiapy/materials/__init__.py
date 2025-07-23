@@ -24,3 +24,11 @@ MATERIALS_BY_ATOMIC_NUMBER = {
     47: Ag,
     74: W,
 }
+
+ATOMIC_NUMBER_BY_SYMBOL = {
+    symbol: material.atomic_number for symbol, material in MATERIALS_BY_SYMBOL.items()
+}
+MASS_NUMBER_BY_ATOMIC_NUMBER = {
+    atomic_number: material.mass_number
+    for atomic_number, material in MATERIALS_BY_ATOMIC_NUMBER.items()
+}

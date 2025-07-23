@@ -23,6 +23,8 @@ class Material:
         Atomic number.
     mass_number : float
         Mass number (atomic mass units).
+    symbol : str
+        Chemical symbol.
     a0 : float, optional (default=None)
         Lattice parameter (Å).
     cutoff_sia : float, optional (default=None)
@@ -48,6 +50,7 @@ class Material:
 
     atomic_number: int
     mass_number: float
+    symbol: str
     a0: None | float = None
     cutoff_sia: None | float = None
     cutoff_vac: None | float = None

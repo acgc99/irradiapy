@@ -8,6 +8,7 @@ from irradiapy.srim.target import element as srim_element
 W = Material(
     atomic_number=74,
     mass_number=183.84,
+    symbol="W",
     a0=3.1652,
     cutoff_sia=3.1652 * sqrt(2.0),
     cutoff_vac=3.1652,

@@ -8,6 +8,7 @@ from irradiapy.srim.target import element as srim_element
 Cu = Material(
     atomic_number=29,
     mass_number=63.546,
+    symbol="Cu",
     a0=3.61491,
     cutoff_sia=3.61491 * sqrt(2.0),
     cutoff_vac=3.61491,

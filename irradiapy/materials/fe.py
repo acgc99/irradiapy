@@ -8,6 +8,7 @@ from irradiapy.srim.target import element as srim_element
 Fe = Material(
     atomic_number=26,
     mass_number=55.845,
+    symbol="Fe",
     a0=2.87,
     cutoff_sia=2.87 * sqrt(2.0),
     cutoff_vac=2.87,
