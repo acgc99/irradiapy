@@ -133,7 +133,7 @@ class DefectsIdentifier:
 
         # Apply transformations
         pos = str2unstr(atoms[["x", "y", "z"]])
-        pos = transform.apply(pos)
+        pos = pos @ transform.T
         atoms["x"] = pos[:, 0]
         atoms["y"] = pos[:, 1]
         atoms["z"] = pos[:, 2]
@@ -352,9 +352,13 @@ class DefectsIdentifier:
                     defects[["x", "y", "z"]] -= np.mean(
                         defects[["x", "y", "z"]], axis=1
                     )
-                    defects[["x", "y", "z"]] *= a1
+                    defects["x"] *= a1 / self.a0
+                    defects["y"] *= a1 / self.a0
+                    defects["z"] *= a1 / self.a0
             elif a1 is not None:
-                defects[["x", "y", "z"]] *= a1
+                defects["x"] *= a1 / self.a0
+                defects["y"] *= a1 / self.a0
+                defects["z"] *= a1 / self.a0
 
         data_defects = defaultdict(None)
         data_defects["time"] = data_atoms["time"]
