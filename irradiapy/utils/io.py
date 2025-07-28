@@ -9,6 +9,7 @@ import numpy as np
 from irradiapy.io import (
     BZIP2LAMMPSReader,
     BZIP2LAMMPSWriter,
+    LAMMPSLogReader,
     LAMMPSReader,
     LAMMPSWriter,
 )
@@ -52,20 +53,22 @@ def decompress_file_bz2(input_path: str, output_path: str) -> None:
             f_out.write(chunk)
 
 
-def get_last_lammps_dump(path: Path) -> defaultdict:
-    """Get the last snaptshot from a LAMMPS dump file.
+def get_last_reader(
+    reader: list[LAMMPSReader, BZIP2LAMMPSReader, LAMMPSLogReader],
+) -> any:
+    """Get the last snapshot from a LAMMPS dump file using a reader.
 
     Parameters
     ----------
-    path : Path
-        Path to the LAMMPS dump file.
+    reader : LAMMPSReader, BZIP2LAMMPSReader, LAMMPSLogReader
+        An instance of a LAMMPS reader.
 
     Returns
     -------
-    defaultdict
-        The last snapshot from the LAMMPS dump file.
+    any
+        The last snapshot from the LAMMPS file.
     """
-    return deque(LAMMPSReader(path), maxlen=1).pop()
+    return deque(reader, maxlen=1).pop()
 
 
 def merge_lammps_snapshots(

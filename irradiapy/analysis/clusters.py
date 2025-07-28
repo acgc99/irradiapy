@@ -619,7 +619,7 @@ def plot_mddb_cluster_size(
         }
         for path_defects in energy_dir.glob("*.xyz"):
             nfiles[energy] += 1
-            data_defects = utils.io.get_last_lammps_dump(path_defects)
+            data_defects = utils.io.get_last_reader(LAMMPSReader(path_defects))
 
             cond = data_defects["atoms"]["type"] == 0
             vacs = data_defects["atoms"][cond]
