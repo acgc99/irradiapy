@@ -1,7 +1,6 @@
 """This module contains the `DamageDB` class."""
 
 import warnings
-from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -12,7 +11,7 @@ from numpy.lib.recfunctions import structured_to_unstructured as str2unstr
 from scipy.spatial.transform import Rotation
 from sklearn.decomposition import PCA
 
-from irradiapy import dtypes, materials
+from irradiapy import dtypes, materials, utils
 from irradiapy.io.lammpsreader import LAMMPSReader
 
 
@@ -177,7 +176,7 @@ class DamageDB:
         """
         file = files[db_emax][0]
         files[db_emax] = np.delete(files[db_emax], 0)
-        defects = deque(LAMMPSReader(file), maxlen=1).pop()["atoms"]
+        defects = utils.io.get_last_reader(LAMMPSReader(file))["atoms"]
         xaxis = np.array([1.0, 0.0, 0.0])
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", category=UserWarning)
@@ -215,7 +214,7 @@ class DamageDB:
         """
         for energy in self.__energies:
             for file0 in files[energy]:
-                defects_ = deque(LAMMPSReader(file0), maxlen=1).pop()["atoms"]
+                defects_ = utils.io.get_last_reader(LAMMPSReader(file0))["atoms"]
 
                 transform = Rotation.random(rng=self.__rng)
                 pos = str2unstr(defects_[["x", "y", "z"]], dtype=np.float64, copy=False)
