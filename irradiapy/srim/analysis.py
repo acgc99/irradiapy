@@ -13,7 +13,7 @@ from irradiapy import dtypes, materials, utils
 from irradiapy.damagedb import DamageDB
 from irradiapy.io.lammpswriter import LAMMPSWriter
 from irradiapy.srim.srimdb import SRIMDB
-from irradiapy.utils.math import fit_gaussian, fit_scaling_law
+from irradiapy.utils.math import fit_gaussian, fit_power_law
 
 # region range3d
 
@@ -103,7 +103,7 @@ def plot_pka_distribution(
     plot_path: None | Path = None,
     fit_path: None | Path = None,
     dpi: int = 300,
-) -> Callable:
+) -> tuple[float, float, Callable] | None:
     """Plot the PKA energy distribution and tries to fit it.
 
     Parameters
@@ -121,8 +121,8 @@ def plot_pka_distribution(
 
     Returns
     -------
-    Callable
-        Scaling law function.
+    tuple[float, float, Callable] | None
+        Fit parameters and function or None if fit failed.
     """
     # Read
     nions = srimdb.nions
@@ -135,13 +135,17 @@ def plot_pka_distribution(
     fit = False
     try:
         mask = pka_hist > 0
-        a, s, curve = fit_scaling_law(pka_centers[mask] / 1e3, pka_hist[mask])
+        (a, k), (error_a, error_k), fit_function = fit_power_law(
+            pka_centers[mask] / 1e3, pka_hist[mask]
+        )
         fit = True
     except Exception as exc:  # pylint: disable=broad-except
         print(f"Fit failed: {exc}")
     if fit and fit_path:
         with open(fit_path, "w", encoding="utf-8") as file:
-            file.write(f"PKA energy scaling law (x in eV)\nA/x**S\nA S\n{a}, {s}\n")
+            file.write(
+                f"PKA energy scaling law (x in eV)\nA * x ** S\nA S\n{a} ± {error_a}, {k} ± {error_k}\n"
+            )
     # Plot
     fig = plt.figure()
     gs = fig.add_gridspec()
@@ -155,7 +159,7 @@ def plot_pka_distribution(
     if fit:
         ax.plot(
             pka_centers / 1e3,
-            curve(pka_centers / 1e3),
+            fit_function(pka_centers / 1e3),
             color=plt.rcParams["axes.prop_cycle"].by_key()["color"][0],
         )
     # Finish
@@ -165,7 +169,7 @@ def plot_pka_distribution(
     else:
         plt.show()
     plt.close()
-    return curve
+    return (a, k), (error_a, error_k), fit_function
 
 
 def plot_energy_depth(

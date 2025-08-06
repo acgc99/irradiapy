@@ -262,10 +262,10 @@ def fit_gaussian(
 # region Power law
 
 
-def scaling_law(
-    x: npt.NDArray[np.float64], a: float, s: float
+def power_law(
+    x: npt.NDArray[np.float64], a: float, k: float
 ) -> npt.NDArray[np.float64]:
-    """Evaluate the scaling law function a / x**s.
+    """Evaluate a power law: y = a * x**k
 
     Parameters
     ----------
@@ -273,43 +273,61 @@ def scaling_law(
         Input values.
     a : float
         Prefactor.
-    s : float
+    k : float
         Exponent.
 
     Returns
     -------
     npt.NDArray[np.float64]
-        Evaluated scaling law.
+        Evaluated power law.
     """
-    return a / x**s
+    return a * x**k
 
 
-def fit_scaling_law(
-    centers: npt.NDArray[np.float64], counts: npt.NDArray[np.float64]
+def fit_power_law(
+    xs: npt.NDArray[np.float64],
+    ys: npt.NDArray[np.float64],
+    yerrs: None | npt.NDArray[np.float64] = None,
 ) -> tuple[float, float, Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]]:
-    """Fit a scaling law to the given histogram data.
+    """Fit a power law to the given histogram data: y = a * x**k.
+
+    Note
+    ----
+    The fit is done in log-log space, so the input data should be positive.
 
     Parameters
     ----------
-    centers : npt.NDArray[np.float64]
-        The centers of the bins.
-    counts : npt.NDArray[np.float64]
-        The values of the histogram.
+    xs : npt.NDArray[np.float64]
+        X values where the function is evaluated.
+    ys : npt.NDArray[np.float64]
+        Y values at the given xs.
+    yerrs : npt.NDArray[np.float64], optional
+        Y errors.
 
     Returns
     -------
-    tuple
-        A tuple containing: the prefactor of the scaling law, the exponent of the scaling law,
-        and the scaling law function.
+    tuple[float, float, Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]]
+        Tuple containing:
+        - (a, k): Fitted parameters of the power law.
+        - (error_a, error_k): Errors of the fitted parameters.
+        - fit_function: Function that evaluates the fitted power law.
     """
-    popt, _ = curve_fit(lambda x, a, b: a + b * x, np.log10(centers), np.log10(counts))
-    a, s = popt
-    a, s = 10.0**a, -s
+    # Power law: y = a * x**k
+    # Fitted in log-log space: log(y) = log(a) + k * log(x)
+    popt, popv = curve_fit(
+        lambda x, a, b: a + b * x, np.log10(xs), np.log10(ys), sigma=yerrs
+    )
+    a = 10.0 ** popt[0]
+    k = popt[1]
+    errors = np.sqrt(np.diag(popv))
+    error_log_a = errors[0]
+    error_a = a * error_log_a * np.log(10)
+    error_k = errors[1]
 
     def fit_function(x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        return scaling_law(x, a, s)
+        return power_law(x, a, k)
 
-    return a, s, fit_function
+    return (a, k), (error_a, error_k), fit_function
 
 
 # region Atoms quick calculations
