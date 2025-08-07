@@ -330,6 +330,66 @@ def fit_power_law(
     return (a, k), (error_a, error_k), fit_function
 
 
+# region Linear
+
+
+def linear(x: npt.NDArray[np.float64], a: float, b: float) -> npt.NDArray[np.float64]:
+    """Evaluate a linear function: y = a * x + b.
+
+    Parameters
+    ----------
+    x : npt.NDArray[np.float64]
+        Input values.
+    a : float
+        Slope of the line.
+    b : float
+        Intercept of the line.
+
+    Returns
+    -------
+    npt.NDArray[np.float64]
+        Evaluated linear function.
+    """
+    return a * x + b
+
+
+def fit_linear(
+    xs: npt.NDArray[np.float64],
+    ys: npt.NDArray[np.float64],
+    yerrs: None | npt.NDArray[np.float64] = None,
+) -> tuple[float, float, Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]]:
+    """Fit a linear function to the given data: y = a * x + b.
+
+    Parameters
+    ----------
+    xs : npt.NDArray[np.float64]
+        X values where the function is evaluated.
+    ys : npt.NDArray[np.float64]
+        Y values at the given xs.
+    yerrs : npt.NDArray[np.float64], optional
+        Y errors.
+
+    Returns
+    -------
+    tuple[float, float, Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]]
+        Tuple containing:
+        - (a, b): Fitted parameters of the linear function.
+        - (error_a, error_b): Errors of the fitted parameters.
+        - fit_function: Function that evaluates the fitted linear function.
+    """
+    popt, popv = curve_fit(linear, xs, ys, sigma=yerrs)
+    a = popt[0]
+    b = popt[1]
+    errors = np.sqrt(np.diag(popv))
+    error_a = errors[0]
+    error_b = errors[1]
+
+    def fit_function(x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+        return linear(x, a, b)
+
+    return (a, b), (error_a, error_b), fit_function
+
+
 # region Atoms quick calculations
 
 
