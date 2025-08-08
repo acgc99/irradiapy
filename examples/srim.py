@@ -111,6 +111,8 @@ irp.srim.analysis.plot_energy_depth(
     plot_high_path=out_dir / "pka_high.png",
 )
 
+# endregion
+
 # region Debris and dpa
 
 irp.srim.analysis.generate_debris(
@@ -136,6 +138,8 @@ irp.analysis.dpa.plot_dpa_1d(
     path_plot=out_dir / "dpa_1d.png",
     path_fit=out_dir / "dpa_1d_fit.txt",
 )
+
+# endregion
 
 # region Clusters
 
@@ -163,6 +167,8 @@ irp.analysis.clusters.plot_clustering_fraction_1d(
     path_db,
     path_plot=out_dir / "clustering_fraction.png",
 )
+
+# endregion
 
 # region MDDB analysis
 
@@ -192,3 +198,5 @@ irp.analysis.clusters.plot_mddb_cluster_size(
     path_sias=out_dir / "abs_mddb_sia_size_distribution.png",
     path_vacs=out_dir / "abs_mddb_vac_size_distribution.png",
 )
+
+# endregion

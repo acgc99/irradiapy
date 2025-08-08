@@ -6,6 +6,7 @@ import numpy as np
 from numpy import typing as npt
 
 # region General
+
 atom = np.dtype(
     [
         ("type", np.int64),
@@ -44,7 +45,11 @@ ocluster = np.dtype(
     ]
 )
 Ocluster = Annotated[npt.NDArray[Any], ocluster]
+
+# endregion
+
 # region SRIM
+
 trimdat = np.dtype(
     [
         ("name", str),
@@ -55,3 +60,5 @@ trimdat = np.dtype(
     ]
 )
 Trimdat = Annotated[npt.NDArray[Any], trimdat]
+
+# endregion

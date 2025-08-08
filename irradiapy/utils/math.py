@@ -43,6 +43,8 @@ def repeated_prime_factors(n: int) -> list[int]:
     return facs
 
 
+# endregion
+
 # region Lorentzian
 
 
@@ -150,6 +152,8 @@ def fit_lorentzian(
 
     return popt, pcov, fit_function
 
+
+# endregion
 
 # region Gaussian
 
@@ -259,6 +263,8 @@ def fit_gaussian(
     return popt, pcov, fit_function
 
 
+# endregion
+
 # region Power law
 
 
@@ -330,6 +336,8 @@ def fit_power_law(
     return (a, k), (error_a, error_k), fit_function
 
 
+# endregion
+
 # region Linear
 
 
@@ -389,6 +397,8 @@ def fit_linear(
 
     return (a, b), (error_a, error_b), fit_function
 
+
+# endregion
 
 # region Atoms quick calculations
 
@@ -517,3 +527,6 @@ def recombine_in_radius(
     data_defects["natoms"] = len(defects)
 
     return data_defects
+
+
+# endregion

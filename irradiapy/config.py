@@ -33,7 +33,11 @@ def use_style(latex: bool = False) -> None:
         plt.style.use("irradiapy.styles.nolatex")
 
 
+# endregion
+
 # region SRIM
 
 #: pathlib.Path: TRIM.exe directory (parent folder)
 DIR_SRIM = Path("./SRIM-2013")
+
+# endregion

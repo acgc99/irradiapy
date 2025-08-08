@@ -145,6 +145,8 @@ class Material:
         g = 3.4008 * redu ** (1.0 / 6.0) + 0.40244 * redu ** (3.0 / 4.0) + redu
         return epka / (1.0 + k * g)
 
+    # endregion
+
     # region dpa calculation
 
     class DpaMode(Enum):
@@ -369,3 +371,5 @@ class Material:
         else:
             result[above_mask] = scaling_func(tdam[above_mask])
         return result
+
+    # endregion

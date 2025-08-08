@@ -169,6 +169,8 @@ def atom_to_object(aclusters: dtypes.Acluster) -> dtypes.Ocluster:
     return oclusters
 
 
+# endregion
+
 # region Histograms
 
 
@@ -358,6 +360,8 @@ def read_clusters_1d(
     data = utils.sqlite.read_array(path_db, f"clusters_1D_{axis}")
     return data
 
+
+# endregion
 
 # region Plots
 
@@ -759,3 +763,6 @@ def plot_mddb_cluster_size(
 
     plot(ihist, sia_edges, max_sia, sia_bin_width, "Interstitials", path=path_sias)
     plot(vhist, vac_edges, max_vac, vac_bin_width, "Vacancies", path=path_vacs)
+
+
+# endregion

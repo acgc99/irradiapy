@@ -171,6 +171,8 @@ def read_dpa_1d(path_db: Path, axis: str = "x") -> dict[str, npt.NDArray[np.floa
     return data
 
 
+# endregion
+
 # region Plots
 
 
@@ -266,3 +268,6 @@ def plot_dpa_1d(
     else:
         plt.show()
     plt.close()
+
+
+# endregion

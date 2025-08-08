@@ -94,6 +94,8 @@ def plot_injected(
     plt.close()
 
 
+# endregion
+
 # region collision
 
 
@@ -364,6 +366,8 @@ def plot_distances(
     plt.close()
 
 
+# endregion
+
 # region Debris
 
 
@@ -529,3 +533,6 @@ def __generate_ion_defects(
             )
             defects = np.concatenate((defects, injected))
     return defects
+
+
+# endregion
