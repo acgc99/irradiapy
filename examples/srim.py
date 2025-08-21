@@ -39,6 +39,8 @@ add_injected = True
 tdam_mode = irp.materials.Material.TdamMode.SRIM
 # dpa calculation mode to estimate the number of Frenkel pairs for residual energies.
 dpa_mode = irp.materials.Material.DpaMode.FERARC
+# Energy tolerance (to select cascades from the database)
+energy_tolerance = 0.1
 # Target width, angstroms
 width = 8000
 # Fluence, ions/angstrom^2
@@ -122,6 +124,7 @@ irp.srim.analysis.generate_debris(
     path_debris=path_debris,
     tdam_mode=tdam_mode,
     dpa_mode=dpa_mode,
+    energy_tolerance=energy_tolerance,
     add_injected=add_injected,
     outsiders=outsiders,
     seed=0,

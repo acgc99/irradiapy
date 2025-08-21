@@ -378,6 +378,7 @@ def generate_debris(
     path_debris: Path,
     tdam_mode: "materials.Material.TdamMode",
     dpa_mode: "materials.Material.DpaMode",
+    energy_tolerance: float,
     add_injected: bool,
     outsiders: bool,
     seed: None | int = None,
@@ -408,6 +409,13 @@ def generate_debris(
         Mode to convert the PKA energy into damage energy.
     dpa_mode : materials.Material.DpaMode
         Formula to convert the residual energy into Frenkel pairs.
+    energy_tolerance : float (default=0.1)
+        Tolerance for energy decomposition. For example, if this value if ``0.1``, the PKA energy
+        is 194 keV and the database contains an energy of 200 keV, then 194 will be in the range
+        200 +/- 20 keV, therefore a cascade of 200 keV will be used, instead of decomposing 194 keV
+        into, for example, 100x1 + 50x1 + 20x2 + 3x1 + 1xFP (Frenkel pairs). This fixes biases
+        towards smaller clusters (lower energies) and helps reducing cascade overlapping. Set to
+        ``0.0`` to disable this feature.
     add_injected : bool
         Whether to add the injected interstitial.
     outsiders : bool
@@ -448,6 +456,7 @@ def generate_debris(
         mat_pka=mat_pka,
         mat_target=mat_target,
         tdam_mode=tdam_mode,
+        energy_tolerance=energy_tolerance,
         dpa_mode=dpa_mode,
         seed=seed,
     )

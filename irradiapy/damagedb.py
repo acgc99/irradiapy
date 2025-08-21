@@ -34,6 +34,13 @@ class DamageDB:
         Mode for dpa calculation.
     tdam_mode : materials.Material.TdamMode
         Mode for PKA to damage energy calculation.
+    energy_tolerance : float (default=0.1)
+        Tolerance for energy decomposition. For example, if this value if ``0.1``, the PKA energy
+        is 194 keV and the database contains an energy of 200 keV, then 194 will be in the range
+        200 +/- 20 keV, therefore a cascade of 200 keV will be used, instead of decomposing 194 keV
+        into, for example, 100x1 + 50x1 + 20x2 + 3x1 + 1xFP (Frenkel pairs). This fixes biases
+        towards smaller clusters (lower energies) and helps reducing cascade overlapping. Set to
+        ``0.0`` to disable this feature.
     seed : int, optional (default=0)
         Random seed for random number generator.
     """
@@ -44,6 +51,7 @@ class DamageDB:
     mat_target: "materials.Material"
     dpa_mode: "materials.Material.DpaMode"
     tdam_mode: "materials.Material.TdamMode"
+    energy_tolerance: float = 0.1
     seed: int = 0
     __rng: np.random.Generator = field(init=False)
     __calc_nd: Callable[[float], float] = field(init=False)
@@ -84,12 +92,23 @@ class DamageDB:
             Dictionary of selected paths and number of residual FP.
         """
         # Decompose the PKA energy into cascades and residual energy
+
+        # Rounding: if the PKA energy is closer than 10% to any energy of the database, use the
+        # closest energy within that tolerance. This avoids:
+        # Decomposition biasing towards smaller clusters (190 keV = 100 + 50 + 2x20 keV)
+        # Residual FP causing artificial clustering (ignore them)
+        diff = np.abs(self.__energies - pka_e)
+        mask = diff <= self.energy_tolerance * self.__energies
+        if np.any(mask):
+            pka_e = self.__energies[mask][np.argmin(diff[mask])]
+
         residual_energy = (
             self.__compute_damage_energy(pka_e) if self.compute_tdam else pka_e
         )
         cascade_counts = np.zeros(self.__nenergies, dtype=np.int64)
         for i, energy in enumerate(self.__energies):
             cascade_counts[i], residual_energy = divmod(residual_energy, energy)
+
         # Select the files for each energy
         if residual_energy > 0:
             residual_energy = self.__compute_damage_energy(residual_energy)
