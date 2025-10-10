@@ -34,6 +34,8 @@ class LAMMPSWriterMPI(MPIExceptionHandlerMixin):
         The file open mode.
     encoding : str, optional (default=irradiapy.config.ENCODING)
         The file encoding.
+    newline : str, optional (default=irradiapy.config.NEWLINE)
+        The newline character for the file.
     comm : MPI.Comm, optional (default=mpi4py.MPI.COMM_WORLD)
         The MPI communicator.
     int_format : str, optional (default=irradiapy.config.INT_FORMAT)
@@ -47,6 +49,7 @@ class LAMMPSWriterMPI(MPIExceptionHandlerMixin):
     file_path: Path
     mode: str = "w"
     encoding: str = field(default_factory=lambda: config.ENCODING)
+    newline: str = field(default_factory=lambda: config.NEWLINE)
     comm: MPI.Comm = field(default_factory=lambda: MPI.COMM_WORLD)
     int_format: str = field(default_factory=lambda: config.INT_FORMAT)
     float_format: str = field(default_factory=lambda: config.FLOAT_FORMAT)
@@ -64,7 +67,12 @@ class LAMMPSWriterMPI(MPIExceptionHandlerMixin):
         self.__file = None
         if self.__rank == 0:
             try:
-                self.__file = open(self.file_path, self.mode, encoding=self.encoding)
+                self.__file = open(
+                    self.file_path,
+                    self.mode,
+                    encoding=self.encoding,
+                    newline=self.newline,
+                )
             except Exception:
                 self._handle_exception()
 
@@ -145,9 +153,11 @@ class LAMMPSWriterMPI(MPIExceptionHandlerMixin):
 
         if self.__rank == 0:
             if "time" in data:
-                self.__file.write(f"ITEM: TIME\n{data['time']}\n")
-            self.__file.write(f"ITEM: TIMESTEP\n{data['timestep']}\n")
-            self.__file.write(f"ITEM: NUMBER OF ATOMS\n{data['natoms']}\n")
+                self.__file.write(f"ITEM: TIME\n{self.float_format % data['time']}\n")
+            self.__file.write(f"ITEM: TIMESTEP\n{self.int_format % data['timestep']}\n")
+            self.__file.write(
+                f"ITEM: NUMBER OF ATOMS\n{self.int_format % data['natoms']}\n"
+            )
             self.__file.write(f"ITEM: BOX BOUNDS {' '.join(data['boundary'])}\n")
             self.__file.write(
                 f"{self.float_format % data['xlo']} {self.float_format % data['xhi']}\n"

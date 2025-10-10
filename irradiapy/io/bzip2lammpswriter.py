@@ -24,6 +24,8 @@ class BZIP2LAMMPSWriter:
         The file open mode.
     encoding : str, optional (default=irradiapy.config.ENCODING)
         The file encoding.
+    newline : str, optional (default=irradiapy.config.NEWLINE)
+        The newline character for the file.
     compresslevel : int, optional (default=9)
         The bzip2 compression level.
     int_format : str, optional (default=irradiapy.config.INT_FORMAT)
@@ -37,6 +39,7 @@ class BZIP2LAMMPSWriter:
     file_path: Path
     mode: str = "wt"
     encoding: str = field(default_factory=lambda: config.ENCODING)
+    newline: str = field(default_factory=lambda: config.NEWLINE)
     compresslevel: int = 9
     int_format: str = field(default_factory=lambda: config.INT_FORMAT)
     float_format: str = field(default_factory=lambda: config.FLOAT_FORMAT)
@@ -50,6 +53,7 @@ class BZIP2LAMMPSWriter:
             self.mode,
             encoding=self.encoding,
             compresslevel=self.compresslevel,
+            newline=self.newline,
         )
 
     def __enter__(self) -> "BZIP2LAMMPSWriter":
@@ -80,9 +84,11 @@ class BZIP2LAMMPSWriter:
             and "atoms". Optional keys: "time".
         """
         if data.get("time") is not None:
-            self.__file.write(f"ITEM: TIME\n{data['time']}\n")
-        self.__file.write(f"ITEM: TIMESTEP\n{data['timestep']}\n")
-        self.__file.write(f"ITEM: NUMBER OF ATOMS\n{data['natoms']}\n")
+            self.__file.write(f"ITEM: TIME\n{self.float_format % data['time']}\n")
+        self.__file.write(f"ITEM: TIMESTEP\n{self.int_format % data['timestep']}\n")
+        self.__file.write(
+            f"ITEM: NUMBER OF ATOMS\n{self.int_format % data['natoms']}\n"
+        )
         self.__file.write(f"ITEM: BOX BOUNDS {' '.join(data['boundary'])}\n")
         self.__file.write(
             f"{self.float_format % data['xlo']} {self.float_format % data['xhi']}\n"

@@ -24,6 +24,8 @@ class LAMMPSWriter:
         The file open mode.
     encoding : str, optional (default=irradiapy.config.ENCODING)
         The file encoding.
+    newline : str, optional (default=irradiapy.config.NEWLINE)
+        The newline character for the file.
     int_format : str, optional (default=irradiapy.config.INT_FORMAT)
         The format for integers.
     float_format : str, optional (default=irradiapy.config.FLOAT_FORMAT)
@@ -35,6 +37,7 @@ class LAMMPSWriter:
     file_path: Path
     mode: str = "w"
     encoding: str = field(default_factory=lambda: config.ENCODING)
+    newline: str = field(default_factory=lambda: config.NEWLINE)
     int_format: str = field(default_factory=lambda: config.INT_FORMAT)
     float_format: str = field(default_factory=lambda: config.FLOAT_FORMAT)
     excluded_items: list[str] = field(default_factory=lambda: config.EXCLUDED_ITEMS)
@@ -42,7 +45,12 @@ class LAMMPSWriter:
     __file: TextIO = field(default=None, init=False)
 
     def __post_init__(self) -> None:
-        self.__file = open(self.file_path, self.mode, encoding=self.encoding)
+        self.__file = open(
+            self.file_path,
+            self.mode,
+            encoding=self.encoding,
+            newline=self.newline,
+        )
 
     def __enter__(self) -> "LAMMPSWriter":
         return self
@@ -77,9 +85,11 @@ class LAMMPSWriter:
             and "atoms". Optional keys: "time".
         """
         if data.get("time") is not None:
-            self.__file.write(f"ITEM: TIME\n{data['time']}\n")
-        self.__file.write(f"ITEM: TIMESTEP\n{data['timestep']}\n")
-        self.__file.write(f"ITEM: NUMBER OF ATOMS\n{data['natoms']}\n")
+            self.__file.write(f"ITEM: TIME\n{self.float_format % data['time']}\n")
+        self.__file.write(f"ITEM: TIMESTEP\n{self.int_format % data['timestep']}\n")
+        self.__file.write(
+            f"ITEM: NUMBER OF ATOMS\n{self.int_format % data['natoms']}\n"
+        )
         self.__file.write(f"ITEM: BOX BOUNDS {' '.join(data['boundary'])}\n")
         self.__file.write(
             f"{self.float_format % data['xlo']} {self.float_format % data['xhi']}\n"

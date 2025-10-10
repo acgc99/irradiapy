@@ -12,6 +12,8 @@ INT_FORMAT = "%d"
 FLOAT_FORMAT = "%g"
 #: str: Encoding for text files.
 ENCODING = "utf-8"
+#: str: newline character for text files used by writers.
+NEWLINE = "\n"
 #: list[str]: List of atom fields to exclude from output in LAMMPS files.
 EXCLUDED_ITEMS = ["xs", "ys", "zs"]
 

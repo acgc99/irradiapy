@@ -157,9 +157,13 @@ class BZIP2LAMMPSWriterMPI(MPIExceptionHandlerMixin):
         if self.__rank == 0:
             header_lines = []
             if data.get("time") is not None:
-                header_lines.append(f"ITEM: TIME\n{data['time']}\n")
-            header_lines.append(f"ITEM: TIMESTEP\n{data['timestep']}\n")
-            header_lines.append(f"ITEM: NUMBER OF ATOMS\n{data['natoms']}\n")
+                header_lines.append(f"ITEM: TIME\n{self.float_format % data['time']}\n")
+            header_lines.append(
+                f"ITEM: TIMESTEP\n{self.int_format % data['timestep']}\n"
+            )
+            header_lines.append(
+                f"ITEM: NUMBER OF ATOMS\n{self.int_format % data['natoms']}\n"
+            )
             header_lines.append(f"ITEM: BOX BOUNDS {' '.join(data['boundary'])}\n")
             header_lines.append(
                 f"{self.float_format % data['xlo']} {self.float_format % data['xhi']}\n"
