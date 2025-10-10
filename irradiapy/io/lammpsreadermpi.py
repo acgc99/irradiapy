@@ -204,8 +204,8 @@ class LAMMPSReaderMPI(MPIExceptionHandlerMixin):
                 arr["ys"] = (arr["y"] - ylo) / (yhi - ylo)
                 arr["zs"] = (arr["z"] - zlo) / (zhi - zlo)
             # attach atoms
-            data["atoms"] = arr
-            data["natoms"] = len(arr)
+            data["subdomain_atoms"] = arr
+            data["subdomain_natoms"] = len(arr)
             yield data
 
         if self.__rank == 0 and self.__file is not None:

@@ -130,7 +130,7 @@ class LAMMPSWriterMPI(MPIExceptionHandlerMixin):
             include "timestep", "boundary", "xlo", "xhi", "ylo", "yhi", "zlo", "zhi",
             and "atoms". Optional keys: "time".
         """
-        atoms = data["atoms"]
+        atoms = data["subdomain_atoms"]
         field_names = [f for f in atoms.dtype.names if f not in self.excluded_items]
 
         formatters = []
@@ -162,7 +162,7 @@ class LAMMPSWriterMPI(MPIExceptionHandlerMixin):
 
         self.comm.Barrier()
         lines_chunk = self.__atoms_rank_to_string(
-            data["atoms"], field_names, formatters
+            data["subdomain_atoms"], field_names, formatters
         )
         if self.__rank == 0:
             self.__file.write(lines_chunk)

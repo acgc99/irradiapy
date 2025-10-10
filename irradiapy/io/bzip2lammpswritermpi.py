@@ -140,7 +140,7 @@ class BZIP2LAMMPSWriterMPI(MPIExceptionHandlerMixin):
             include "timestep", "boundary", "xlo", "xhi", "ylo", "yhi", "zlo", "zhi",
             and "atoms". Optional keys: "time".
         """
-        atoms = data["atoms"]
+        atoms = data["subdomain_atoms"]
         field_names = [f for f in atoms.dtype.names if f not in self.excluded_items]
 
         formatters: list[str] = []

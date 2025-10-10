@@ -222,8 +222,8 @@ class BZIP2LAMMPSReaderMPI(MPIExceptionHandlerMixin):
                 arr["ys"] = (arr["y"] - ylo) / (yhi - ylo)
                 arr["zs"] = (arr["z"] - zlo) / (zhi - zlo)
             # attach atoms
-            data["atoms"] = arr
-            data["natoms"] = int(arr.shape[0])
+            data["subdomain_atoms"] = arr
+            data["subdomain_natoms"] = len(arr)
 
             yield data
 
