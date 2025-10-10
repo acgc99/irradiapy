@@ -69,6 +69,19 @@ def ap_rm_file(original: Path, target: Path, comm: MPI.Comm) -> None:
     comm.Barrier()
 
 
+def _resolve_attr(obj, public_name, default=None):
+    """Get an attribute, even if it is name-mangled."""
+    # Try the public name first
+    if hasattr(obj, public_name):
+        return getattr(obj, public_name)
+    # Try all mangled variants along the MRO
+    for cls in obj.__class__.mro():
+        mangled = f"_{cls.__name__.lstrip('_')}__{public_name}"
+        if hasattr(obj, mangled):
+            return getattr(obj, mangled)
+    return default
+
+
 def mpi_safe_method(method):
     """Decorator that wraps an MPI-using method so any exception prints a
     traceback with the current rank and then calls MPI.Abort.
@@ -82,7 +95,8 @@ def mpi_safe_method(method):
             return method(self, *args, **kwargs)
         except Exception:
             tb = traceback.format_exc()
-            sys.stderr.write(f"Rank {self.rank} raised an exception:\n{tb}\n")
+            rank = _resolve_attr(self, "rank", default="unknown")
+            sys.stderr.write(f"Rank {rank} raised an exception:\n{tb}\n")
             sys.stderr.flush()
             self.comm.Abort(1)
 

@@ -22,11 +22,16 @@ from irradiapy.utils.mpi import (
 
 @dataclass
 class LAMMPSReaderMPI(MPIExceptionHandlerMixin):
-    """A class to read data from a LAMMPS dump  file in parallel using MPI.
+    """A class to read data from a LAMMPS dump file in parallel using MPI.
 
     Note
     ----
     Assumed orthogonal simulation box.
+
+    Note
+    ----
+    Rank 0 reads each timestep one by one, then scatters strings of atom data
+    to all ranks, which build local numpy structured arrays.
 
     Attributes
     ----------
@@ -36,12 +41,20 @@ class LAMMPSReaderMPI(MPIExceptionHandlerMixin):
         The file encoding.
     comm : MPI.Comm, optional (default=mpi4py.MPI.COMM_WORLD)
         The MPI communicator.
+
+    Yields
+    ------
+    dict
+        A dictionary containing the timestep data with keys:
+        'time' (optional), 'timestep', 'natoms', 'boundary', 'xlo', 'xhi',
+        'ylo', 'yhi', 'zlo', 'zhi', and 'atoms' (as a numpy structured array).
     """
 
     file_path: Path
     encoding: str = "utf-8"
-    file: TextIO = field(default=None, init=False)
     comm: MPI.Comm = field(default_factory=lambda: MPI.COMM_WORLD)
+
+    __file: TextIO = field(default=None, init=False)
     __rank: int = field(init=False)
     __commsize: int = field(init=False)
     __comm_tag: int = field(default_factory=MPITagAllocator.get_tag, init=False)
@@ -57,10 +70,10 @@ class LAMMPSReaderMPI(MPIExceptionHandlerMixin):
         iy = (self.__rank // self.__nx) % self.__ny
         iz = self.__rank // (self.__nx * self.__ny)
         self._domain_index = (ix, iy, iz)
-        self.file = None
+        self.__file = None
         if self.__rank == 0:
             try:
-                self.file = open(self.file_path, "r", encoding=self.encoding)
+                self.__file = open(self.file_path, "r", encoding=self.encoding)
             except Exception:
                 self._handle_exception()
 
@@ -68,8 +81,8 @@ class LAMMPSReaderMPI(MPIExceptionHandlerMixin):
         return self
 
     def __del__(self) -> None:
-        if self.__rank == 0 and self.file is not None:
-            self.file.close()
+        if self.__rank == 0 and self.__file is not None:
+            self.__file.close()
 
     def __exit__(
         self,
@@ -78,8 +91,8 @@ class LAMMPSReaderMPI(MPIExceptionHandlerMixin):
         exc_traceback: None | TracebackType = None,
     ) -> bool:
         """Exits the context manager."""
-        if self.__rank == 0 and self.file is not None:
-            self.file.close()
+        if self.__rank == 0 and self.__file is not None:
+            self.__file.close()
         return False
 
     def __get_dtype(
@@ -124,13 +137,18 @@ class LAMMPSReaderMPI(MPIExceptionHandlerMixin):
         while True:
             # header broadcast
             data = self.comm.bcast(
-                self.__process_header(self.file) if self.__rank == 0 else None, root=0
+                self.__process_header(self.__file) if self.__rank == 0 else None, root=0
             )
             if data is None or not data:
                 break
+
             # dtype broadcast
             items, types, dtype = self.comm.bcast(
-                self.__get_dtype(self.file) if self.__rank == 0 else (None, None, None),
+                (
+                    self.__get_dtype(self.__file)
+                    if self.__rank == 0
+                    else (None, None, None)
+                ),
                 root=0,
             )
             data.update({"items": items, "types": types, "dtype": dtype})
@@ -147,7 +165,7 @@ class LAMMPSReaderMPI(MPIExceptionHandlerMixin):
             if self.__rank == 0:
                 chunks = []
                 for cnt in counts:
-                    chunk = [self.file.readline().split() for _ in range(cnt)]
+                    chunk = [self.__file.readline().split() for _ in range(cnt)]
                     chunks.append(chunk)
                 raw = chunks[0]
                 for r in range(1, self.__commsize):
@@ -190,11 +208,11 @@ class LAMMPSReaderMPI(MPIExceptionHandlerMixin):
             data["natoms"] = len(arr)
             yield data
 
-        if self.file:
-            self.file.close()
+        if self.__rank == 0 and self.__file is not None:
+            self.__file.close()
 
     @mpi_safe_method
     def close(self) -> None:
-        """Closes the file associated with this writer."""
-        if self.__rank == 0 and not self.file.closed:
-            self.file.close()
+        """Closes the file associated with this reader."""
+        if self.__rank == 0 and not self.__file.closed:
+            self.__file.close()

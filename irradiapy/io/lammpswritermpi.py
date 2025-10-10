@@ -22,32 +22,37 @@ from irradiapy.utils.mpi import (
 class LAMMPSWriterMPI(MPIExceptionHandlerMixin):
     """A class to write data like a LAMMPS dump file in parallel using MPI.
 
+    Note
+    ----
+    Assumes orthogonal simulation box.
+
     Attributes
     ----------
     file_path : Path
         The path to the LAMMPS dump file.
     mode : str, optional (default="w")
         The file open mode.
-    excluded_items : list[str], optional (default=irradiapy.config.EXCLUDED_ITEMS)
-        Atom fields to exclude from output.
     encoding : str, optional (default=irradiapy.config.ENCODING)
         The file encoding.
+    comm : MPI.Comm, optional (default=mpi4py.MPI.COMM_WORLD)
+        The MPI communicator.
     int_format : str, optional (default=irradiapy.config.INT_FORMAT)
         The format for integers.
     float_format : str, optional (default=irradiapy.config.FLOAT_FORMAT)
         The format for floats.
-    comm : MPI.Comm, optional (default=mpi4py.MPI.COMM_WORLD)
-        The MPI communicator.
+    excluded_items : list[str], optional (default=irradiapy.config.EXCLUDED_ITEMS)
+        Atom fields to exclude from output.
     """
 
     file_path: Path
     mode: str = "w"
-    excluded_items: list[str] = field(default_factory=lambda: config.EXCLUDED_ITEMS)
     encoding: str = field(default_factory=lambda: config.ENCODING)
+    comm: MPI.Comm = field(default_factory=lambda: MPI.COMM_WORLD)
     int_format: str = field(default_factory=lambda: config.INT_FORMAT)
     float_format: str = field(default_factory=lambda: config.FLOAT_FORMAT)
-    file: TextIO = field(default=None, init=False)
-    comm: MPI.Comm = field(default_factory=lambda: MPI.COMM_WORLD)
+    excluded_items: list[str] = field(default_factory=lambda: config.EXCLUDED_ITEMS)
+
+    __file: TextIO = field(default=None, init=False)
     __rank: int = field(init=False)
     __commsize: int = field(init=False)
     __comm_tag: int = field(default_factory=MPITagAllocator.get_tag, init=False)
@@ -56,10 +61,10 @@ class LAMMPSWriterMPI(MPIExceptionHandlerMixin):
         """Opens the file associated with this writer."""
         self.__rank = self.comm.Get_rank()
         self.__commsize = self.comm.Get_size()
-        self.file = None
+        self.__file = None
         if self.__rank == 0:
             try:
-                self.file = open(self.file_path, self.mode, encoding=self.encoding)
+                self.__file = open(self.file_path, self.mode, encoding=self.encoding)
             except Exception:
                 self._handle_exception()
 
@@ -67,8 +72,8 @@ class LAMMPSWriterMPI(MPIExceptionHandlerMixin):
         return self
 
     def __del__(self) -> None:
-        if self.__rank == 0 and self.file is not None:
-            self.file.close()
+        if self.__rank == 0 and self.__file is not None:
+            self.__file.close()
 
     def __exit__(
         self,
@@ -76,8 +81,8 @@ class LAMMPSWriterMPI(MPIExceptionHandlerMixin):
         exc_value: None | BaseException = None,
         exc_traceback: None | TracebackType = None,
     ) -> bool:
-        if self.__rank == 0 and self.file is not None:
-            self.file.close()
+        if self.__rank == 0 and self.__file is not None:
+            self.__file.close()
         return False
 
     def __atoms_rank_to_string(
@@ -111,23 +116,19 @@ class LAMMPSWriterMPI(MPIExceptionHandlerMixin):
     @mpi_safe_method
     def close(self) -> None:
         """Closes the file associated with this writer."""
-        if self.__rank == 0 and not self.file.closed:
-            self.file.close()
+        if self.__rank == 0 and not self.__file.closed:
+            self.__file.close()
 
     @mpi_safe_method
     def write(self, data: dict[str, Any]) -> None:
-        """Writes the data to the file.
-
-        Note
-        ----
-        Assumes orthogonal simulation box.
+        """Write the data to the file.
 
         Parameters
         ----------
         data : dict[str, Any]
             A dictionary containing the data to be written. The keys should
-            include 'timestep', 'boundary', 'xlo', 'xhi', 'ylo', 'yhi', 'zlo', 'zhi',
-            and any other fields to be written as atom properties.
+            include "timestep", "boundary", "xlo", "xhi", "ylo", "yhi", "zlo", "zhi",
+            and "atoms". Optional keys: "time".
         """
         atoms = data["atoms"]
         field_names = [f for f in atoms.dtype.names if f not in self.excluded_items]
@@ -144,35 +145,35 @@ class LAMMPSWriterMPI(MPIExceptionHandlerMixin):
 
         if self.__rank == 0:
             if "time" in data:
-                self.file.write(f"ITEM: TIME\n{data['time']}\n")
-            self.file.write(f"ITEM: TIMESTEP\n{data['timestep']}\n")
-            self.file.write(f"ITEM: NUMBER OF ATOMS\n{data['natoms']}\n")
-            self.file.write(f"ITEM: BOX BOUNDS {' '.join(data['boundary'])}\n")
-            self.file.write(
+                self.__file.write(f"ITEM: TIME\n{data['time']}\n")
+            self.__file.write(f"ITEM: TIMESTEP\n{data['timestep']}\n")
+            self.__file.write(f"ITEM: NUMBER OF ATOMS\n{data['natoms']}\n")
+            self.__file.write(f"ITEM: BOX BOUNDS {' '.join(data['boundary'])}\n")
+            self.__file.write(
                 f"{self.float_format % data['xlo']} {self.float_format % data['xhi']}\n"
             )
-            self.file.write(
+            self.__file.write(
                 f"{self.float_format % data['ylo']} {self.float_format % data['yhi']}\n"
             )
-            self.file.write(
+            self.__file.write(
                 f"{self.float_format % data['zlo']} {self.float_format % data['zhi']}\n"
             )
-            self.file.write(f"ITEM: ATOMS {' '.join(field_names)}\n")
+            self.__file.write(f"ITEM: ATOMS {' '.join(field_names)}\n")
 
         self.comm.Barrier()
         lines_chunk = self.__atoms_rank_to_string(
             data["atoms"], field_names, formatters
         )
         if self.__rank == 0:
-            self.file.write(lines_chunk)
+            self.__file.write(lines_chunk)
             if lines_chunk:
-                self.file.write("\n")
+                self.__file.write("\n")
             for sender_rank in range(1, self.__commsize):
                 self.comm.send(None, dest=sender_rank, tag=self.__comm_tag + 1)
                 msg = self.comm.recv(source=sender_rank, tag=self.__comm_tag)
-                self.file.write(msg)
+                self.__file.write(msg)
                 if msg:
-                    self.file.write("\n")
+                    self.__file.write("\n")
         else:
             self.comm.recv(source=0, tag=self.__comm_tag + 1)
             self.comm.send(lines_chunk, dest=0, tag=self.__comm_tag)

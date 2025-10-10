@@ -22,18 +22,26 @@ class LAMMPSReader:
         The path to the LAMMPS dump file.
     encoding : str, optional (default="utf-8")
         The file encoding.
+
+    Yields
+    ------
+    dict
+        A dictionary containing the timestep data with keys:
+        'time' (optional), 'timestep', 'natoms', 'boundary', 'xlo', 'xhi',
+        'ylo', 'yhi', 'zlo', 'zhi', and 'atoms' (as a numpy structured array).
     """
 
     file_path: Path
     encoding: str = "utf-8"
-    file: TextIO = field(default=None, init=False)
+
+    __file: TextIO = field(default=None, init=False)
 
     def __post_init__(self) -> None:
-        self.file = open(self.file_path, encoding=self.encoding)
+        self.__file = open(self.file_path, encoding=self.encoding)
 
     def __del__(self) -> None:
-        if self.file is not None:
-            self.file.close()
+        if self.__file is not None:
+            self.__file.close()
 
     def __iter__(
         self,
@@ -42,42 +50,34 @@ class LAMMPSReader:
         None,
         None,
     ]:
-        """Read the file as an iterator, timestep by timestep.
-
-        Yields
-        ------
-        dict
-            A dictionary containing the timestep data with keys:
-            'time' (optional), 'timestep', 'natoms', 'boundary', 'xlo', 'xhi',
-            'ylo', 'yhi', 'zlo', 'zhi', and 'atoms' (as a numpy structured array).
-        """
+        """Read the file as an iterator, timestep by timestep."""
         while True:
             data = defaultdict(None)
-            line = self.file.readline()
+            line = self.__file.readline()
             if not line:
                 break
             if line == "ITEM: TIME\n":
-                data["time"] = float(self.file.readline())
-                self.file.readline()
-            data["timestep"] = int(self.file.readline())
-            self.file.readline()
-            data["natoms"] = int(self.file.readline())
-            data["boundary"] = self.file.readline().split()[-3:]
-            data["xlo"], data["xhi"] = map(float, self.file.readline().split())
-            data["ylo"], data["yhi"] = map(float, self.file.readline().split())
-            data["zlo"], data["zhi"] = map(float, self.file.readline().split())
+                data["time"] = float(self.__file.readline())
+                self.__file.readline()
+            data["timestep"] = int(self.__file.readline())
+            self.__file.readline()
+            data["natoms"] = int(self.__file.readline())
+            data["boundary"] = self.__file.readline().split()[-3:]
+            data["xlo"], data["xhi"] = map(float, self.__file.readline().split())
+            data["ylo"], data["yhi"] = map(float, self.__file.readline().split())
+            data["zlo"], data["zhi"] = map(float, self.__file.readline().split())
 
-            line = self.file.readline()
+            line = self.__file.readline()
             items, types, dtype = self.__get_dtype(line)
 
             data["atoms"] = np.empty(data["natoms"], dtype=dtype)
             for i in range(data["natoms"]):
-                line = self.file.readline().split()
+                line = self.__file.readline().split()
                 for j, item in enumerate(items):
                     data["atoms"][i][item] = types[j](line[j])
             yield data
 
-        self.file.close()
+        self.__file.close()
 
     def __get_dtype(
         self, line: str
@@ -105,4 +105,4 @@ class LAMMPSReader:
 
     def close(self) -> None:
         """Close the file associated with this reader."""
-        self.file.close()
+        self.__file.close()

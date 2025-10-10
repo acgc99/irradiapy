@@ -17,29 +17,33 @@ class BZIP2LAMMPSReader:
     ----
     Assumed orthogonal simulation box.
 
-    Note
-    ----
-    If you only need to decompress a file, use `irradiapy.io.io_utils.decompress_file_bz2` instead.
-
-
     Attributes
     ----------
     file_path : Path
         The path to the bzip2-compressed LAMMPS dump file.
     encoding : str, optional (default="utf-8")
         The file encoding.
+
+    Yields
+    ------
+    dict
+        A dictionary containing the timestep data with keys:
+        'time' (optional), 'timestep', 'natoms', 'boundary', 'xlo', 'xhi',
+        'ylo', 'yhi', 'zlo', 'zhi', and 'atoms' (as a numpy structured array).
+
     """
 
     file_path: Path
     encoding: str = "utf-8"
-    file: BinaryIO = field(default=None, init=False)
+
+    __file: BinaryIO = field(default=None, init=False)
 
     def __post_init__(self) -> None:
-        self.file = bz2.open(self.file_path, mode="rt", encoding=self.encoding)
+        self.__file = bz2.open(self.file_path, mode="rt", encoding=self.encoding)
 
     def __del__(self) -> None:
-        if self.file is not None:
-            self.file.close()
+        if self.__file is not None:
+            self.__file.close()
 
     def __iter__(
         self,
@@ -96,4 +100,4 @@ class BZIP2LAMMPSReader:
 
     def close(self) -> None:
         """Close the file associated with this reader."""
-        self.file.close()
+        self.__file.close()
