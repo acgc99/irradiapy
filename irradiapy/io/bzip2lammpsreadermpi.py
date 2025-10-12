@@ -122,12 +122,6 @@ class BZIP2LAMMPSReaderMPI(MPIExceptionHandlerMixin):
             np.int64 if it in ("id", "type", "element", "size") else np.float64
             for it in items
         ]
-        # Provide normalized scaled coords if raw x,y,z are present
-        if all(c in items for c in ("x", "y", "z")) and all(
-            c not in items for c in ("xs", "ys", "zs")
-        ):
-            items += ["xs", "ys", "zs"]
-            types += [np.float64] * 3
         return items, types, np.dtype(list(zip(items, types)))
 
     def _process_header(self) -> Dict[str, Any]:
@@ -192,8 +186,6 @@ class BZIP2LAMMPSReaderMPI(MPIExceptionHandlerMixin):
             arr = np.empty(len(raw), dtype=dtype)
             for i, fields in enumerate(raw):
                 for j, key in enumerate(items):
-                    if key in ("xs", "ys", "zs"):
-                        continue
                     arr[key][i] = types[j](fields[j])
 
             # subdomain info: indices and physical bounds
@@ -213,14 +205,6 @@ class BZIP2LAMMPSReaderMPI(MPIExceptionHandlerMixin):
                 "zlo": zlo + iz * dz,
                 "zhi": zlo + (iz + 1) * dz,
             }
-            # normalize scaled coordinates based on true positions
-            if all(c in items for c in ("xs", "ys", "zs")) and all(
-                c in items for c in ("x", "y", "z")
-            ):
-                # Fill scaled from absolute
-                arr["xs"] = (arr["x"] - xlo) / (xhi - xlo)
-                arr["ys"] = (arr["y"] - ylo) / (yhi - ylo)
-                arr["zs"] = (arr["z"] - zlo) / (zhi - zlo)
             # attach atoms
             data["subdomain_atoms"] = arr
             data["subdomain_natoms"] = len(arr)

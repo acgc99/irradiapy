@@ -15,7 +15,7 @@ ENCODING = "utf-8"
 #: str: newline character for text files used by writers.
 NEWLINE = "\n"
 #: list[str]: List of atom fields to exclude from output in LAMMPS files.
-EXCLUDED_ITEMS = ["xs", "ys", "zs"]
+EXCLUDED_ITEMS = []
 
 
 def use_style(latex: bool = False) -> None:

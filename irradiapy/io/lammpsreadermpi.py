@@ -103,9 +103,6 @@ class LAMMPSReaderMPI(MPIExceptionHandlerMixin):
             np.int64 if it in ("id", "type", "element", "size") else np.float64
             for it in items
         ]
-        if all(c in items for c in ("x", "y", "z")):
-            items += ["xs", "ys", "zs"]
-            types += [np.float64] * 3
         return items, types, np.dtype(list(zip(items, types)))
 
     def __process_header(self, file: TextIO) -> Dict[str, Any]:
@@ -177,8 +174,6 @@ class LAMMPSReaderMPI(MPIExceptionHandlerMixin):
             arr = np.empty(len(raw), dtype=dtype)
             for i, fields in enumerate(raw):
                 for j, key in enumerate(items):
-                    if key in ("xs", "ys", "zs"):
-                        continue
                     arr[key][i] = types[j](fields[j])
 
             # subdomain info: indices and physical bounds
@@ -198,11 +193,6 @@ class LAMMPSReaderMPI(MPIExceptionHandlerMixin):
                 "zlo": zlo + iz * dz,
                 "zhi": zlo + (iz + 1) * dz,
             }
-            # normalize scaled coordinates based on true positions
-            if all(c in items for c in ("xs", "ys", "zs")):
-                arr["xs"] = (arr["x"] - xlo) / (xhi - xlo)
-                arr["ys"] = (arr["y"] - ylo) / (yhi - ylo)
-                arr["zs"] = (arr["z"] - zlo) / (zhi - zlo)
             # attach atoms
             data["subdomain_atoms"] = arr
             data["subdomain_natoms"] = len(arr)
