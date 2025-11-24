@@ -4,24 +4,36 @@ from irradiapy.materials.ag import Ag
 from irradiapy.materials.cr import Cr
 from irradiapy.materials.cu import Cu
 from irradiapy.materials.fe import Fe
+from irradiapy.materials.h import H
+from irradiapy.materials.he import He
+from irradiapy.materials.hf import Hf
 from irradiapy.materials.material import Material
+from irradiapy.materials.mn import Mn
 from irradiapy.materials.o import O
 from irradiapy.materials.w import W
 
 MATERIALS_BY_SYMBOL = {
-    "Ag": Ag,
-    "Cr": Cr,
-    "Cu": Cu,
-    "Fe": Fe,
+    "H": H,
+    "He": He,
     "O": O,
+    "Cr": Cr,
+    "Mn": Mn,
+    "Fe": Fe,
+    "Cu": Cu,
+    "Ag": Ag,
+    "Hf": Hf,
     "W": W,
 }
 MATERIALS_BY_ATOMIC_NUMBER = {
+    1: H,
+    2: He,
     8: O,
     24: Cr,
+    25: Mn,
     26: Fe,
     29: Cu,
     47: Ag,
+    72: Hf,
     74: W,
 }
 
