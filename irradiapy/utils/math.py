@@ -321,13 +321,16 @@ def fit_power_law(
     # Power law: y = a * x**k
     # Fitted in log-log space: log(y) = log(a) + k * log(x)
     popt, popv = curve_fit(
-        lambda x, a, b: a + b * x, np.log10(xs), np.log10(ys), sigma=yerrs
+        lambda x, a, b: a + b * x,
+        np.log(xs),
+        np.log(ys),
+        sigma=yerrs / ys,
+        absolute_sigma=True,
     )
-    a = 10.0 ** popt[0]
+    a = np.exp(popt[0])
     k = popt[1]
     errors = np.sqrt(np.diag(popv))
-    error_log_a = errors[0]
-    error_a = a * error_log_a * np.log(10)
+    error_a = a * errors[0]
     error_k = errors[1]
 
     def fit_function(x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
@@ -337,6 +340,94 @@ def fit_power_law(
 
 
 # endregion
+
+# region Power law
+
+
+def offset_power_law(
+    x: npt.NDArray[np.float64], a: float, k: float, b: float
+) -> npt.NDArray[np.float64]:
+    """Evaluate a power law: y = a * x**k + b
+
+    Parameters
+    ----------
+    x : npt.NDArray[np.float64]
+        Input values.
+    a : float
+        Prefactor.
+    k : float
+        Exponent.
+    b : float
+        Offset.
+
+    Returns
+    -------
+    npt.NDArray[np.float64]
+        Evaluated power law with offset.
+    """
+    return a * x**k + b
+
+
+def fit_offset_power_law(
+    xs: npt.NDArray[np.float64],
+    ys: npt.NDArray[np.float64],
+    yerrs: None | npt.NDArray[np.float64] = None,
+) -> tuple[
+    tuple[float, float, float],
+    tuple[float, float, float],
+    Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]],
+]:
+    """Fit a power law with an offset to the given histogram data: y = a * x**k + b.
+
+    Note
+    ----
+    The presence of the offset b prevents a log–log linearization.
+    We therefore fit the model directly in linear space via nonlinear least squares.
+
+    Parameters
+    ----------
+    xs : npt.NDArray[np.float64]
+        X values where the function is evaluated.
+    ys : npt.NDArray[np.float64]
+        Y values at the given xs.
+    yerrs : npt.NDArray[np.float64], optional
+        Y errors (standard deviations) in linear space.
+
+    Returns
+    -------
+    tuple[
+        tuple[float, float, float],
+        tuple[float, float, float],
+        tuple[float, float, float],
+        Callable[[npt.NDArray[np.float64]],
+        npt.NDArray[np.float64]]
+    ]
+        Tuple containing:
+        - (a, k, b): Fitted parameters of the power law.
+        - (error_a, error_k, error_b): Errors of the fitted parameters.
+        - fit_function: Function that evaluates the fitted power law.
+    """
+    # Power law: y = a * x**k + b
+    popt, popv = curve_fit(
+        offset_power_law,
+        xs,
+        ys,
+        sigma=yerrs,
+        absolute_sigma=yerrs is not None,
+        p0=(1.0, 1.0, 0.0),
+    )
+    a, k, b = popt[0], popt[1], popt[2]
+    errors = np.sqrt(np.diag(popv)).astype(float)
+    error_a, error_k, error_b = errors
+
+    def fit_function(x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+        return offset_power_law(x, a, k, b)
+
+    return (a, k, b), (error_a, error_k, error_b), fit_function
+
+
+# endregion
+
 
 # region Linear
 
