@@ -141,8 +141,10 @@ def plot_pka_distribution(
             pka_centers[mask] / 1e3, pka_hist[mask]
         )
         fit = True
+        returnvals = (a, k), (error_a, error_k), fit_function
     except Exception as exc:  # pylint: disable=broad-except
         print(f"Fit failed: {exc}")
+        returnvals = None
     if fit and fit_path:
         with open(fit_path, "w", encoding="utf-8") as file:
             file.write(
@@ -171,7 +173,7 @@ def plot_pka_distribution(
     else:
         plt.show()
     plt.close()
-    return (a, k), (error_a, error_k), fit_function
+    return returnvals
 
 
 def plot_energy_depth(
