@@ -22,6 +22,7 @@ from irradiapy.srim.ofiles.backscat import Backscat
 from irradiapy.srim.ofiles.collision import Collision
 from irradiapy.srim.ofiles.e2recoil import E2Recoil
 from irradiapy.srim.ofiles.ioniz import Ioniz
+from irradiapy.srim.ofiles.ionsfps import IonsFPs
 from irradiapy.srim.ofiles.lateral import Lateral
 from irradiapy.srim.ofiles.novac import Novac
 from irradiapy.srim.ofiles.phonon import Phonon
@@ -29,6 +30,7 @@ from irradiapy.srim.ofiles.range import Range
 from irradiapy.srim.ofiles.range3d import Range3D
 from irradiapy.srim.ofiles.sputter import Sputter
 from irradiapy.srim.ofiles.subcollision import Subcollision
+from irradiapy.srim.ofiles.subrange3d import SubRange3D
 from irradiapy.srim.ofiles.transmit import Transmit
 from irradiapy.srim.ofiles.trimdat import Trimdat
 from irradiapy.srim.ofiles.vacancy import Vacancy
@@ -136,6 +138,8 @@ class SRIMDB(sqlite3.Connection):
         self.vacancy = Vacancy(self)
         self.collision = Collision(self)
         self.subcollision = Subcollision(self)
+        self.subrange3d = SubRange3D(self)
+        self.ionsfps = IonsFPs(self)
 
         if self.calculation not in ["quick", "full", "mono", None]:
             raise ValueError("Invalid calculation mode.")
@@ -495,6 +499,16 @@ class SRIMDB(sqlite3.Connection):
         """
         self.novac.process_file(novac_path)
 
+    def append_subrange3d(self, range3d_path: Path) -> None:
+        """Appends currect iteration `RANGE_3D.txt` into the database.
+
+        Parameters
+        ----------
+        range3d_path : Path
+            `RANGE_3D.txt` path.
+        """
+        self.subrange3d.process_file(range3d_path)
+
     def merge(
         self,
         srimdb2: "SRIMDB",
@@ -769,6 +783,7 @@ class SRIMDB(sqlite3.Connection):
         cosxs: None | npt.NDArray[np.float64] = None,
         cosys: None | npt.NDArray[np.float64] = None,
         coszs: None | npt.NDArray[np.float64] = None,
+        exclude_vacancies_ion: None | list[int] = None,
         iter_max: None | int = None,
         ignore_32bit_warning: bool = True,
     ) -> None:
@@ -800,6 +815,11 @@ class SRIMDB(sqlite3.Connection):
             Ion initial y directions.
         coszs : npt.NDArray[np.float64], optional
             Ion initial z directions.
+        exclude_vacancies_ion : list[int], optional
+            If an ion has an atomic number in this list, it will not be considered that it adds
+            a vacancy to the target. For example, if you want to simulate a bulk PKA, Fe in Fe,
+            leave this list empty and a vacancy will be placed where the PKA starts; however, if you
+            want to simulate H in Fe, no vacancies should be created, then this list must be [1].
         iter_max : int, optional (default=None)
             Maximum number of iterations.
         """
@@ -848,6 +868,10 @@ class SRIMDB(sqlite3.Connection):
             coszs,
         ) = self._filter_subcollisions(cur, nions, trimdat, nsubcollisions0, criterion)
         nsubcollisions_total = nsubcollisions.sum()
+        # Add ions FPs
+        self.append_subrange3d(self.dir_srim / "SRIM Outputs/RANGE_3D.txt")
+        self.ionsfps.add_data(trimdat, [1] * nions, exclude_vacancies_ion)
+        self.subrange3d.empty()
 
         niter = 1
         while nsubcollisions_total and niter != iter_max:
@@ -878,6 +902,10 @@ class SRIMDB(sqlite3.Connection):
                 cur, nions, trimdat, nsubcollisions0, criterion
             )
             nsubcollisions_total = nsubcollisions.sum()
+            # Add ions FPs
+            self.append_subrange3d(self.dir_srim / "SRIM Outputs/RANGE_3D.txt")
+            self.ionsfps.add_data(trimdat, nsubcollisions0, exclude_vacancies_ion)
+            self.subrange3d.empty()
 
         # Reordering database might reduce I/O operations filtered by ion number
         # PKAs are not sequentally ordered
@@ -886,9 +914,13 @@ class SRIMDB(sqlite3.Connection):
         )
         cur.execute("DROP TABLE collision")
         cur.execute("ALTER TABLE collision0 RENAME TO collision")
+        cur.execute("CREATE TABLE ionsfps0 AS SELECT * FROM ionsfps ORDER BY ion_numb")
+        cur.execute("DROP TABLE ionsfps")
+        cur.execute("ALTER TABLE ionsfps0 RENAME TO ionsfps")
         cur.execute(
-            "CREATE INDEX ionRecoilEenrgyIdx ON collision(ion_numb, recoil_energy)"
+            "CREATE INDEX ionRecoilEnergyIdx ON collision(ion_numb, recoil_energy)"
         )
+        cur.execute("CREATE INDEX ionsfpsIdx ON ionsfps(ion_numb)")
         self.commit()
         cur.close()
         if remove_offsets:
@@ -1166,6 +1198,7 @@ class SRIMDB(sqlite3.Connection):
                         nsubcollisions[nion] += 1
                     pos0 = pos
                     # print(pos0, [cosx, cosy, cosz])
+                    # print(f"{nion+1=}")
         self.subcollision.empty()
         atomic_numbers = np.array(atomic_numbers, dtype=np.int64)
         recoil_energies, depths, ys, zs = (
@@ -1243,5 +1276,6 @@ class SRIMDB(sqlite3.Connection):
         self.__remove_individual_offsets(cur, "sputter")
         self.__remove_individual_offsets(cur, "transmit")
         self.__remove_individual_offsets(cur, "transmit")
+        self.__remove_individual_offsets(cur, "ionsfps")
         cur.close()
         self.commit()

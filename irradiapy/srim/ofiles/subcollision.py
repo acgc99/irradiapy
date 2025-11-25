@@ -38,7 +38,6 @@ class Subcollision(SRIMFile):
         cur.execute(
             (
                 "CREATE TEMPORARY TABLE IF NOT EXISTS subcollision"
-                # (f"CREATE TABLE IF NOT EXISTS subcollision"
                 "(ion_numb INTEGER, energy REAL, depth REAL, y REAL, z REAL,"
                 "se REAL, atom_hit TEXT, recoil_energy REAL,"
                 "target_disp REAL)"

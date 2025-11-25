@@ -506,7 +506,7 @@ def __generate_ion_defects(
     damagedb : DamageDB
         DamageDB class that will choose MD debris.
     add_injected : bool
-        Whether to add the injected interstitial.
+        Whether to add the injected ion.
 
     Returns
     -------
@@ -525,24 +525,27 @@ def __generate_ion_defects(
         )
         defects = np.concatenate((defects, defects_))
 
-    if add_injected:
-        injected = list(
-            srimdb.range3d.read(
-                what="depth, y, z", condition=f"WHERE ion_numb = {nion} LIMIT 1"
-            )
+    # Add vacancies and SIA from SRIM ions
+    ionfps = list(
+        srimdb.ionsfps.read(
+            what="atom_numb, depth, y, z", condition=f"WHERE ion_numb = {nion}"
         )
-        # No backscattered or transmitted ion
-        if injected:
-            atom_number = list(
-                srimdb.trimdat.read(
-                    what="atom_numb", condition=f"WHERE ion_numb = {nion}"
-                )
-            )[0][0]
-            injected = np.array(
-                [(atom_number, injected[0][0], injected[0][1], injected[0][2])],
-                dtype=dtypes.defect,
-            )
-            defects = np.concatenate((defects, injected))
+    )
+    # The injected ion, if not transmitted/backscattered, is the second entry
+    if not add_injected:
+        # in case of only one vacancy and transmitted/backscattered ion
+        if len(ionfps) > 1:
+            potential_injected = ionfps[1]
+            if potential_injected[0] != 0:
+                del ionfps[1]
+    defects_ = np.empty(len(ionfps), dtype=dtypes.defect)
+    for i, (atom_number, depth, y, z) in enumerate(ionfps):
+        defects_[i][0] = atom_number
+        defects_[i][1] = depth
+        defects_[i][2] = y
+        defects_[i][3] = z
+    defects = np.concatenate((defects, defects_))
+
     return defects
 
 
