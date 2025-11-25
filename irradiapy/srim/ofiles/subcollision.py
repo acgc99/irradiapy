@@ -52,7 +52,7 @@ class Subcollision(SRIMFile):
                     break
             for line in file:
                 if line[0] == "³":
-                    line = line[1:-2]
+                    line = line[1:-2].replace(",", ".")
                     data = line.split("³")
                     ion_numb = int(data[0])
                     energy = float(data[1])

@@ -30,7 +30,7 @@ class Range3D(SRIMFile):
                     break
             next(file)
             for line in file:
-                data = list(map(float, line[:-1].split()))
+                data = list(map(float, line[:-1].replace(",", ".").split()))
                 ion_numb = data[0]
                 depth = data[1]
                 y = data[2]

@@ -54,7 +54,7 @@ class Range(SRIMFile):
             next(file)
             next(file)
             for _ in range(100):
-                line = next(file)
+                line = next(file).replace(",", ".")
                 data = list(map(float, line[:-1].split()))
                 depth = data[0]
                 ions = data[1]
