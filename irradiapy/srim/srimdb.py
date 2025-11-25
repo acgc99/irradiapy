@@ -829,6 +829,8 @@ class SRIMDB(sqlite3.Connection):
                 category=UserWarning,
                 message="32-bit application should be automated using 32-bit Python",
             )
+        if exclude_vacancies_ion is None:
+            exclude_vacancies_ion = []
 
         if self.table_exists("collision"):
             raise RuntimeError(
