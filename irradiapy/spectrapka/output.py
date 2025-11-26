@@ -443,6 +443,7 @@ def plot_all(data: defaultdict, out_path: Path) -> None:
     ax.set_xlabel("Energy (eV)")
     ax.set_ylabel("Neutron flux (n/cm²/s) per lethargy interval", fontsize=12)
     ax.set_title(f"Spectrum: {spectrum['name']}")
+    fig.tight_layout()
     fig.savefig(out_path / "spectrum.png", dpi=300)
     plt.close(fig)
 
@@ -482,5 +483,6 @@ def plot_all(data: defaultdict, out_path: Path) -> None:
             ax.set_title(f"Isotopic recoil matrix of {matrix['isotope']}")
         else:
             ax.set_title(f"Elemental recoil matrix of {matrix['element']}")
+        fig.tight_layout()
         fig.savefig(plot_path, dpi=300)
         plt.close(fig)
