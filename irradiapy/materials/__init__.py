@@ -10,6 +10,7 @@ from irradiapy.materials.hf import Hf
 from irradiapy.materials.material import Material
 from irradiapy.materials.mn import Mn
 from irradiapy.materials.o import O
+from irradiapy.materials.ta import Ta
 from irradiapy.materials.w import W
 
 MATERIALS_BY_SYMBOL = {
@@ -22,6 +23,7 @@ MATERIALS_BY_SYMBOL = {
     "Cu": Cu,
     "Ag": Ag,
     "Hf": Hf,
+    "Ta": Ta,
     "W": W,
 }
 MATERIALS_BY_ATOMIC_NUMBER = {
@@ -34,6 +36,7 @@ MATERIALS_BY_ATOMIC_NUMBER = {
     29: Cu,
     47: Ag,
     72: Hf,
+    73: Ta,
     74: W,
 }
 

@@ -1,6 +1,6 @@
 """This module contains the `Collision` class."""
 
-import sqlite3
+from pathlib import Path
 from typing import TYPE_CHECKING, Generator
 
 from irradiapy.srim.ofiles.srimfile import SRIMFile
@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 
 
 class Collision(SRIMFile):
-    """Class for processing the `COLLISON.txt` file."""
+    """Class for processing collision data."""
 
     def __init__(self, srimdb: "SRIMDB") -> None:
         """Initializes the `Collision` object.
@@ -22,197 +22,128 @@ class Collision(SRIMFile):
         """
         super().__init__(srimdb)
         if self.srim.calculation == "quick":
-            self.create_table = self.__create_table_qc
-            self.insert = self.__insert_qc
+            self.process_file = self.__process_file_qc
             self.merge = self.__merge_qc
         else:
-            self.create_table = self.__create_table_fc
-            self.insert = self.__insert_fc
+            self.process_file = self.__process_file_fc
             self.merge = self.__merge_fc
 
-    def __create_table_qc(self) -> None:
-        """Creates the collision table for Quick-Calculation mode."""
+    def __process_file_qc(self, collision_path: Path) -> None:
+        """Processes `COLLISON.txt` file in Quick-Calculation mode.
+
+        Parameters
+        ----------
+        collision_path : Path
+            `COLLISON.txt` path.
+        """
         cur = self.cursor()
         cur.execute(
             (
-                "CREATE TABLE collision"
+                "CREATE TABLE IF NOT EXISTS collision"
                 "(ion_numb INTEGER, energy REAL, depth REAL, y REAL, z REAL,"
-                "cosx REAL, cosy REAL, cosz REAL, se REAL, atom_hit TEXT,"
-                "recoil_energy REAL, target_disp REAL)"
+                "se REAL, atom_hit TEXT, recoil_energy REAL,"
+                "target_disp REAL)"
             )
         )
+        with open(collision_path, "r", encoding="latin1") as file:
+            for line in file:
+                # Skip this line
+                # ³=> Recoils Calculated with Kinchin-Pease Theory (Only Vacancies Calc) <=³
+                if line[0] == "³":
+                    break
+            for line in file:
+                if line[0] == "³":
+                    line = line[1:-2].replace(",", ".")
+                    data = line.split("³")
+                    ion_numb = int(data[0])
+                    energy = float(data[1])
+                    depth = float(data[2])
+                    y = float(data[3])
+                    z = float(data[4])
+                    se = float(data[5])
+                    atom_hit = data[6].strip()
+                    recoil_energies = float(data[7])
+                    target_disp = float(data[8])
+                    cur.execute(
+                        (
+                            "INSERT INTO collision"
+                            "(ion_numb, energy, depth, y, z, se, atom_hit, recoil_energy,"
+                            "target_disp)"
+                            "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                        ),
+                        [
+                            ion_numb,
+                            energy,
+                            depth,
+                            y,
+                            z,
+                            se,
+                            atom_hit,
+                            recoil_energies,
+                            target_disp,
+                        ],
+                    )
         cur.close()
-        self.srim.commit()
 
-    def __create_table_fc(self) -> None:
-        """Creates the collision table for Full-Calculation mode."""
+    def __process_file_fc(self, collision_path: Path) -> None:
+        """Processes `COLLISON.txt` file in Full-Calculation mode.
+
+        Parameters
+        ----------
+        collision_path : Path
+            `COLLISON.txt` path.
+        """
         cur = self.cursor()
         cur.execute(
             (
-                "CREATE TABLE collision"
+                "CREATE TABLE IF NOT EXISTS collision"
+                # (f"CREATE TABLE IF NOT EXISTS collision"
                 "(ion_numb INTEGER, energy REAL, depth REAL, y REAL, z REAL,"
-                "cosx REAL, cosy REAL, cosz REAL, se REAL, atom_hit TEXT,"
-                "recoil_energy REAL, target_disp INTEGER, target_vac INTEGER,"
+                "se REAL, atom_hit TEXT, recoil_energy REAL,"
+                "target_disp INTEGER, target_vac INTEGER,"
                 "target_replac INTEGER, target_inter INTEGER)"
             )
         )
+        with open(collision_path, "r", encoding="latin1") as file:
+            for line in file:
+                if line[0] == "³":
+                    line = line[1:-2]
+                    data = line.split("³")
+                    ion_numb = int(data[0])
+                    energy = float(data[1])
+                    depth = float(data[2])
+                    y = float(data[3])
+                    z = float(data[4])
+                    se = float(data[5])
+                    atom_hit = data[6].strip()
+                    recoil_energies = float(data[7])
+                    target_disp = int(data[8])
+                    target_vac = int(data[9])
+                    target_replac = int(data[10])
+                    target_inter = int(data[11])
+                    cur.execute(
+                        (
+                            "INSERT INTO collision"
+                            "(ion_numb, energy, depth, y, z, se, atom_hit, recoil_energy,"
+                            "target_disp, target_vac, target_replac, target_inter)"
+                            "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                        ),
+                        [
+                            ion_numb,
+                            energy,
+                            depth,
+                            y,
+                            z,
+                            se,
+                            atom_hit,
+                            recoil_energies,
+                            target_disp,
+                            target_vac,
+                            target_replac,
+                            target_inter,
+                        ],
+                    )
         cur.close()
-        self.srim.commit()
-
-    def __insert_qc(
-        self,
-        cur: sqlite3.Cursor,
-        nion: int,
-        energy: float,
-        depth: float,
-        y: float,
-        z: float,
-        cosx: float,
-        cosy: float,
-        cosz: float,
-        se: float,
-        atom_hit: str,
-        recoil_energy: float,
-        target_disp: float,
-    ) -> None:
-        """Inserts data into the collision table for Quick-Calculation mode.
-
-        Parameters
-        ----------
-        cur : sqlite3.Cursor
-            Database cursor.
-        nion : int
-            Ion number.
-        energy : float
-            Energy.
-        depth : float
-            Depth.
-        y : float
-            Y coordinate.
-        z : float
-            Z coordinate.
-        cosx : float
-            X direction.
-        cosy : float
-            Y direction.
-        cosz : float
-            Z direction.
-        se : float
-            Stopping power.
-        atom_hit : str
-            Atom hit.
-        recoil_energy : float
-            Recoil energy.
-        target_disp : int
-            Target displacement.
-        """
-        # try:
-        cur.execute(
-            (
-                "INSERT INTO collision"
-                "(ion_numb, energy, depth, y, z, cosx, cosy, cosz, se, atom_hit,"
-                "recoil_energy, target_disp)"
-                "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-            ),
-            [
-                nion,
-                energy,
-                depth,
-                y,
-                z,
-                cosx,
-                cosy,
-                cosz,
-                se,
-                atom_hit,
-                recoil_energy,
-                target_disp,
-            ],
-        )
-
-    def __insert_fc(
-        self,
-        cur: sqlite3.Cursor,
-        nion: int,
-        energy: float,
-        depth: float,
-        y: float,
-        z: float,
-        cosx: float,
-        cosy: float,
-        cosz: float,
-        se: float,
-        atom_hit: str,
-        recoil_energy: float,
-        target_disp: int,
-        target_vac: int,
-        target_replac: int,
-        target_inter: int,
-    ) -> None:
-        """Inserts data into the collision table for Full-Calculation mode.
-
-        Parameters
-        ----------
-        cur : sqlite3.Cursor
-            Database cursor.
-        nion : int
-            Ion number.
-        energy : float
-            Energy.
-        depth : float
-            Depth.
-        y : float
-            Y coordinate.
-        z : float
-            Z coordinate.
-        cosx : float
-            X direction.
-        cosy : float
-            Y direction.
-        cosz : float
-            Z direction.
-        se : float
-            Stopping power.
-        atom_hit : str
-            Atom hit.
-        recoil_energy : float
-            Recoil energy.
-        target_disp : int
-            Target displacement.
-        target_vac : int
-            Target vacancy.
-        target_replac : int
-            Target replacement.
-        target_inter : int
-            Target interstitial.
-        """
-        # try:
-        cur.execute(
-            (
-                "INSERT INTO collision"
-                "(ion_numb, energy, depth, y, z, cosx, cosy, cosz, se, atom_hit,"
-                "recoil_energy, target_disp, target_vac, target_replac,"
-                "target_inter)"
-                "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-            ),
-            [
-                nion,
-                energy,
-                depth,
-                y,
-                z,
-                cosx,
-                cosy,
-                cosz,
-                se,
-                atom_hit,
-                recoil_energy,
-                target_disp,
-                target_vac,
-                target_replac,
-                target_inter,
-            ],
-        )
 
     def __merge_qc(self, srimdb2: "SRIMDB") -> None:
         """Merges the collision table with another database for Quick-Calculation mode.

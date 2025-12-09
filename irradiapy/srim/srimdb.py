@@ -12,7 +12,6 @@ import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import TracebackType
-from typing import Callable
 
 import numpy as np
 from numpy import typing as npt
@@ -29,8 +28,6 @@ from irradiapy.srim.ofiles.phonon import Phonon
 from irradiapy.srim.ofiles.range import Range
 from irradiapy.srim.ofiles.range3d import Range3D
 from irradiapy.srim.ofiles.sputter import Sputter
-from irradiapy.srim.ofiles.subcollision import Subcollision
-from irradiapy.srim.ofiles.subrange3d import SubRange3D
 from irradiapy.srim.ofiles.transmit import Transmit
 from irradiapy.srim.ofiles.trimdat import Trimdat
 from irradiapy.srim.ofiles.vacancy import Vacancy
@@ -137,8 +134,6 @@ class SRIMDB(sqlite3.Connection):
         self.trimdat = Trimdat(self)
         self.vacancy = Vacancy(self)
         self.collision = Collision(self)
-        self.subcollision = Subcollision(self)
-        self.subrange3d = SubRange3D(self)
         self.ionsfps = IonsFPs(self)
 
         if self.calculation not in ["quick", "full", "mono", None]:
@@ -160,11 +155,8 @@ class SRIMDB(sqlite3.Connection):
                 "Both `target` and `calculation` must be provided or None."
             )
 
-        if self.calculation == "quick":
-            self._filter_subcollisions_logic = self.__filter_subcollisions_logic_qc
-        else:
+        if self.calculation != "quick":
             self.novac = Novac(self)
-            self._filter_subcollisions_logic = self.__filter_subcollisions_logic_fc
 
     def __exit__(
         self,
@@ -479,15 +471,15 @@ class SRIMDB(sqlite3.Connection):
         """
         self.vacancy.process_file(vacancy_path)
 
-    def append_subcollision(self, collision_path: Path) -> None:
-        """Appends currect iteration `COLLISON.txt` into the database.
+    def append_collision(self, collision_path: Path) -> None:
+        """Appends `COLLISON.txt` into the database.
 
         Parameters
         ----------
         collision_path : Path
             `COLLISON.txt` path.
         """
-        self.subcollision.process_file(collision_path)
+        self.collision.process_file(collision_path)
 
     def append_novac(self, novac_path: Path) -> None:
         """Appends `NOVAC.txt` into the database.
@@ -499,19 +491,9 @@ class SRIMDB(sqlite3.Connection):
         """
         self.novac.process_file(novac_path)
 
-    def append_subrange3d(self, range3d_path: Path) -> None:
-        """Appends currect iteration `RANGE_3D.txt` into the database.
-
-        Parameters
-        ----------
-        range3d_path : Path
-            `RANGE_3D.txt` path.
-        """
-        self.subrange3d.process_file(range3d_path)
-
     def merge(
         self,
-        srimdb2: "SRIMDB",
+        srimdb: "SRIMDB",
         backscat: bool = True,
         e2recoil: bool = True,
         ioniz: bool = True,
@@ -530,7 +512,7 @@ class SRIMDB(sqlite3.Connection):
 
         Parameters
         ----------
-        srimdb2 : SRIMDBIter
+        srimdb : SRIMDB
             SRIM database to merge.
         backscat : bool, optional
             Merge backscattering data.
@@ -560,31 +542,31 @@ class SRIMDB(sqlite3.Connection):
             Merge NOVAC data.
         """
         if backscat:
-            self.backscat.merge(srimdb2)
+            self.backscat.merge(srimdb)
         if e2recoil:
-            self.e2recoil.merge(srimdb2)
+            self.e2recoil.merge(srimdb)
         if ioniz:
-            self.ioniz.merge(srimdb2)
+            self.ioniz.merge(srimdb)
         if lateral:
-            self.lateral.merge(srimdb2)
+            self.lateral.merge(srimdb)
         if phonon:
-            self.phonon.merge(srimdb2)
+            self.phonon.merge(srimdb)
         if range3d:
-            self.range3d.merge(srimdb2)
+            self.range3d.merge(srimdb)
         if range_:
-            self.range.merge(srimdb2)
+            self.range.merge(srimdb)
         if sputter:
-            self.sputter.merge(srimdb2)
+            self.sputter.merge(srimdb)
         if transmit:
-            self.transmit.merge(srimdb2)
+            self.transmit.merge(srimdb)
         if vacancy:
-            self.vacancy.merge(srimdb2)
+            self.vacancy.merge(srimdb)
         if collision:
-            self.collision.merge(srimdb2)
+            self.collision.merge(srimdb)
         if self.calculation in ["full", "mono"] and novac:
-            self.novac.merge(srimdb2)
+            self.novac.merge(srimdb)
         if trimdat:
-            self.trimdat.merge(srimdb2)
+            self.trimdat.merge(srimdb)
         self.optimize()
 
     def generate_trimin(
@@ -773,7 +755,6 @@ class SRIMDB(sqlite3.Connection):
 
     def run(
         self,
-        criterion: Callable,
         atomic_numbers: npt.NDArray[np.int64],
         energies: npt.NDArray[np.float64],
         remove_offsets: bool,
@@ -784,19 +765,12 @@ class SRIMDB(sqlite3.Connection):
         cosys: None | npt.NDArray[np.float64] = None,
         coszs: None | npt.NDArray[np.float64] = None,
         exclude_vacancies_ion: None | list[int] = None,
-        iter_max: None | int = None,
         ignore_32bit_warning: bool = True,
     ) -> None:
         """Runs the SRIM simulation.
 
         Parameters
         ----------
-        criterion : Callable
-            Criterion to repeat calculation, must return False to repeat calculation.
-            Its signature is:
-            `criterion(nion, energy, depth, y, z, se, atom_hit,
-            pka_e, target_disp)`.
-            Recommended to be defined as `def criterion(**kwargs: dict) -> bool:`.
         atomic_numbers : npt.NDArray[np.int64]
             Ion atomic numbers.
         energies : npt.NDArray[np.float64]
@@ -820,8 +794,6 @@ class SRIMDB(sqlite3.Connection):
             a vacancy to the target. For example, if you want to simulate a bulk PKA, Fe in Fe,
             leave this list empty and a vacancy will be placed where the PKA starts; however, if you
             want to simulate H in Fe, no vacancies should be created, then this list must be [1].
-        iter_max : int, optional (default=None)
-            Maximum number of iterations.
         """
         if ignore_32bit_warning:
             warnings.filterwarnings(
@@ -832,154 +804,17 @@ class SRIMDB(sqlite3.Connection):
         if exclude_vacancies_ion is None:
             exclude_vacancies_ion = []
 
-        if self.table_exists("collision"):
+        if self.table_exists("trimdat"):
             raise RuntimeError(
                 (
                     f"The database {self.path_db} is already populated "
                     "with data from another simulation, use another one."
                 )
             )
-        self.collision.create_table()
-        cur = self.cursor()
 
-        # First iteration
-        nions = len(atomic_numbers)
-        nsubcollisions = np.ones(nions, dtype=np.int64)
-        nsubcollisions0 = nsubcollisions.copy()
-        trimdat = self._run_iter(
-            self.target,
-            atomic_numbers,
-            energies,
-            depths,
-            ys,
-            zs,
-            cosxs,
-            cosys,
-            coszs,
-        )
-        self.__append_output()
-        (
-            nsubcollisions,
-            atomic_numbers,
-            energies,
-            depths,
-            ys,
-            zs,
-            cosxs,
-            cosys,
-            coszs,
-        ) = self._filter_subcollisions(cur, nions, trimdat, nsubcollisions0, criterion)
-        nsubcollisions_total = nsubcollisions.sum()
-        # Add ions FPs
-        self.append_subrange3d(self.dir_srim / "SRIM Outputs/RANGE_3D.txt")
-        self.ionsfps.add_data(trimdat, [1] * nions, exclude_vacancies_ion)
-        self.subrange3d.empty()
-
-        niter = 1
-        while nsubcollisions_total and niter != iter_max:
-            niter += 1
-            nsubcollisions0 = nsubcollisions.copy()
-            trimdat = self._run_iter(
-                self.target,
-                atomic_numbers,
-                energies,
-                depths,
-                ys,
-                zs,
-                cosxs,
-                cosys,
-                coszs,
-            )
-            (
-                nsubcollisions,
-                atomic_numbers,
-                energies,
-                depths,
-                ys,
-                zs,
-                cosxs,
-                cosys,
-                coszs,
-            ) = self._filter_subcollisions(
-                cur, nions, trimdat, nsubcollisions0, criterion
-            )
-            nsubcollisions_total = nsubcollisions.sum()
-            # Add ions FPs
-            self.append_subrange3d(self.dir_srim / "SRIM Outputs/RANGE_3D.txt")
-            self.ionsfps.add_data(trimdat, nsubcollisions0, exclude_vacancies_ion)
-            self.subrange3d.empty()
-
-        # Reordering database might reduce I/O operations filtered by ion number
-        # PKAs are not sequentally ordered
-        cur.execute(
-            "CREATE TABLE collision0 AS SELECT * FROM collision ORDER BY ion_numb"
-        )
-        cur.execute("DROP TABLE collision")
-        cur.execute("ALTER TABLE collision0 RENAME TO collision")
-        cur.execute("CREATE TABLE ionsfps0 AS SELECT * FROM ionsfps ORDER BY ion_numb")
-        cur.execute("DROP TABLE ionsfps")
-        cur.execute("ALTER TABLE ionsfps0 RENAME TO ionsfps")
-        cur.execute(
-            "CREATE INDEX ionRecoilEnergyIdx ON collision(ion_numb, recoil_energy)"
-        )
-        cur.execute("CREATE INDEX ionsfpsIdx ON ionsfps(ion_numb)")
-        self.commit()
-        cur.close()
-        if remove_offsets:
-            self.__remove_offsets()
-        self.optimize()
-
-        if ignore_32bit_warning:
-            warnings.filterwarnings(
-                "default",
-                category=UserWarning,
-                message="32-bit application should be automated using 32-bit Python",
-            )
-
-    def _run_iter(
-        self,
-        target: Target,
-        atomic_numbers: npt.NDArray[np.int64],
-        energies: npt.NDArray[np.float64],
-        depths: None | npt.NDArray[np.float64] = None,
-        ys: None | npt.NDArray[np.float64] = None,
-        zs: None | npt.NDArray[np.float64] = None,
-        cosxs: None | npt.NDArray[np.float64] = None,
-        cosys: None | npt.NDArray[np.float64] = None,
-        coszs: None | npt.NDArray[np.float64] = None,
-    ) -> dtypes.Trimdat:
-        """Runs SRIM for a single iteration.
-
-        Parameters
-        ----------
-        target : Target
-            Target material.
-        calculation : Calculation
-            Calculation parameters.
-        atomic_numbers : npt.NDArray[np.int64]
-            Ion atomic numbers.
-        energies : npt.NDArray[np.float64]
-            Ion energies.
-        depths : npt.NDArray[np.float64], optional
-            Ion initial depths.
-        ys : npt.NDArray[np.float64], optional
-            Ion initial y positions.
-        zs : npt.NDArray[np.float64], optional
-            Ion initial z positions.
-        cosxs : npt.NDArray[np.float64], optional
-            Ion initial x directions.
-        cosys : npt.NDArray[np.float64], optional
-            Ion initial y directions.
-        coszs : npt.NDArray[np.float64], optional
-            Ion initial z directions.
-
-        Returns
-        -------
-        dtypes.Trimdat
-            `TRIM.DAT` data.
-        """
+        # Generate input files
         self.__generate_trimauto()
-        self.generate_trimin(atomic_numbers, energies, target)
+        self.generate_trimin(atomic_numbers, energies, self.target)
         trimdat = self.generate_trimdat(
             atomic_numbers,
             energies,
@@ -1003,7 +838,14 @@ class SRIMDB(sqlite3.Connection):
         except subprocess.CalledProcessError as e:
             print(traceback.format_exc())
             print(f"An error occurred while running the subprocess: {e}")
-        return trimdat
+        # Append output files
+        self.__append_output()
+        self.__add_recoils_dirs(trimdat)
+
+        self.commit()
+        if remove_offsets:
+            self.__remove_offsets()
+        self.optimize()
 
     def __append_output(self) -> None:
         """Appends SRIM output files into the database.
@@ -1016,6 +858,7 @@ class SRIMDB(sqlite3.Connection):
         SRIM configuration files. The resulting performance loss is relatively minor.
         """
         self.append_backscat(self.dir_srim / "SRIM Outputs/BACKSCAT.txt")
+        self.append_collision(self.dir_srim / "SRIM Outputs/COLLISON.txt")
         self.append_e2recoil(self.dir_srim / "E2RECOIL.txt")
         self.append_ioniz(self.dir_srim / "IONIZ.txt")
         self.append_lateral(self.dir_srim / "LATERAL.txt")
@@ -1029,7 +872,7 @@ class SRIMDB(sqlite3.Connection):
         if self.calculation in ["full", "mono"]:
             self.append_novac(self.dir_srim / "NOVAC.txt")
 
-    def _get_dir(
+    def __get_dir(
         self, pos0: npt.NDArray[np.float64], pos: npt.NDArray[np.float64]
     ) -> npt.NDArray[np.float64]:
         """Gets the direction from two positions.
@@ -1050,177 +893,59 @@ class SRIMDB(sqlite3.Connection):
             direction = diff / np.linalg.norm(diff)
         return direction
 
-    def __filter_subcollisions_logic_qc(self, subcollision_data: tuple) -> dict:
-        """Convert subcollision data into dictionary for
-        later handling for Quick-Calculation mode.
-
-        Parameters
-        ----------
-        subcollision_data : tuple
-            Subcollision data.
-        """
-        _, energy, depth, y, z, se, atom_hit, recoil_energy, target_disp = (
-            subcollision_data
-        )
-        return {
-            "energy": energy,
-            "depth": depth,
-            "y": y,
-            "z": z,
-            "se": se,
-            "atom_hit": atom_hit,
-            "recoil_energy": recoil_energy,
-            "target_disp": target_disp,
-        }
-
-    def __filter_subcollisions_logic_fc(self, subcollision_data: tuple) -> dict:
-        """Convert subcollision data into dictionary for
-        later handling for Full-Calculation mode.
-
-        Parameters
-        ----------
-        subcollision_data : tuple
-            Subcollision data.
-        """
-        (
-            _,
-            energy,
-            depth,
-            y,
-            z,
-            se,
-            atom_hit,
-            recoil_energy,
-            target_disp,
-            target_vac,
-            target_replac,
-            target_inter,
-        ) = subcollision_data
-        return {
-            "energy": energy,
-            "depth": depth,
-            "y": y,
-            "z": z,
-            "se": se,
-            "atom_hit": atom_hit,
-            "recoil_energy": recoil_energy,
-            "target_disp": target_disp,
-            "target_vac": target_vac,
-            "target_replac": target_replac,
-            "target_inter": target_inter,
-        }
-
-    def _filter_subcollisions(
+    def __add_recoils_dirs(
         self,
-        cur: sqlite3.Cursor,
-        nions: int | np.int64,
         trimdat: dtypes.Trimdat,
-        nsubcollisions0: npt.NDArray[np.int64],
-        criterion: Callable,
     ) -> tuple:
-        """Filters subcollisions.
+        """Add recoil directions to collision table.
 
         Parameters
         ----------
-        cur : sqlite3.Cursor
-            Database cursor.
-        nions : int | np.int64
-            Number of ions.
         trimdat : dtypes.Trimdat
             TRIMDAT data.
-        nsubcollisions0 : npt.NDArray[np.int64]
-            Initial number of subcollisions.
-        criterion : Callable
-            Criterion to repeat calculation, must return False to repeat calculation.
         """
-        self.append_subcollision(self.dir_srim / "SRIM Outputs/COLLISON.txt")
-        atomic_numbers, recoil_energies, depths, ys, zs, cosxs, cosys, coszs = (
-            [],
-            [],
-            [],
-            [],
-            [],
-            [],
-            [],
-            [],
-        )
-        nsubcollisions = np.zeros(nions, dtype=np.int64)
+        cur = self.collision.cursor()
+        cur.execute("ALTER TABLE collision ADD COLUMN cosx REAL")
+        cur.execute("ALTER TABLE collision ADD COLUMN cosy REAL")
+        cur.execute("ALTER TABLE collision ADD COLUMN cosz REAL")
+
+        nions = self.get_nions()
         for nion in range(nions):
-            nsubcollision_min = 0 if nion == 0 else nsubcollision_max
-            nsubcollision_max = nsubcollision_min + nsubcollisions0[nion]
-            for nsubcollision in range(nsubcollision_min, nsubcollision_max):
-                pos0 = trimdat[nsubcollision]["pos"]
-                cosx0, cosy0, cosz0 = trimdat[nsubcollision]["dir"]
-                for subcollision in self.subcollision.read(
-                    condition=f"WHERE ion_numb = {nsubcollision + 1}"
-                ):
-                    subcollision = self._filter_subcollisions_logic(subcollision)
-                    pos = np.array(
-                        [subcollision["depth"], subcollision["y"], subcollision["z"]]
+            pos0 = trimdat[nion]["pos"]
+            cosx0, cosy0, cosz0 = trimdat[nion]["dir"]
+            for collision in self.collision.read(what="rowid, depth, y, z"):
+                rowid, depth, y, z = collision
+                pos = np.array([depth, y, z])
+                cosx, cosy, cosz = self.__get_dir(pos0, pos)
+                # There are some rare cases, specially at high energies,
+                # when there are two PKA at the same position. I think this
+                # is because they are really close and when saved into
+                # COLLISON.txt, positions are rounded and they coincide.
+                # In such cases (if statement triggered), we assume that the
+                # second PKA has the same direction as the first one.
+                if np.isnan(cosx) or np.isnan(cosy) or np.isnan(cosz):
+                    warnings.warn(
+                        (
+                            "Two PKAs at the same position, assuming same direction. This is "
+                            "likely because of SRIM rounding positions when saving into "
+                            "COLLISON.txt."
+                        ),
+                        RuntimeWarning,
                     )
-                    cosx, cosy, cosz = self._get_dir(pos0, pos)
-                    # There are some rare cases, specially at high energies,
-                    # when there are two PKA at the same position. I think this
-                    # is because they are really close and when saved into
-                    # COLLISON.txt, positions are rounded and they coincide.
-                    # In such cases (if statement triggered), we assume that the
-                    # second PKA has the same direction as the first one.
-                    if np.isnan(cosx) or np.isnan(cosy) or np.isnan(cosz):
-                        warnings.warn(
-                            (
-                                "Two PKAs at the same position, assuming same direction. This is "
-                                "likely because they are really close and when saved into "
-                                "COLLISON.txt, positions are rounded and they coincide."
-                            ),
-                            RuntimeWarning,
-                        )
-                        cosx, cosy, cosz = cosx0, cosy0, cosz0
-                    else:
-                        cosx0, cosy0, cosz0 = cosx, cosy, cosz
-                    subcollision.update({"cosx": cosx, "cosy": cosy, "cosz": cosz})
-                    # Check if SRIM has to be run again
-                    ok = criterion(nion=nion + 1, **subcollision)
-                    # If not, save into the database
-                    if ok:
-                        self.collision.insert(cur, nion + 1, **subcollision)
-                    # Else, save it for later
-                    else:
-                        atomic_numbers.append(
-                            materials.MATERIALS_BY_SYMBOL[
-                                subcollision["atom_hit"]
-                            ].atomic_number
-                        )
-                        recoil_energies.append(subcollision["recoil_energy"])
-                        depths.append(subcollision["depth"])
-                        ys.append(subcollision["y"])
-                        zs.append(subcollision["z"])
-                        cosxs.append(subcollision["cosx"])
-                        cosys.append(subcollision["cosy"])
-                        coszs.append(subcollision["cosz"])
-                        nsubcollisions[nion] += 1
-                    pos0 = pos
-                    # print(pos0, [cosx, cosy, cosz])
-                    # print(f"{nion+1=}")
-        self.subcollision.empty()
-        atomic_numbers = np.array(atomic_numbers, dtype=np.int64)
-        recoil_energies, depths, ys, zs = (
-            np.array(recoil_energies, dtype=np.float64),
-            np.array(depths, dtype=np.float64),
-            np.array(ys, dtype=np.float64),
-            np.array(zs, dtype=np.float64),
-        )
-        cosxs, cosys, coszs = np.array(cosxs), np.array(cosys), np.array(coszs)
-        return (
-            nsubcollisions,
-            atomic_numbers,
-            recoil_energies,
-            depths,
-            ys,
-            zs,
-            cosxs,
-            cosys,
-            coszs,
-        )
+                    cosx, cosy, cosz = cosx0, cosy0, cosz0
+                else:
+                    cosx0, cosy0, cosz0 = cosx, cosy, cosz
+                cur.execute(
+                    "UPDATE collision SET cosx = ?, cosy = ?, cosz = ? WHERE rowid = ?",
+                    (
+                        cosx,
+                        cosy,
+                        cosz,
+                        rowid,
+                    ),
+                )
+                pos0 = pos
+        cur.close()
 
     def __remove_mean_depth_offsets(
         self, cur: sqlite3.Cursor, table_name: str, depth_mean: tuple[float]
