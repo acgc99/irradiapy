@@ -33,6 +33,43 @@ class RecoilsDB(sqlite3.Connection):
         self.close()
         return False
 
+    def optimize(self) -> None:
+        """Optimize the SQLite database.
+
+        This method performs two operations to optimize the database:
+        1. Executes the "PRAGMA optimize" command to analyze and optimize the database.
+        2. Executes the "VACUUM" command to rebuild the database file,
+        repacking it into a minimal amount of disk space.
+        """
+        cur = self.cursor()
+        cur.execute("PRAGMA optimize")
+        cur.execute("VACUUM")
+        cur.close()
+
+    def table_exists(self, table_name: str) -> bool:
+        """Checks if the given table exists in the database.
+
+        Parameters
+        ----------
+        table_name : str
+            Table's name to check.
+
+        Returns
+        -------
+        bool
+            Whether the table already exists or not.
+        """
+        cur = self.cursor()
+        cur.execute(
+            (
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table'"
+                f"AND name='{table_name}'"
+            )
+        )
+        result = cur.fetchone()[0]
+        cur.close()
+        return bool(result)
+
     def process_config_events(
         self, path_spectrapka_events: Path, exclude_recoils: list[str] | None = None
     ) -> None:

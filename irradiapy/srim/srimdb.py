@@ -1,27 +1,15 @@
 """This module contains the `SRIMDB` class."""
 
-# pylint: disable=too-many-lines,protected-access
-import os
-import platform
 import sqlite3
-import subprocess
-import threading
-import time
-import traceback
-import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import TracebackType
 
-import numpy as np
-from numpy import typing as npt
-
-from irradiapy import config, dtypes, materials
+from irradiapy import config
 from irradiapy.srim.ofiles.backscat import Backscat
 from irradiapy.srim.ofiles.collision import Collision
 from irradiapy.srim.ofiles.e2recoil import E2Recoil
 from irradiapy.srim.ofiles.ioniz import Ioniz
-from irradiapy.srim.ofiles.ionsfps import IonsFPs
 from irradiapy.srim.ofiles.lateral import Lateral
 from irradiapy.srim.ofiles.novac import Novac
 from irradiapy.srim.ofiles.phonon import Phonon
@@ -35,28 +23,24 @@ from irradiapy.srim.target.element import Element
 from irradiapy.srim.target.layer import Layer
 from irradiapy.srim.target.target import Target
 
-platform = platform.system()
-if platform == "Windows":
-    import pygetwindow
-    import pywinauto
-else:
-    warnings.warn(
-        "SRIM subpackage only works for Windows. " f"'{platform}' not supported."
-    )
-
 
 @dataclass(kw_only=True)
 class SRIMDB(sqlite3.Connection):
-    """Base class for running SRIM calculations and storing the output data in a SQLite database.
+    """Base class for storing SRIM output data in a SQLite database.
 
     Attributes
     ----------
     path_db : Path
         Output database path.
-    target : Target, optional
-        SRIM target.
-    calculation : str, optional
-        SRIM calculation.
+    target : Target, optional (default=None)
+        SRIM target. Do not provide this argument for read only.
+    calculation : str, optional (default=None)
+        SRIM calculation. Do not provide this argument for read only.
+        Accepted values are: "quick", "full" and "mono".
+    seed : int (default=0)
+        Seed for SRIM randomness.
+    dir_srim : Path (default=config.DIR_SRIM)
+        Directory where SRIM is installed.
     check_interval : float
         Interval to check for SRIM window/popups.
     srim_path : Path
@@ -89,11 +73,12 @@ class SRIMDB(sqlite3.Connection):
     """
 
     path_db: Path
-    calculation: None | str = None
     target: None | Target = None
-    check_interval: float = 0.2
+    calculation: None | str = None
+
     seed: int = 0
-    reminders: int = 0
+    dir_srim: Path = field(default_factory=lambda: config.DIR_SRIM)
+
     plot_type: int = 5
     xmin: float = 0.0
     xmax: float = 0.0
@@ -103,9 +88,25 @@ class SRIMDB(sqlite3.Connection):
     do_sputtered: int = 1
     do_collisions: int = 1
     exyz: float = 0.0
-    bragg: int = 1
     autosave: int = 0
-    dir_srim: Path = field(default_factory=lambda: config.DIR_SRIM)
+
+    reminders: int = field(default=0, init=False)
+    bragg: int = field(default=1, init=False)
+
+    backscat: Backscat = field(init=False)
+    e2recoil: E2Recoil = field(init=False)
+    ioniz: Ioniz = field(init=False)
+    lateral: Lateral = field(init=False)
+    phonon: Phonon = field(init=False)
+    range: Range = field(init=False)
+    range3d: Range3D = field(init=False)
+    sputter: Sputter = field(init=False)
+    transmit: Transmit = field(init=False)
+    trimdat: Trimdat = field(init=False)
+    vacancy: Vacancy = field(init=False)
+    collision: Collision = field(init=False)
+
+    nions: int = field(init=False, default=0)
 
     def __post_init__(self) -> None:
         """Initializes the `SRIMDB` object.
@@ -118,8 +119,6 @@ class SRIMDB(sqlite3.Connection):
             SRIM target. Do not provide this argument for read only.
         calculation : Calculation, optional (default=None)
             SRIM calculation. Do not provide this argument for read only.
-        check_interval : float, optional (default=0.2)
-            Interval to check for SRIM window/popups.
         """
         super().__init__(self.path_db)
         self.backscat = Backscat(self)
@@ -134,7 +133,6 @@ class SRIMDB(sqlite3.Connection):
         self.trimdat = Trimdat(self)
         self.vacancy = Vacancy(self)
         self.collision = Collision(self)
-        self.ionsfps = IonsFPs(self)
 
         if self.calculation not in ["quick", "full", "mono", None]:
             raise ValueError("Invalid calculation mode.")
@@ -327,7 +325,7 @@ class SRIMDB(sqlite3.Connection):
         cur.close()
 
     def table_exists(self, table_name: str) -> bool:
-        """Checks if the given table already exists in the database.
+        """Checks if the given table exists in the database.
 
         Parameters
         ----------
@@ -351,7 +349,7 @@ class SRIMDB(sqlite3.Connection):
         return bool(result)
 
     def get_nions(self) -> int:
-        """Gets the number of ions in the simulation."""
+        """Gets the number of ions in the simulation based on trimdat table."""
         if self.table_exists("trimdat"):
             cur = self.cursor()
             cur.execute("SELECT COUNT(1) FROM trimdat")
@@ -359,137 +357,6 @@ class SRIMDB(sqlite3.Connection):
             cur.close()
             return nions
         return 0
-
-    def append_backscat(self, backscat_path: Path) -> None:
-        """Appends `BACKSCAT.txt` into the database.
-
-        Parameters
-        ----------
-        backscat_path : Path
-            `BACKSCAT.txt` path.
-        """
-        self.backscat.process_file(backscat_path)
-
-    def append_e2recoil(self, e2recoil_path: Path) -> None:
-        """Appends `E2RECOIL.txt` into the database.
-
-        Parameters
-        ----------
-        e2recoil_path : Path
-            `E2RECOIL.txt` path.
-        """
-        self.e2recoil.process_file(e2recoil_path)
-
-    def append_ioniz(self, ioniz_path: Path) -> None:
-        """Appends `IONIZ.txt` into the database.
-
-        Parameters
-        ----------
-        ioniz_path : Path
-            `IONIZ.txt` path.
-        """
-        self.ioniz.process_file(ioniz_path)
-
-    def append_lateral(self, lateral_path: Path) -> None:
-        """Appends `LATERAL.txt` into the database.
-
-        Parameters
-        ----------
-        lateral_path : Path
-            `LATERAL.txt` path.
-        """
-        self.lateral.process_file(lateral_path)
-
-    def append_phonon(self, phonon_path: Path) -> None:
-        """Appends `PHONON.txt` into the database.
-
-        Parameters
-        ----------
-        phonon_path : Path
-            `PHONON.txt` path.
-        """
-        self.phonon.process_file(phonon_path)
-
-    def append_range(self, range_path: Path) -> None:
-        """Appends `RANGE.txt` into the database.
-
-        Parameters
-        ----------
-        range_path : Path
-            `RANGE.txt` path.
-        """
-        self.range.process_file(range_path)
-
-    def append_range3d(self, range3d_path: Path) -> None:
-        """Appends `RANGE_3D.txt` into the database.
-
-        Parameters
-        ----------
-        range3d_path : Path
-            `RANGE_3D.txt` path.
-        """
-        self.range3d.process_file(range3d_path)
-
-    def append_sputter(self, sputter_path: Path) -> None:
-        """Appends `SPUTTER.txt` into the database.
-
-        Parameters
-        ----------
-        sputter_path : Path
-            `SPUTTER.txt` path.
-        """
-        self.sputter.process_file(sputter_path)
-
-    def append_transmit(self, transmit_path: Path) -> None:
-        """Appends `TRANSMIT.txt` into the database.
-
-        Parameters
-        ----------
-        transmit_path : Path
-            `TRANSMIT.txt` path.
-        """
-        self.transmit.process_file(transmit_path)
-
-    def append_trimdat(self, trimdat_path: Path) -> None:
-        """Appends `TRIM.DAT` into the database.
-
-        Parameters
-        ----------
-        trimdat_path : Path
-            `TRIM.DAT` path.
-        """
-        self.trimdat.process_file(trimdat_path)
-        self.nions = self.get_nions()
-
-    def append_vacancy(self, vacancy_path: Path) -> None:
-        """Appends `VACANCY.txt` into the database.
-
-        Parameters
-        ----------
-        vacancy_path : Path
-            `VACANCY.txt` path.
-        """
-        self.vacancy.process_file(vacancy_path)
-
-    def append_collision(self, collision_path: Path) -> None:
-        """Appends `COLLISON.txt` into the database.
-
-        Parameters
-        ----------
-        collision_path : Path
-            `COLLISON.txt` path.
-        """
-        self.collision.process_file(collision_path)
-
-    def append_novac(self, novac_path: Path) -> None:
-        """Appends `NOVAC.txt` into the database.
-
-        Parameters
-        ----------
-        novac_path : Path
-            `NOVAC.txt` path.
-        """
-        self.novac.process_file(novac_path)
 
     def merge(
         self,
@@ -569,285 +436,7 @@ class SRIMDB(sqlite3.Connection):
             self.trimdat.merge(srimdb)
         self.optimize()
 
-    def generate_trimin(
-        self,
-        atomic_numbers: npt.NDArray[np.int64],
-        energies: npt.NDArray[np.float64],
-        target: Target,
-    ) -> None:
-        """Generates `TRIM.IN` file."""
-        nions = len(atomic_numbers)
-        atomic_mass = materials.MATERIALS_BY_ATOMIC_NUMBER[
-            atomic_numbers[0]
-        ].mass_number
-        energy = np.ceil(energies.max()) / 1e3
-        if self.calculation == "quick":
-            calculation = 4
-        elif self.calculation == "full":
-            calculation = 5
-        else:
-            calculation = 7
-        trimin_path = self.dir_srim / "TRIM.IN"
-        with open(trimin_path, "w", encoding="utf-8") as file:
-            file.write("TRIM.IN file generated by irradiapy.\n")
-            file.write(
-                (
-                    "ion Z, A, energy, angle, number of ions, Bragg correction, autosave\n"
-                    f"{atomic_numbers[0]} {atomic_mass} {energy} 0 "
-                    f"{nions} {self.bragg} {self.autosave}\n"
-                )
-            )
-            file.write(
-                (
-                    "calculation, seed, reminders\n"
-                    f"{calculation} {self.seed} {self.reminders}\n"
-                )
-            )
-            file.write(
-                (
-                    "Diskfiles (0=no,1=yes): Ranges, Backscatt, Transmit, Sputtered, "
-                    "Collisions(1=Ion;2=Ion+Recoils), Special EXYZ.txt file\n"
-                    f"{self.do_ranges} {self.do_backscatt} {self.do_transmit} {self.do_sputtered} "
-                    f"{self.do_collisions} {self.exyz}\n"
-                )
-            )
-            file.write(target.trimin_description() + "\n")
-            file.write(
-                (
-                    "PlotType (0-5); Plot Depths: Xmin, Xmax(Ang.) [=0 0 for Viewing Full Target]\n"
-                    f"{self.plot_type} {self.xmin} {self.xmax}\n"
-                )
-            )
-            file.write(target.trimin_target_elements())
-            file.write(target.trimin_target_layers() + "\n")
-            file.write(target.trimin_phases() + "\n")
-            file.write(target.trimin_bragg() + "\n")
-            file.write(target.trimin_displacement() + "\n")
-            file.write(target.trimin_lattice() + "\n")
-            file.write(target.trimin_surface() + "\n")
-            file.write("Stopping Power Version\n0\n")
-
-    def generate_trimdat(
-        self,
-        atomic_numbers: npt.NDArray[np.int64],
-        energies: npt.NDArray[np.float64],
-        depths: None | npt.NDArray[np.float64] = None,
-        ys: None | npt.NDArray[np.float64] = None,
-        zs: None | npt.NDArray[np.float64] = None,
-        cosxs: None | npt.NDArray[np.float64] = None,
-        cosys: None | npt.NDArray[np.float64] = None,
-        coszs: None | npt.NDArray[np.float64] = None,
-    ) -> npt.NDArray[np.float64]:
-        """Generates `TRIM.DAT` file.
-
-        Parameters
-        ----------
-        atomic_numbers : npt.NDArray[np.int64]
-            Atomic numbers.
-        energies : npt.NDArray[np.float64]
-            Energies.
-        depths : npt.NDArray[np.float64], optional
-            Depths.
-        ys : npt.NDArray[np.float64], optional
-            Y positions.
-        zs : npt.NDArray[np.float64], optional
-            Z positions.
-        cosxs : npt.NDArray[np.float64], optional
-            X directions.
-        cosys : npt.NDArray[np.float64], optional
-            Y directions.
-        coszs : npt.NDArray[np.float64], optional
-            Z directions.
-
-        Returns
-        -------
-        npt.NDArray[np.float64]
-            `TRIM.DAT` data.
-        """
-        trimdat_path = self.dir_srim / "TRIM.DAT"
-        nions = atomic_numbers.size
-        if depths is None:
-            depths = np.zeros(nions)
-        if ys is None:
-            ys = np.zeros(nions)
-        if zs is None:
-            zs = np.zeros(nions)
-        if cosxs is None:
-            cosxs = np.ones(nions)
-        if cosys is None:
-            cosys = np.zeros(nions)
-        if coszs is None:
-            coszs = np.zeros(nions)
-        names = np.array([f"{i:06d}" for i in range(1, nions + 1)], dtype=str)
-        with open(trimdat_path, "w", encoding="utf-8") as file:
-            file.write("<TRIM>\n" * 9)
-            file.write("Name atomic_number E x y z cosx cosy cosz\n")
-            for i in range(nions):
-                file.write(
-                    (
-                        f"{names[i]} {atomic_numbers[i]} {energies[i]} {depths[i]} {ys[i]} "
-                        f"{zs[i]} {cosxs[i]} {cosys[i]} {coszs[i]}\n"
-                    )
-                )
-        data = np.empty(nions, dtype=dtypes.trimdat)
-        for i in range(nions):
-            data[i]["name"] = names[i]
-            data[i]["atomic_number"] = atomic_numbers[i]
-            data[i]["energy"] = energies[i]
-            data[i]["pos"] = np.array([depths[i], ys[i], zs[i]])
-            data[i]["dir"] = np.array([cosxs[i], cosys[i], coszs[i]])
-        return data
-
-    def __generate_trimauto(self) -> None:
-        """Generates `TRIMAUTO` file."""
-        with open(self.dir_srim / "TRIMAUTO", "w", encoding="utf-8") as file:
-            file.write("1\n\nCheck TRIMAUTO.txt for details.\n")
-
-    def minimize_and_handle_popup(self):
-        """Minimizes the SRIM window and handles the end of calculation popup."""
-        window_title = "SRIM-2013.00"
-        popup_title = "End of TRIM.DAT calculation"
-        if platform == "Windows":
-            # Minimize window
-            while True:
-                windows = pygetwindow.getWindowsWithTitle(window_title)
-                if windows:
-                    window = windows[0]
-                    app = pywinauto.Application().connect(handle=window._hWnd)
-                    app.window(handle=window._hWnd).minimize()
-                    break
-                time.sleep(self.check_interval)
-            # Dismiss popup (quick-calculation does not have this popup)
-            if self.calculation != "quick":
-                while True:
-                    popups = pygetwindow.getWindowsWithTitle(popup_title)
-                    if popups:
-                        popup = popups[0]
-                        app = pywinauto.Application().connect(handle=popup._hWnd)
-                        app.window(handle=popup._hWnd).send_keystrokes("{ENTER}")
-                        break
-                    time.sleep(self.check_interval)
-        elif platform == "Linux":
-            # Minimize window
-            while True:
-                windows = pygetwindow.getWindowsWithTitle(window_title)
-                if windows:
-                    window = windows[0]
-                    window_id = window._hWnd  # pylint: disable=protected-access
-                    subprocess.run(
-                        ["xdotool", "windowminimize", str(window_id)], check=True
-                    )
-                    break
-                time.sleep(self.check_interval)
-            # Dismiss popup (quick-calculation does not have this popup)
-            if self.calculation != "quick":
-                while True:
-                    popups = pygetwindow.getWindowsWithTitle(popup_title)
-                    if popups:
-                        popup = popups[0]
-                        popup_id = popup._hWnd  # pylint: disable=protected-access
-                        subprocess.run(
-                            ["xdotool", "windowactivate", str(popup_id)], check=True
-                        )
-                        subprocess.run(["xdotool", "key", "Return"], check=True)
-                        break
-                    time.sleep(self.check_interval)
-
-    def run(
-        self,
-        atomic_numbers: npt.NDArray[np.int64],
-        energies: npt.NDArray[np.float64],
-        remove_offsets: bool,
-        depths: None | npt.NDArray[np.float64] = None,
-        ys: None | npt.NDArray[np.float64] = None,
-        zs: None | npt.NDArray[np.float64] = None,
-        cosxs: None | npt.NDArray[np.float64] = None,
-        cosys: None | npt.NDArray[np.float64] = None,
-        coszs: None | npt.NDArray[np.float64] = None,
-        exclude_vacancies_ion: None | list[int] = None,
-        ignore_32bit_warning: bool = True,
-    ) -> None:
-        """Runs the SRIM simulation.
-
-        Parameters
-        ----------
-        atomic_numbers : npt.NDArray[np.int64]
-            Ion atomic numbers.
-        energies : npt.NDArray[np.float64]
-            Ion energies.
-        remove_offsets : bool
-            Whether to remove initial depth offsets or not.
-        depths : npt.NDArray[np.float64], optional
-            Ion initial depths.
-        ys : npt.NDArray[np.float64], optional
-            Ion initial y positions.
-        zs : npt.NDArray[np.float64], optional
-            Ion initial z positions.
-        cosxs : npt.NDArray[np.float64], optional
-            Ion initial x directions.
-        cosys : npt.NDArray[np.float64], optional
-            Ion initial y directions.
-        coszs : npt.NDArray[np.float64], optional
-            Ion initial z directions.
-        exclude_vacancies_ion : list[int], optional
-            If an ion has an atomic number in this list, it will not be considered that it adds
-            a vacancy to the target. For example, if you want to simulate a bulk PKA, Fe in Fe,
-            leave this list empty and a vacancy will be placed where the PKA starts; however, if you
-            want to simulate H in Fe, no vacancies should be created, then this list must be [1].
-        """
-        if ignore_32bit_warning:
-            warnings.filterwarnings(
-                "ignore",
-                category=UserWarning,
-                message="32-bit application should be automated using 32-bit Python",
-            )
-        if exclude_vacancies_ion is None:
-            exclude_vacancies_ion = []
-
-        if self.table_exists("trimdat"):
-            raise RuntimeError(
-                (
-                    f"The database {self.path_db} is already populated "
-                    "with data from another simulation, use another one."
-                )
-            )
-
-        # Generate input files
-        self.__generate_trimauto()
-        self.generate_trimin(atomic_numbers, energies, self.target)
-        trimdat = self.generate_trimdat(
-            atomic_numbers,
-            energies,
-            depths=depths,
-            ys=ys,
-            zs=zs,
-            cosxs=cosxs,
-            cosys=cosys,
-            coszs=coszs,
-        )
-        # Run SRIM
-        print(f"Running {len(atomic_numbers)} SRIM ions")
-        try:
-            window_thread = threading.Thread(target=self.minimize_and_handle_popup)
-            window_thread.start()
-            curr_dir = os.getcwd()
-            os.chdir(self.dir_srim)
-            subprocess.check_call([Path("./TRIM.exe")])
-            os.chdir(curr_dir)
-            window_thread.join()
-        except subprocess.CalledProcessError as e:
-            print(traceback.format_exc())
-            print(f"An error occurred while running the subprocess: {e}")
-        # Append output files
-        self.__append_output()
-        self.__add_recoils_dirs(trimdat)
-
-        self.commit()
-        if remove_offsets:
-            self.__remove_offsets()
-        self.optimize()
-
-    def __append_output(self) -> None:
+    def append_output(self) -> None:
         """Appends SRIM output files into the database.
 
         Note
@@ -857,152 +446,18 @@ class SRIMDB(sqlite3.Connection):
         may seem redundant, this approach is maintained to preserve the ability to read
         SRIM configuration files. The resulting performance loss is relatively minor.
         """
-        self.append_backscat(self.dir_srim / "SRIM Outputs/BACKSCAT.txt")
-        self.append_collision(self.dir_srim / "SRIM Outputs/COLLISON.txt")
-        self.append_e2recoil(self.dir_srim / "E2RECOIL.txt")
-        self.append_ioniz(self.dir_srim / "IONIZ.txt")
-        self.append_lateral(self.dir_srim / "LATERAL.txt")
-        self.append_phonon(self.dir_srim / "PHONON.txt")
-        self.append_range3d(self.dir_srim / "SRIM Outputs/RANGE_3D.txt")
-        self.append_range(self.dir_srim / "RANGE.txt")
-        self.append_sputter(self.dir_srim / "SRIM Outputs/SPUTTER.txt")
-        self.append_transmit(self.dir_srim / "SRIM Outputs/TRANSMIT.txt")
-        self.append_trimdat(self.dir_srim / "TRIM.DAT")
-        self.append_vacancy(self.dir_srim / "VACANCY.txt")
+        self.backscat.process_file(self.dir_srim / "SRIM Outputs/BACKSCAT.txt")
+        self.collision.process_file(self.dir_srim / "SRIM Outputs/COLLISON.txt")
+        self.e2recoil.process_file(self.dir_srim / "E2RECOIL.txt")
+        self.ioniz.process_file(self.dir_srim / "IONIZ.txt")
+        self.lateral.process_file(self.dir_srim / "LATERAL.txt")
+        self.phonon.process_file(self.dir_srim / "PHONON.txt")
+        self.range3d.process_file(self.dir_srim / "SRIM Outputs/RANGE_3D.txt")
+        self.range.process_file(self.dir_srim / "RANGE.txt")
+        self.sputter.process_file(self.dir_srim / "SRIM Outputs/SPUTTER.txt")
+        self.transmit.process_file(self.dir_srim / "SRIM Outputs/TRANSMIT.txt")
+        self.trimdat.process_file(self.dir_srim / "TRIM.DAT")
+        self.nions = self.get_nions()
+        self.vacancy.process_file(self.dir_srim / "VACANCY.txt")
         if self.calculation in ["full", "mono"]:
-            self.append_novac(self.dir_srim / "NOVAC.txt")
-
-    def __get_dir(
-        self, pos0: npt.NDArray[np.float64], pos: npt.NDArray[np.float64]
-    ) -> npt.NDArray[np.float64]:
-        """Gets the direction from two positions.
-
-        Parameters
-        pos0 : npt.NDArray[np.float64]
-            Initial position.
-        pos : npt.NDArray[np.float64]
-            Final position.
-        """
-        diff = pos - pos0
-        with warnings.catch_warnings():
-            warnings.filterwarnings(
-                "ignore",
-                category=RuntimeWarning,
-                message="invalid value encountered in divide",
-            )
-            direction = diff / np.linalg.norm(diff)
-        return direction
-
-    def __add_recoils_dirs(
-        self,
-        trimdat: dtypes.Trimdat,
-    ) -> tuple:
-        """Add recoil directions to collision table.
-
-        Parameters
-        ----------
-        trimdat : dtypes.Trimdat
-            TRIMDAT data.
-        """
-        cur = self.collision.cursor()
-        cur.execute("ALTER TABLE collision ADD COLUMN cosx REAL")
-        cur.execute("ALTER TABLE collision ADD COLUMN cosy REAL")
-        cur.execute("ALTER TABLE collision ADD COLUMN cosz REAL")
-
-        nions = self.get_nions()
-        for nion in range(nions):
-            pos0 = trimdat[nion]["pos"]
-            cosx0, cosy0, cosz0 = trimdat[nion]["dir"]
-            for collision in self.collision.read(what="rowid, depth, y, z"):
-                rowid, depth, y, z = collision
-                pos = np.array([depth, y, z])
-                cosx, cosy, cosz = self.__get_dir(pos0, pos)
-                # There are some rare cases, specially at high energies,
-                # when there are two PKA at the same position. I think this
-                # is because they are really close and when saved into
-                # COLLISON.txt, positions are rounded and they coincide.
-                # In such cases (if statement triggered), we assume that the
-                # second PKA has the same direction as the first one.
-                if np.isnan(cosx) or np.isnan(cosy) or np.isnan(cosz):
-                    warnings.warn(
-                        (
-                            "Two PKAs at the same position, assuming same direction. This is "
-                            "likely because of SRIM rounding positions when saving into "
-                            "COLLISON.txt."
-                        ),
-                        RuntimeWarning,
-                    )
-                    cosx, cosy, cosz = cosx0, cosy0, cosz0
-                else:
-                    cosx0, cosy0, cosz0 = cosx, cosy, cosz
-                cur.execute(
-                    "UPDATE collision SET cosx = ?, cosy = ?, cosz = ? WHERE rowid = ?",
-                    (
-                        cosx,
-                        cosy,
-                        cosz,
-                        rowid,
-                    ),
-                )
-                pos0 = pos
-        cur.close()
-
-    def __remove_mean_depth_offsets(
-        self, cur: sqlite3.Cursor, table_name: str, depth_mean: tuple[float]
-    ) -> None:
-        """Removes ion mean depth offsets from the given table.
-
-        Parameters
-        ----------
-        cur : sqlite3.Cursor
-            Database cursor.
-        table_name : str
-            Table name.
-        depth_mean : tuple[float]
-            Mean depth.
-        """
-        cur.execute(f"UPDATE {table_name} SET depth = depth - ?", depth_mean)
-
-    def __remove_individual_offsets(self, cur: sqlite3.Cursor, table_name: str) -> None:
-        """Removes individual ion offsets from the given table.
-
-        Parameters
-        ----------
-        cur : sqlite3.Cursor
-            Database cursor.
-        table_name : str
-            Table name.
-        """
-        cur.execute(
-            f"""
-            UPDATE {table_name}
-            SET depth = {table_name}.depth - trimdat.depth,
-                y = {table_name}.y - trimdat.y,
-                z = {table_name}.z - trimdat.z
-            FROM trimdat
-            WHERE {table_name}.ion_numb = trimdat.ion_numb
-        """
-        )
-
-    def __remove_offsets(self) -> None:
-        """Removes ion offsets."""
-        cur = self.cursor()
-        cur.execute("SELECT AVG(depth) FROM trimdat")
-        depth_mean = cur.fetchone()
-        self.__remove_mean_depth_offsets(cur, "e2recoil", depth_mean)
-        self.__remove_mean_depth_offsets(cur, "ioniz", depth_mean)
-        self.__remove_mean_depth_offsets(cur, "lateral", depth_mean)
-        self.__remove_mean_depth_offsets(cur, "phonon", depth_mean)
-        self.__remove_mean_depth_offsets(cur, "range", depth_mean)
-        self.__remove_mean_depth_offsets(cur, "vacancy", depth_mean)
-        if self.calculation in ["full", "mono"]:
-            self.__remove_mean_depth_offsets(cur, "novac", depth_mean)
-        self.__remove_individual_offsets(cur, "backscat")
-        self.__remove_individual_offsets(cur, "collision")
-        self.__remove_individual_offsets(cur, "range3d")
-        self.__remove_individual_offsets(cur, "sputter")
-        self.__remove_individual_offsets(cur, "transmit")
-        self.__remove_individual_offsets(cur, "transmit")
-        self.__remove_individual_offsets(cur, "ionsfps")
-        cur.close()
-        self.commit()
+            self.novac.process_file(self.dir_srim / "NOVAC.txt")

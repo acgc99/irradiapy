@@ -4,7 +4,6 @@ from .backscat import Backscat
 from .collision import Collision
 from .e2recoil import E2Recoil
 from .ioniz import Ioniz
-from .ionsfps import IonsFPs
 from .lateral import Lateral
 from .novac import Novac
 from .phonon import Phonon

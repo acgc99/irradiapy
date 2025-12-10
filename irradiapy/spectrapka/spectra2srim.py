@@ -17,7 +17,7 @@ from irradiapy.spectrapka.recoilsdb import RecoilsDB
 class Spectra2SRIM:
     """Spectra2SRIM class to run SPECTRA-PKA to SRIM workflow.
 
-    Parameters
+    Attributes
     ----------
     path_spectrapka_in : Path
         SPECTRA-PKA input file path, for target definition.
@@ -34,20 +34,21 @@ class Spectra2SRIM:
         if this width is set too high, precision might be lost, but
         backscattering/transmission might happen if set too low.
         Unfortunately, there is not a strict rule to set this value.
+    matdict : dict[str, Any]
+        Material dictionary with SPECTRA-PKA material information.
+    target : srim.target.Target
+        SRIM target.
+    recoils_db : RecoilsDB
+        Database to store all recoils collected from SPECTRA-PKA and SRIM calculations.
     """
 
-    path_spectrapka_in: Path
-    path_spectrapka_events: Path
-    dir_root: Path
-    srim_width: float = 1e8
+    path_spectrapka_in: Path = field(init=False)
+    path_spectrapka_events: Path = field(init=False)
+    dir_root: Path = field(init=False)
+    srim_width: float = field(default=1e8, init=False)
     matdict: dict[str, Any] = field(init=False)
     target: srim.target.Target = field(init=False)
     recoils_db: RecoilsDB = field(init=False)
-
-    def __post_init__(self) -> None:
-        self.dir_root.mkdir(parents=True, exist_ok=True)
-        self.recoils_db = RecoilsDB(self.dir_root / "recoils.db")
-        self.__spectrapka_in_to_srim_target()
 
     def __read_spectrapka_events_for_srim(self, condition: str = "") -> tuple:
         """Read data from the SPECTRA-PKA database for SRIM calculations.
@@ -187,294 +188,6 @@ class Spectra2SRIM:
             stoichs=self.matdict["stoichs"],
         )
         self.target = srim.target.Target(layers=[layer])
-
-    def __separate_ions_by_atomic_number(
-        self,
-        max_recoil_energy: float,
-        atomic_numbers: np.ndarray,
-        **kwargs: np.ndarray,
-    ) -> dict[int, dict[str, np.ndarray]]:
-        """Separates ions by atomic number.
-
-        Parameters
-        ----------
-        max_recoil_energy : float
-            Maximum recoil energy threshold.
-            Only ions with energies above this value will be included.
-        atomic_numbers : np.ndarray
-            Array of atomic numbers.
-        **kwargs : np.ndarray
-            Additional arrays to separate by atomic number.
-
-        Returns
-        -------
-        dict[int, dict[str, np.ndarray]]
-            Dictionary with atomic numbers as keys and corresponding data as values.
-
-        Example
-        -------
-        >>> atomic_numbers = np.array([1, 2, 1, 3, 2])
-        >>> recoil_energies = np.array([150e3, 80e3, 200e3, 50e3, 120e3])
-        >>> separated_ions = separate_ions_by_atomic_number(
-            100e3,
-            atomic_numbers,
-            recoil_energies=recoil_energies
-        )
-        >>> print(separated_ions)
-        {
-            1:
-                {
-                    'atomic_number': array([1, 1]),
-                    'recoil_energies': array([150000., 200000.]),
-                    'nions': 2
-            },
-            2: {
-                'atomic_number': array([2]),
-                'recoil_energies': array([120000.]),
-                'nions': 1
-            }
-            # no 3 since its recoil energy is below the threshold
-        }
-        """
-        ions: dict[int, dict[str, np.ndarray]] = {}
-        unique_atomic_numbers = np.unique(atomic_numbers)
-        for atomic_number in unique_atomic_numbers:
-            mask = (atomic_numbers == atomic_number) & (
-                kwargs["recoil_energies"] > max_recoil_energy
-            )
-            if not np.any(mask):
-                continue
-            ions[atomic_number] = {"atomic_number": atomic_numbers[mask]}
-            for key, array in kwargs.items():
-                ions[atomic_number][key] = array[mask]
-            ions[atomic_number]["nions"] = len(ions[atomic_number]["atomic_number"])
-        return ions
-
-    def __spectra_iter(
-        self,
-        mode: str,
-        max_recoil_energy: float,
-    ) -> set[int]:
-        """First SRIM iteration: SPECTRA-PKA -> SRIM (one level, one folder per Z).
-
-        This stage:
-        - Reads SPECTRA-PKA recoils from the DB.
-        - Filters by energy threshold.
-        - Runs SRIM once per recoil atomic number.
-        - Creates directories like: 1/, 2/, 26/, ... (each with srim.db).
-        """
-        (
-            _,
-            atomic_numbers,
-            recoil_energies,
-            depths,
-            ys,
-            zs,
-            cosxs,
-            cosys,
-            coszs,
-            _,
-            _,
-        ) = self.__read_spectrapka_events_for_srim()
-
-        ions = self.__separate_ions_by_atomic_number(
-            max_recoil_energy,
-            atomic_numbers,
-            recoil_energies=recoil_energies,
-            depths=depths,
-            ys=ys,
-            zs=zs,
-            cosxs=cosxs,
-            cosys=cosys,
-            coszs=coszs,
-        )
-
-        if not ions:
-            print("No SPECTRA-PKA recoils above the energy threshold.")
-            return set()
-
-        # Run SRIM for each ion species from SPECTRA-PKA
-        for atomic_number, ion_data in ions.items():
-            dir_srim = self.dir_root / str(atomic_number)
-            dir_srim.mkdir(parents=True, exist_ok=True)
-            path_srim_db = dir_srim / "srim.db"
-
-            nions = ion_data["nions"]
-            atomic_numbers_arr = ion_data["atomic_number"]
-            recoil_energies_arr = ion_data["recoil_energies"]
-            ys_arr = ion_data["ys"]
-            zs_arr = ion_data["zs"]
-            cosxs_arr = ion_data["cosxs"]
-            cosys_arr = ion_data["cosys"]
-            coszs_arr = ion_data["coszs"]
-            depths_arr = np.full(
-                nions, self.srim_width / 2
-            )  # inject at mid-target to avoid transmission and backscattering
-
-            srimdb = srim.SRIMDB(
-                path_db=path_srim_db, calculation=mode, target=self.target
-            )
-            srimdb.run(
-                atomic_numbers=atomic_numbers_arr,
-                energies=recoil_energies_arr,
-                depths=depths_arr,
-                ys=ys_arr,
-                zs=zs_arr,
-                cosxs=cosxs_arr,
-                cosys=cosys_arr,
-                coszs=coszs_arr,
-                remove_offsets=False,
-            )
-            if transmit := list(srimdb.transmit.read()):
-                msg = ", ".join(f"({row[1]}, {row[2]:.2g})" for row in transmit)
-                raise RuntimeError(
-                    "SPECTRA-PKA recoils ended up transmitted. Increase ``srim_width``. "
-                    "(Z, E (eV)) = " + msg
-                )
-            if backscat := list(srimdb.backscat.read()):
-                msg = ", ".join(f"({row[1]}, {row[2]:.2g})" for row in backscat)
-                raise RuntimeError(
-                    "SPECTRA-PKA recoils ended up backscattered. Increase ``srim_width``. "
-                    "(Z, E (eV)) = " + msg
-                )
-            srimdb.close()
-
-        return set(ions.keys())
-
-    def __srim_recursive(
-        self,
-        mode: str,
-        max_recoil_energy: float,
-        max_srim_iters: int,
-        tree: tuple[int, ...],
-    ) -> None:
-        """Process one SRIM database and recursively spawn children.
-
-        Parameters
-        ----------
-        tree : tuple[int, ...]
-            Sequence of atomic numbers (branches) describing the path, e.g. (26,), (26, 76),
-            (26, 76, 26), etc. The corresponding DB is at:
-                dir_root / '26' / '76' / '26' / 'srim.db'
-        """
-        # Path to current SRIM DB for this tree
-        dir_branch = self.dir_root.joinpath(*(str(branch) for branch in tree))
-        path_branch_db = dir_branch / "srim.db"
-
-        # No SRIM data for this branch -> nothing to do. Likely due to max SRIM iterations.
-        if not path_branch_db.exists():
-            return
-
-        # Extract recoils from the SRIM database at this branch
-        srimdb_branch = srim.SRIMDB(
-            path_db=path_branch_db, calculation=mode, target=self.target
-        )
-        collisions = list(
-            srimdb_branch.collision.read(
-                what="depth, y, z, cosx, cosy, cosz, recoil_energy, atom_hit",
-                condition="ORDER BY ion_numb",  # Already ordered, but explicit
-            )
-        )
-        srimdb_branch.close()
-
-        # Make sure there are collisions to process
-        if not collisions:
-            return
-
-        depths = np.array([row[0] for row in collisions], dtype=np.float64)
-        ys = np.array([row[1] for row in collisions], dtype=np.float64)
-        zs = np.array([row[2] for row in collisions], dtype=np.float64)
-        cosxs = np.array([row[3] for row in collisions], dtype=np.float64)
-        cosys = np.array([row[4] for row in collisions], dtype=np.float64)
-        coszs = np.array([row[5] for row in collisions], dtype=np.float64)
-        recoil_energies = np.array([row[6] for row in collisions], dtype=np.float64)
-        atomic_numbers = np.array(
-            [materials.ATOMIC_NUMBER_BY_SYMBOL[row[7]] for row in collisions],
-            dtype=np.int32,
-        )
-
-        # Group by recoil Z and filter by energy threshold
-        leaf_ions = self.__separate_ions_by_atomic_number(
-            max_recoil_energy,
-            atomic_numbers,
-            recoil_energies=recoil_energies,
-            depths=depths,
-            ys=ys,
-            zs=zs,
-            cosxs=cosxs,
-            cosys=cosys,
-            coszs=coszs,
-        )
-
-        # No recoils above threshold from this branch
-        if not leaf_ions:
-            return
-
-        # For each recoil species, run a new SRIM and recurse
-        for leaf_atomic_number, leaf_collisions in leaf_ions.items():
-            leaf_tree = (*tree, int(leaf_atomic_number))
-            leaf_iter = len(leaf_tree)  # iteration number
-
-            if leaf_iter >= max_srim_iters:
-                tree_str = "/".join(str(z) for z in leaf_tree)
-                print(
-                    f"Skipping SRIM for Z={leaf_atomic_number} "
-                    f"(path {tree_str}): reached max_srim_iters={max_srim_iters}"
-                )
-                continue
-
-            dir_leaf = self.dir_root.joinpath(*(str(subleaf) for subleaf in leaf_tree))
-            dir_leaf.mkdir(parents=True, exist_ok=True)
-            path_leaf_db = dir_leaf / "srim.db"
-
-            nions = leaf_collisions["nions"]
-            atomic_numbers_arr = leaf_collisions["atomic_number"]
-            recoil_energies_arr = leaf_collisions["recoil_energies"]
-            depths_arr = leaf_collisions["depths"]
-            ys_arr = leaf_collisions["ys"]
-            zs_arr = leaf_collisions["zs"]
-            cosxs_arr = leaf_collisions["cosxs"]
-            cosys_arr = leaf_collisions["cosys"]
-            coszs_arr = leaf_collisions["coszs"]
-
-            leaf_str = "/".join(str(z) for z in leaf_tree)
-            print(
-                f"Running SRIM for Z={leaf_atomic_number} "
-                f"(path {leaf_str}), nions={nions}, iteration={leaf_iter}"
-            )
-
-            srimdb_leaf = srim.SRIMDB(
-                path_db=path_leaf_db,
-                calculation=mode,
-                target=self.target,
-            )
-            srimdb_leaf.run(
-                atomic_numbers=atomic_numbers_arr,
-                energies=recoil_energies_arr,
-                depths=depths_arr,
-                ys=ys_arr,
-                zs=zs_arr,
-                cosxs=cosxs_arr,
-                cosys=cosys_arr,
-                coszs=coszs_arr,
-                remove_offsets=False,
-            )
-            if list(srimdb_leaf.transmit.read()) or list(srimdb_leaf.backscat.read()):
-                raise RuntimeError(
-                    (
-                        "SRIM subsequent recoils ended up transmitted or backscattered. "
-                        "Increase ``srim_width``."
-                    )
-                )
-            srimdb_leaf.close()
-
-            # Recurse into the new node to see if it spawns further high-energy recoils
-            self.__srim_recursive(
-                mode,
-                max_recoil_energy,
-                max_srim_iters,
-                leaf_tree,
-            )
 
     def __collect_recoils(self, max_recoil_energy: float) -> None:
         """Collect all recoils from all SRIM databases into a single database taking into account
@@ -816,9 +529,13 @@ class Spectra2SRIM:
                 depth_offset=-self.srim_width / 2 + depth,
             )
 
-    def run_spectrapka_srim(
+    def run(
         self,
-        mode: str,
+        path_spectrapka_in,
+        path_spectrapka_events,
+        dir_root,
+        srim_width,
+        calculation: str,
         max_recoil_energy: float,
         exclude_recoils: list[int] | None = None,
         max_srim_iters: int = 32,
@@ -827,8 +544,23 @@ class Spectra2SRIM:
 
         Parameters
         ----------
-        mode : str
-            SRIM calculation mode, either 'quick' or 'full'.
+        path_spectrapka_in : Path
+            SPECTRA-PKA input file path, for target definition.
+        path_spectrapka_events : Path
+            SPECTRA-PKA config_events.pka file path, for recoils data.
+        dir_root : Path
+            Root output directory where all data will be stored.
+        srim_width : float, optional (default=1e8)
+            The SPECTRA-PKA box might be small for SRIM ions. To avoid backscattering and
+            transmission, SPECTRA-PKA recoils are injected at the middle of a thick SRIM target
+            of this width (in Angstrom). In postprocessing, the depth offset is corrected to get
+            the position in the SPECTRA-PKA box. Note that due to SRIM limitations, recoils
+            positions are rounded to a number of the form "xxxxx.E+xx",
+            if this width is set too high, precision might be lost, but
+            backscattering/transmission might happen if set too low.
+            Unfortunately, there is not a strict rule to set this value.
+        calculation : str
+            SRIM calculation mode: "quick", "full" or "mono".
         max_recoil_energy : float
             Recoils above this energies, will be sent to SRIM, in eV.
         exclude_recoils : list[str] | None (default=None)
@@ -836,28 +568,55 @@ class Spectra2SRIM:
         max_srim_iters : int, optional (default=32)
             Maximum number of SRIM iterations.
         """
-        if max_srim_iters < 1:
-            raise ValueError("max_srim_iters must be at least 1")
+        self.path_spectrapka_in = path_spectrapka_in
+        self.path_spectrapka_events = path_spectrapka_events
+        self.dir_root = dir_root
+        self.srim_width = srim_width
+
+        self.dir_root.mkdir(parents=True, exist_ok=True)
+        self.recoils_db = RecoilsDB(self.dir_root / "recoils.db")
+        self.__spectrapka_in_to_srim_target()
 
         # Convert SPECTRA-PKA events to SQLite3 database
         self.recoils_db.process_config_events(
             self.path_spectrapka_events, exclude_recoils
         )
-
-        # First iteration, from SPECTRA-PKA to SRIM
-        first_atomic_numbers = self.__spectra_iter(
-            mode,
-            max_recoil_energy,
+        # Read from SQLite3 database
+        (
+            nions,
+            atomic_numbers,
+            recoil_energies,
+            _depths,
+            ys,
+            zs,
+            cosxs,
+            cosys,
+            coszs,
+            _times,
+            _events,
+        ) = self.__read_spectrapka_events_for_srim()
+        # To avoid backscattering and transmission, inject all SPECTRA-PKA recoils at mid-target
+        depths_srim = np.full(nions, self.srim_width / 2.0, dtype=np.float64)
+        py2srim = srim.Py2SRIM()
+        py2srim.run(
+            dir_root=self.dir_root,
+            target=self.target,
+            calculation=calculation,
+            atomic_numbers=atomic_numbers,
+            energies=recoil_energies,
+            depths=depths_srim,
+            ys=ys,
+            zs=zs,
+            cosxs=cosxs,
+            cosys=cosys,
+            coszs=coszs,
+            max_recoil_energy=max_recoil_energy,
+            max_srim_iters=max_srim_iters,
+            fail_on_backscatt=True,
+            fail_on_transmit=True,
+            remove_offsets=False,
+            ignore_32bit_warning=True,
         )
-        # Further iterations, from SRIM to SRIM
-        # Start recursion from each first-level SRIM folder (e.g. 1/, 2/, 26/, ...)
-        for atomic_number in first_atomic_numbers:
-            self.__srim_recursive(
-                mode,
-                max_recoil_energy,
-                max_srim_iters,
-                (int(atomic_number),),
-            )
         # Collect all recoils data into a single database
         self.__collect_recoils(max_recoil_energy)
         # Collect all ions and vacancies into a single database
