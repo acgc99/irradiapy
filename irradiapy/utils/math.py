@@ -544,6 +544,7 @@ def apply_boundary_conditions(
         atoms["z"] = np.clip(atoms["z"], zlo, zhi)
         data_atoms["boundary"][2] = "ff"
     data_atoms["atoms"] = atoms
+    data_atoms["natoms"] = len(atoms)
     return data_atoms
 
 
