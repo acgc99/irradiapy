@@ -2,7 +2,6 @@
 
 # pylint: disable=too-many-lines
 
-from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -10,7 +9,8 @@ from typing import Any
 import numpy as np
 
 from irradiapy import materials, srim
-from irradiapy.spectrapka.recoilsdb import RecoilsDB
+from irradiapy.recoilsdb import RecoilsDB
+from irradiapy.srim.target import Target
 
 
 @dataclass
@@ -19,6 +19,8 @@ class Spectra2SRIM:
 
     Attributes
     ----------
+    seed : int (default=0)
+        Seed for SRIM randomness.
     path_spectrapka_in : Path
         SPECTRA-PKA input file path, for target definition.
     path_spectrapka_events : Path
@@ -40,15 +42,62 @@ class Spectra2SRIM:
         SRIM target.
     recoils_db : RecoilsDB
         Database to store all recoils collected from SPECTRA-PKA and SRIM calculations.
+    check_interval : float (default=0.2)
+        Interval to check for SRIM window/popups.
+    plot_type : int (default=5)
+        Plot type during SRIM calculations. 5 for no plots (faster calculations).
+    xmin : float (default=0.0)
+        Minimum x for plots and depth-dependent means during SRIM calculations. Particularly
+        important for large targets, since SRIM divides it in 100 segments.
+    xmax : float (default=0.0)
+        Maximum x for plots and depth-dependent means during SRIM calculations. Particularly
+        important for large targets, since SRIM divides it in 100 segments.
+        0.0 for full target.
+    do_ranges : int (default=1)
+        Whether to save `RANGE.txt` file.
+        Disabling this might cause errors afterwards because of missing tables.
+    do_backscatt : int (default=1)
+        Whether to save `BACKSCAT.txt` file.
+        Disabling this might cause errors afterwards because of missing tables.
+    do_transmit : int (default=1)
+        Whether to save `TRANSMIT.txt` file.
+        Disabling this might cause errors afterwards because of missing tables.
+    do_sputtered : int (default=1)
+        Whether to save `SPUTTER.txt` file.
+        Disabling this might cause errors afterwards because of missing tables.
+    do_collisions : int (default=1)
+        Whether to save `COLLISON.txt` file.
+        Disabling this might cause errors afterwards because of missing tables.
+    exyz : float (default=0.0)
+        Whether to save ions position every time they loose `exyz` energy in the `EXYZ.txt` file.
+    autosave : int (default=0)
+        Autosave every this number of ions. 0 to disable.
     """
+
+    seed: int = 0
 
     path_spectrapka_in: Path = field(init=False)
     path_spectrapka_events: Path = field(init=False)
     dir_root: Path = field(init=False)
     srim_width: float = field(default=1e8, init=False)
     matdict: dict[str, Any] = field(init=False)
-    target: srim.target.Target = field(init=False)
+    target: Target = field(init=False)
     recoils_db: RecoilsDB = field(init=False)
+
+    check_interval: float = 0.2
+    plot_type: int = 5
+    xmin: float = 0.0
+    xmax: float = 0.0
+    do_ranges: int = 1
+    do_backscatt: int = 1
+    do_transmit: int = 1
+    do_sputtered: int = 1
+    do_collisions: int = 1
+    exyz: float = 0.0
+    autosave: int = 0
+
+    reminders: int = field(default=0, init=False)
+    bragg: int = field(default=1, init=False)
 
     def __read_spectrapka_events_for_srim(self, condition: str = "") -> tuple:
         """Read data from the SPECTRA-PKA database for SRIM calculations.
@@ -189,346 +238,6 @@ class Spectra2SRIM:
         )
         self.target = srim.target.Target(layers=[layer])
 
-    def __collect_recoils(self, max_recoil_energy: float) -> None:
-        """Collect all recoils from all SRIM databases into a single database taking into account
-        their hierarchy.
-
-        Parameters
-        ----------
-        max_recoil_energy : float
-            Recoils above this energies will be sent to SRIM, in eV.
-        """
-        # For each SRIM database, keep track of how many ions we have already consumed.
-        # Key is the full path to the srim.db file.
-        srim_ion_counters: dict[Path, int] = defaultdict(int)
-
-        def collect_recoils_from_srim(
-            tree: tuple[int, ...],
-            ion_numb: int,
-            event: int,
-            depth_offset: float,
-        ) -> None:
-            """Collect recoils from a single SRIM ion and recurse on high-energy recoils.
-
-            Parameters
-            ----------
-            tree : tuple[int, ...]
-                Sequence of atomic numbers describing the SRIM path, e.g. (26,), (26, 76), ...
-                The corresponding SRIM DB is at:
-                    dir_out / '26' / '76' / ... / 'srim.db'
-            ion_numb : int
-                Ion number inside this SRIM DB (ion_numb column).
-            event : int
-                Original SPECTRA event index (1-based).
-            """
-            # Path to current SRIM DB for this tree
-            dir_branch = self.dir_root.joinpath(*(str(branch) for branch in tree))
-            path_branch_db = dir_branch / "srim.db"
-
-            # If this SRIM DB does not exist (e.g., max_srim_iters prevented creation), stop here.
-            if not path_branch_db.exists():
-                return
-
-            srimdb_branch = srim.SRIMDB(
-                path_db=path_branch_db,
-                calculation=None,
-                target=None,
-            )
-
-            collisions = list(
-                srimdb_branch.collision.read(
-                    what="depth, y, z, cosx, cosy, cosz, recoil_energy, atom_hit",
-                    condition=f"WHERE ion_numb={ion_numb}",
-                )
-            )
-            srimdb_branch.close()
-
-            for depth, y, z, cosx, cosy, cosz, recoil_energy, atom_hit in collisions:
-                atomic_number = int(materials.ATOMIC_NUMBER_BY_SYMBOL[atom_hit])
-
-                if recoil_energy < max_recoil_energy:
-                    # This recoil is below threshold -> terminal; store it.
-                    self.recoils_db.insert_recoil(
-                        event=event,
-                        atomic_number=atomic_number,
-                        recoil_energy=recoil_energy,
-                        depth=depth + depth_offset,
-                        y=y,
-                        z=z,
-                        cosx=cosx,
-                        cosy=cosy,
-                        cosz=cosz,
-                    )
-                    continue
-
-                # Above threshold: try to follow to the next SRIM level.
-                leaf_tree = (*tree, atomic_number)
-                dir_leaf = self.dir_root.joinpath(
-                    *(str(subleaf) for subleaf in leaf_tree)
-                )
-                path_leaf_db = dir_leaf / "srim.db"
-
-                # If the child SRIM DB does not exist (e.g., limited by max_srim_iters),
-                # treat as terminal.
-                if not path_leaf_db.exists():
-                    self.recoils_db.insert_recoil(
-                        event=event,
-                        atomic_number=atomic_number,
-                        recoil_energy=recoil_energy,
-                        depth=depth + depth_offset,
-                        y=y,
-                        z=z,
-                        cosx=cosx,
-                        cosy=cosy,
-                        cosz=cosz,
-                    )
-                    continue
-
-                # Map this collision to the correct ion in the child SRIM DB.
-                child_ion_numb = srim_ion_counters[path_leaf_db] + 1
-                srim_ion_counters[path_leaf_db] = child_ion_numb
-                collect_recoils_from_srim(
-                    tree=leaf_tree,
-                    ion_numb=child_ion_numb,
-                    event=event,
-                    depth_offset=depth_offset,
-                )
-
-        # Start from SPECTRA-PKA recoils
-        (
-            nions,
-            atomic_numbers,
-            recoil_energies,
-            depths,
-            ys,
-            zs,
-            cosxs,
-            cosys,
-            coszs,
-            _,
-            events,
-        ) = self.__read_spectrapka_events_for_srim()
-
-        for i in range(nions):
-            event = int(events[i])
-            atomic_number = int(atomic_numbers[i])
-            recoil_energy = recoil_energies[i]
-            depth = depths[i]
-            y = ys[i]
-            z = zs[i]
-            cosx = cosxs[i]
-            cosy = cosys[i]
-            cosz = coszs[i]
-
-            # Low-energy SPECTRA-PKA recoil -> store into final DB.
-            if recoil_energy < max_recoil_energy:
-                self.recoils_db.insert_recoil(
-                    event=event,
-                    atomic_number=atomic_number,
-                    recoil_energy=recoil_energy,
-                    depth=depth,
-                    y=y,
-                    z=z,
-                    cosx=cosx,
-                    cosy=cosy,
-                    cosz=cosz,
-                )
-                continue
-
-            # High-energy SPECTRA-PKA recoil: follow SRIM cascades starting at Z/srim.db.
-            dir_branch = self.dir_root / str(atomic_number)
-            path_branch_db = dir_branch / "srim.db"
-
-            # No SRIM data for this recoil: treat as terminal.
-            # Likely due to max SRIM iterations.
-            if not path_branch_db.exists():
-                self.recoils_db.insert_recoil(
-                    event=event,
-                    atomic_number=atomic_number,
-                    recoil_energy=recoil_energy,
-                    depth=depth,
-                    y=y,
-                    z=z,
-                    cosx=cosx,
-                    cosy=cosy,
-                    cosz=cosz,
-                )
-                continue
-
-            # Ion index in this first-level SRIM.
-            ion_numb = srim_ion_counters[path_branch_db] + 1
-            srim_ion_counters[path_branch_db] = ion_numb
-
-            collect_recoils_from_srim(
-                tree=(atomic_number,),
-                ion_numb=ion_numb,
-                event=event,
-                depth_offset=-self.srim_width / 2 + depth,
-            )
-
-    def __collect_ions_vacs(self, max_recoil_energy: float) -> None:
-        """Collect all ions and vacancies from all SRIM databases into a single database taking into
-        account their hierarchy.
-
-        TRIMDAT ->
-        initial position of the ions, which are pushed, creating a vacancy.
-        RANGE_3D ->
-        final position of the ions after being pushed by SRIM (atomic number from TRIMDAT).
-
-        Parameters
-        ----------
-        max_recoil_energy : float
-            Recoils above this energies will be sent to SRIM, in eV.
-        """
-        # For each SRIM database, keep track of how many ions we have already consumed.
-        # Key is the full path to the srim.db file.
-        srim_ion_counters: dict[Path, int] = defaultdict(int)
-
-        def collect_ions_vacs_from_srim(
-            tree: tuple[int, ...],
-            ion_numb: int,
-            event: int,
-            depth_offset: float,
-        ) -> None:
-            """Collect ions and vacs from a single SRIM ion and recurse on high-energy recoils.
-
-            Parameters
-            ----------
-            tree : tuple[int, ...]
-                Sequence of atomic numbers describing the SRIM path, e.g. (26,), (26, 76), ...
-                The corresponding SRIM DB is at:
-                    dir_out / '26' / '76' / ... / 'srim.db'
-            ion_numb : int
-                Ion number inside this SRIM DB (ion_numb column).
-            event : int
-                Original SPECTRA event index (1-based).
-            """
-            # Path to current SRIM DB for this tree
-            dir_branch = self.dir_root.joinpath(*(str(branch) for branch in tree))
-            path_branch_db = dir_branch / "srim.db"
-
-            # If this SRIM DB does not exist (e.g., max_srim_iters prevented creation), stop here.
-            if not path_branch_db.exists():
-                return
-
-            srimdb_branch = srim.SRIMDB(
-                path_db=path_branch_db,
-                calculation=None,
-                target=None,
-            )
-
-            trimdat = list(
-                srimdb_branch.trimdat.read(
-                    what="depth, y, z, atom_numb",
-                    condition=f"WHERE ion_numb={ion_numb}",
-                )
-            )
-            range3d = list(
-                srimdb_branch.range3d.read(
-                    what="depth, y, z",
-                    condition=f"WHERE ion_numb={ion_numb}",
-                )
-            )
-            collisions = list(
-                srimdb_branch.collision.read(
-                    what="recoil_energy, atom_hit",
-                    condition=f"WHERE ion_numb={ion_numb}",
-                )
-            )
-            srimdb_branch.close()
-
-            for depth, y, z, atom_numb in trimdat:
-                self.recoils_db.insert_ion_vac(
-                    event=event,
-                    atom_numb=atom_numb,
-                    depth=depth + depth_offset,
-                    y=y,
-                    z=z,
-                )
-
-            for depth, y, z in range3d:
-                self.recoils_db.insert_ion_vac(
-                    event=event,
-                    atom_numb=0,
-                    depth=depth + depth_offset,
-                    y=y,
-                    z=z,
-                )
-
-            for recoil_energy, atom_hit in collisions:
-                atomic_number = int(materials.ATOMIC_NUMBER_BY_SYMBOL[atom_hit])
-
-                if recoil_energy < max_recoil_energy:
-                    # This recoil is below threshold -> terminal
-                    continue
-
-                leaf_tree = (*tree, atomic_number)
-                dir_leaf = self.dir_root.joinpath(
-                    *(str(subleaf) for subleaf in leaf_tree)
-                )
-                path_leaf_db = dir_leaf / "srim.db"
-
-                # If the child SRIM DB does not exist (e.g., limited by max_srim_iters),
-                # treat as terminal.
-                if not path_leaf_db.exists():
-                    continue
-
-                # Map this recoil to the correct ion in the child SRIM DB.
-                child_ion_numb = srim_ion_counters[path_leaf_db] + 1
-                srim_ion_counters[path_leaf_db] = child_ion_numb
-                collect_ions_vacs_from_srim(
-                    tree=leaf_tree,
-                    ion_numb=child_ion_numb,
-                    event=event,
-                    depth_offset=depth_offset,
-                )
-
-        # Start from SPECTRA-PKA recoils
-        (
-            nions,
-            atomic_numbers,
-            recoil_energies,
-            depths,
-            _,
-            _,
-            _,
-            _,
-            _,
-            _,
-            events,
-        ) = self.__read_spectrapka_events_for_srim()
-
-        for i in range(nions):
-            event = int(events[i])
-            atomic_number = int(atomic_numbers[i])
-            depth = depths[i]
-            recoil_energy = recoil_energies[i]
-
-            # If this SPECTRA-PKA recoil is below the threshold, it was never transferred to SRIM,
-            # so there are no ions/vacs to collect for it.
-            if recoil_energy < max_recoil_energy:
-                continue
-
-            # High-energy SPECTRA-PKA recoil: follow SRIM cascades starting at Z/srim.db.
-            dir_branch = self.dir_root / str(atomic_number)
-            path_branch_db = dir_branch / "srim.db"
-
-            # No SRIM data for this recoil: treat as terminal.
-            # Likely due to max SRIM iterations.
-            if not path_branch_db.exists():
-                continue
-
-            # Ion index in this first-level SRIM.
-            ion_numb = srim_ion_counters[path_branch_db] + 1
-            srim_ion_counters[path_branch_db] = ion_numb
-
-            collect_ions_vacs_from_srim(
-                tree=(atomic_number,),
-                ion_numb=ion_numb,
-                event=event,
-                depth_offset=-self.srim_width / 2 + depth,
-            )
-
     def run(
         self,
         path_spectrapka_in,
@@ -614,11 +323,24 @@ class Spectra2SRIM:
             max_srim_iters=max_srim_iters,
             fail_on_backscatt=True,
             fail_on_transmit=True,
-            remove_offsets=False,
             ignore_32bit_warning=True,
         )
-        # Collect all recoils data into a single database
-        self.__collect_recoils(max_recoil_energy)
-        # Collect all ions and vacancies into a single database
-        self.__collect_ions_vacs(max_recoil_energy)
+        # Undo artificial offsets during SRIM calculations to avoid backscattering/transmission.
+        events = self.recoils_db.read(
+            table="events",
+            what="event, x",
+        )
+        cur = self.recoils_db.cursor()
+        for event, x in events:
+            factor = x - self.srim_width / 2.0
+            cur.execute(
+                "UPDATE recoils SET depth=depth+? WHERE event=?",
+                (factor, event),
+            )
+            cur.execute(
+                "UPDATE ions_vacs SET depth=depth+? WHERE event=?",
+                (factor, event),
+            )
         self.recoils_db.commit()
+
+        return self.recoils_db

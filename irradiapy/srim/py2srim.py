@@ -2,12 +2,12 @@
 
 import os
 import platform
-import sqlite3
 import subprocess
 import threading
 import time
 import traceback
 import warnings
+from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -15,6 +15,7 @@ import numpy as np
 from numpy import typing as npt
 
 from irradiapy import config, dtypes, materials
+from irradiapy.recoilsdb import RecoilsDB
 from irradiapy.srim.srimdb import SRIMDB
 from irradiapy.srim.target.target import Target
 
@@ -34,16 +35,18 @@ class Py2SRIM:
 
     Attributes
     ----------
+    seed : int (default=0)
+        Seed for SRIM randomness.
     dir_root: Path
         Root directory where all calculations will be stored.
     target : Target
         SRIM target.
     calculation : str
         SRIM calculation.
-    seed : int (default=0)
-        Seed for SRIM randomness.
     dir_srim : Path (default=config.DIR_SRIM)
         Directory where SRIM is installed.
+    recoils_db : RecoilsDB
+        Database to store all recoils collected from SPECTRA-PKA and SRIM calculations.
     check_interval : float (default=0.2)
         Interval to check for SRIM window/popups.
     plot_type : int (default=5)
@@ -82,6 +85,7 @@ class Py2SRIM:
     target: Target = field(init=False)
     calculation: str = field(init=False)
     dir_srim: Path = field(default_factory=lambda: config.DIR_SRIM)
+    recoils_db: RecoilsDB = field(init=False)
 
     check_interval: float = 0.2
     plot_type: int = 5
@@ -315,71 +319,6 @@ class Py2SRIM:
 
     # endregion
 
-    # region Offsets
-
-    @staticmethod
-    def __remove_mean_depth_offsets(
-        cur: sqlite3.Cursor, table_name: str, depth_mean: tuple[float]
-    ) -> None:
-        """Removes ion mean depth offsets from the given table.
-
-        Parameters
-        ----------
-        cur : sqlite3.Cursor
-            Database cursor.
-        table_name : str
-            Table name.
-        depth_mean : tuple[float]
-            Mean depth.
-        """
-        cur.execute(f"UPDATE {table_name} SET depth = depth - ?", depth_mean)
-
-    @staticmethod
-    def __remove_individual_offsets(cur: sqlite3.Cursor, table_name: str) -> None:
-        """Removes individual ion offsets from the given table.
-
-        Parameters
-        ----------
-        cur : sqlite3.Cursor
-            Database cursor.
-        table_name : str
-            Table name.
-        """
-        cur.execute(
-            f"""
-            UPDATE {table_name}
-            SET depth = {table_name}.depth - trimdat.depth,
-                y = {table_name}.y - trimdat.y,
-                z = {table_name}.z - trimdat.z
-            FROM trimdat
-            WHERE {table_name}.ion_numb = trimdat.ion_numb
-        """
-        )
-
-    def __remove_offsets(self, srimdb: SRIMDB) -> None:
-        """Removes ion offsets."""
-        cur = srimdb.cursor()
-        cur.execute("SELECT AVG(depth) FROM trimdat")
-        depth_mean = cur.fetchone()
-        self.__remove_mean_depth_offsets(cur, "e2recoil", depth_mean)
-        self.__remove_mean_depth_offsets(cur, "ioniz", depth_mean)
-        self.__remove_mean_depth_offsets(cur, "lateral", depth_mean)
-        self.__remove_mean_depth_offsets(cur, "phonon", depth_mean)
-        self.__remove_mean_depth_offsets(cur, "range", depth_mean)
-        self.__remove_mean_depth_offsets(cur, "vacancy", depth_mean)
-        if self.calculation in ["full", "mono"]:
-            self.__remove_mean_depth_offsets(cur, "novac", depth_mean)
-        self.__remove_individual_offsets(cur, "backscat")
-        self.__remove_individual_offsets(cur, "collision")
-        self.__remove_individual_offsets(cur, "range3d")
-        self.__remove_individual_offsets(cur, "sputter")
-        self.__remove_individual_offsets(cur, "transmit")
-        self.__remove_individual_offsets(cur, "transmit")
-        cur.close()
-        srimdb.commit()
-
-    # endregion
-
     # region Checks
 
     def __check_transmit(self, srimdb: SRIMDB) -> None:
@@ -576,7 +515,6 @@ class Py2SRIM:
         coszs: npt.NDArray[np.float64] | None,
         fail_on_backscat: bool,
         fail_on_transmit: bool,
-        remove_offsets: bool,
         ignore_32bit_warning: bool = True,
     ) -> None:
         """Run the SRIM simulation.
@@ -605,8 +543,6 @@ class Py2SRIM:
             Whether to fail if there are backscattered ions.
         fail_on_transmit : bool
             Whether to fail if there are transmitted ions.
-        remove_offsets : bool
-            Whether to remove initial ion position to have positions relative to ion start.
         """
         if ignore_32bit_warning:
             warnings.filterwarnings(
@@ -659,9 +595,374 @@ class Py2SRIM:
             self.__check_transmit(srimdb)
         if fail_on_backscat:
             self.__check_backscat(srimdb)
-        if remove_offsets:
-            self.__remove_offsets(srimdb)
         srimdb.optimize()
+
+    def __collect_recoils(
+        self,
+        max_recoil_energy: float,
+        atomic_numbers: npt.NDArray[np.int64],
+        energies: npt.NDArray[np.float64],
+        depths: npt.NDArray[np.float64],
+        ys: npt.NDArray[np.float64],
+        zs: npt.NDArray[np.float64],
+        cosxs: npt.NDArray[np.float64],
+        cosys: npt.NDArray[np.float64],
+        coszs: npt.NDArray[np.float64],
+    ) -> None:
+        """Collect all recoils from all SRIM databases into a single database taking into account
+        their hierarchy.
+
+        This is the Py2SRIM version of the SPECTRA-PKA → SRIM collector.
+
+        Differences vs the original:
+        - It does not read SPECTRA-PKA files.
+        - `event` is the ion index provided to `Py2SRIM.run`, 1-based (i + 1).
+        - It assumes `self.dir_root` already contains the SRIM tree created by `run`.
+        - It assumes the same `max_recoil_energy` used to build the SRIM tree.
+
+        Parameters
+        ----------
+        max_recoil_energy : float
+            Recoils above this energies will be sent to SRIM, in eV.
+        atomic_numbers : npt.NDArray[np.int64]
+            Ion atomic numbers.
+        energies : npt.NDArray[np.float64]
+            Ion energies.
+        depths : npt.NDArray[np.float64]
+            Ion initial depths.
+        ys : npt.NDArray[np.float64]
+            Ion initial y positions.
+        zs : npt.NDArray[np.float64]
+            Ion initial z positions.
+        cosxs : npt.NDArray[np.float64]
+            Ion initial x directions.
+        cosys : npt.NDArray[np.float64]
+            Ion initial y directions.
+        coszs : npt.NDArray[np.float64]
+            Ion initial z directions.
+        """
+        # For each SRIM database, keep track of how many ions we have already consumed.
+        # Key is the full path to the srim.db file.
+        srim_ion_counters: dict[Path, int] = defaultdict(int)
+
+        def collect_recoils_from_srim(
+            tree: tuple[int, ...],
+            ion_numb: int,
+            event: int,
+        ) -> None:
+            """Collect recoils from a single SRIM ion and recurse on high-energy recoils.
+
+            Parameters
+            ----------
+            tree : tuple[int, ...]
+                Sequence of atomic numbers describing the SRIM path, e.g. (26,), (26, 76), ...
+                The corresponding SRIM DB is at:
+                    dir_root / '26' / '76' / ... / 'srim.db'
+            ion_numb : int
+                Ion number inside this SRIM DB (ion_numb column).
+            event : int
+                Event index, 1-based. Here it is the original ion index + 1 from Py2SRIM.run.
+            """
+            # Path to current SRIM DB for this tree
+            path_branch_db = self.__tree2path_db(tree, create_parent_dir=False)
+
+            # If this SRIM DB does not exist (e.g., max_srim_iters prevented creation), stop here.
+            if not path_branch_db.exists():
+                return
+
+            srimdb_branch = self.__create_srimdb(
+                path_db=path_branch_db,
+                target=None,
+                calculation=None,
+            )
+            collisions = list(
+                srimdb_branch.collision.read(
+                    what="depth, y, z, cosx, cosy, cosz, recoil_energy, atom_hit",
+                    condition=f"WHERE ion_numb={ion_numb}",
+                )
+            )
+            srimdb_branch.close()
+
+            for (
+                depth,
+                y,
+                z,
+                cosx,
+                cosy,
+                cosz,
+                recoil_energy,
+                atom_hit,
+            ) in collisions:
+                atomic_number = int(materials.ATOMIC_NUMBER_BY_SYMBOL[atom_hit])
+
+                if recoil_energy < max_recoil_energy:
+                    # This recoil is below threshold -> terminal; store it.
+                    self.recoils_db.insert_recoil(
+                        event=event,
+                        atomic_number=atomic_number,
+                        recoil_energy=recoil_energy,
+                        depth=depth,
+                        y=y,
+                        z=z,
+                        cosx=cosx,
+                        cosy=cosy,
+                        cosz=cosz,
+                    )
+                    continue
+
+                # Above threshold: try to follow to the next SRIM level.
+                leaf_tree = (*tree, atomic_number)
+                path_leaf_db = self.__tree2path_db(
+                    leaf_tree,
+                    create_parent_dir=False,
+                )
+
+                # If the child SRIM DB does not exist (e.g., limited by max_srim_iters),
+                # treat as terminal.
+                if not path_leaf_db.exists():
+                    self.recoils_db.insert_recoil(
+                        event=event,
+                        atomic_number=atomic_number,
+                        recoil_energy=recoil_energy,
+                        depth=depth,
+                        y=y,
+                        z=z,
+                        cosx=cosx,
+                        cosy=cosy,
+                        cosz=cosz,
+                    )
+                    continue
+
+                # Map this collision to the correct ion in the child SRIM DB.
+                child_ion_numb = srim_ion_counters[path_leaf_db] + 1
+                srim_ion_counters[path_leaf_db] = child_ion_numb
+                collect_recoils_from_srim(
+                    tree=leaf_tree,
+                    ion_numb=child_ion_numb,
+                    event=event,
+                )
+
+        # Start from the primary ions given to Py2SRIM.run
+        nions = atomic_numbers.size
+
+        for i in range(nions):
+            event = int(i + 1)
+            ion_atomic_number = int(atomic_numbers[i])
+            ion_energy = float(energies[i])
+            depth = float(depths[i])
+            y = float(ys[i])
+            z = float(zs[i])
+            cosx = float(cosxs[i])
+            cosy = float(cosys[i])
+            cosz = float(coszs[i])
+
+            # Low-energy primary ion -> store into final DB as terminal recoil.
+            if ion_energy < max_recoil_energy:
+                self.recoils_db.insert_recoil(
+                    event=event,
+                    atomic_number=ion_atomic_number,
+                    recoil_energy=ion_energy,
+                    depth=depth,
+                    y=y,
+                    z=z,
+                    cosx=cosx,
+                    cosy=cosy,
+                    cosz=cosz,
+                )
+                continue
+
+            # High-energy primary ion: follow SRIM cascades starting at atomic_number/srim.db.
+            path_branch_db = self.__tree2path_db(
+                (ion_atomic_number,),
+                create_parent_dir=False,
+            )
+
+            # No SRIM data for this ion: treat as terminal.
+            # Likely due to max_srim_iters or an aborted run.
+            if not path_branch_db.exists():
+                self.recoils_db.insert_recoil(
+                    event=event,
+                    atomic_number=ion_atomic_number,
+                    recoil_energy=ion_energy,
+                    depth=depth,
+                    y=y,
+                    z=z,
+                    cosx=cosx,
+                    cosy=cosy,
+                    cosz=cosz,
+                )
+                continue
+
+            # Ion index in this first-level SRIM DB.
+            ion_numb = srim_ion_counters[path_branch_db] + 1
+            srim_ion_counters[path_branch_db] = ion_numb
+
+            collect_recoils_from_srim(
+                tree=(ion_atomic_number,),
+                ion_numb=ion_numb,
+                event=event,
+            )
+
+    def __collect_ions_vacs(
+        self,
+        max_recoil_energy: float,
+        atomic_numbers: npt.NDArray[np.int64],
+        energies: npt.NDArray[np.float64],
+    ) -> None:
+        """Collect all ions and vacancies from all SRIM databases into a single database
+        taking into account their hierarchy.
+
+        This is the Py2SRIM version of the SPECTRA-PKA → SRIM ions/vacs collector.
+
+        Differences vs the original Spectra2SRIM implementation:
+        - It does not read SPECTRA-PKA files.
+        - `event` is the ion index provided to `Py2SRIM.run`, 1-based (i + 1).
+        - It assumes `self.dir_root` already contains the SRIM tree created by `run`.
+        - It assumes the same `max_recoil_energy` used to build the SRIM tree.
+        - No depth offset is applied (no mid-target injection as in Spectra2SRIM).
+        """
+        # For each SRIM database, keep track of how many ions we have already consumed.
+        # Key is the full path to the srim.db file.
+        srim_ion_counters: dict[Path, int] = defaultdict(int)
+
+        def collect_ions_vacs_from_srim(
+            tree: tuple[int, ...],
+            ion_numb: int,
+            event: int,
+        ) -> None:
+            """Collect ions and vacancies from a single SRIM ion and recurse on high-energy
+            recoils.
+
+            Parameters
+            ----------
+            tree : tuple[int, ...]
+                Sequence of atomic numbers describing the SRIM path, e.g. (26,), (26, 76), ...
+                The corresponding SRIM DB is at:
+                    dir_root / '26' / '76' / ... / 'srim.db'
+            ion_numb : int
+                Ion number inside this SRIM DB (ion_numb column).
+            event : int
+                Event index, 1-based (ion index from Py2SRIM.run).
+            """
+            # Path to current SRIM DB for this tree
+            path_branch_db = self.__tree2path_db(tree, create_parent_dir=False)
+
+            # If this SRIM DB does not exist (e.g., max_srim_iters prevented creation), stop.
+            if not path_branch_db.exists():
+                return
+
+            srimdb_branch = self.__create_srimdb(
+                path_db=path_branch_db,
+                target=None,
+                calculation=None,
+            )
+
+            # Initial ion positions and atomic number for this ion_numb
+            trimdat_rows = list(
+                srimdb_branch.trimdat.read(
+                    what="depth, y, z, atom_numb",
+                    condition=f"WHERE ion_numb={ion_numb}",
+                )
+            )
+            # Final ion positions (vacancies) for this ion_numb
+            range3d_rows = list(
+                srimdb_branch.range3d.read(
+                    what="depth, y, z",
+                    condition=f"WHERE ion_numb={ion_numb}",
+                )
+            )
+            # Recoils for this ion_numb to decide further SRIM levels
+            collision_rows = list(
+                srimdb_branch.collision.read(
+                    what="recoil_energy, atom_hit",
+                    condition=f"WHERE ion_numb={ion_numb}",
+                )
+            )
+            srimdb_branch.close()
+
+            # Ions: atom_numb != 0, from TRIMDAT initial positions
+            for depth, y, z, atom_numb in trimdat_rows:
+                self.recoils_db.insert_ion_vac(
+                    event=event,
+                    atom_numb=int(atom_numb),
+                    depth=depth,
+                    y=y,
+                    z=z,
+                )
+
+            # Vacancies: atom_numb = 0, from RANGE_3D final positions
+            for depth, y, z in range3d_rows:
+                self.recoils_db.insert_ion_vac(
+                    event=event,
+                    atom_numb=0,
+                    depth=depth,
+                    y=y,
+                    z=z,
+                )
+
+            # Recurse on high-energy recoils
+            for recoil_energy, atom_hit in collision_rows:
+                recoil_energy = float(recoil_energy)
+                atomic_number = int(materials.ATOMIC_NUMBER_BY_SYMBOL[atom_hit])
+
+                if recoil_energy < max_recoil_energy:
+                    # Below threshold -> terminal for ions/vacs purposes
+                    continue
+
+                leaf_tree = (*tree, atomic_number)
+                path_leaf_db = self.__tree2path_db(
+                    leaf_tree,
+                    create_parent_dir=False,
+                )
+
+                # If the child SRIM DB does not exist (e.g., limited by max_srim_iters),
+                # treat as terminal.
+                if not path_leaf_db.exists():
+                    continue
+
+                # Map this recoil to the correct ion in the child SRIM DB.
+                child_ion_numb = srim_ion_counters[path_leaf_db] + 1
+                srim_ion_counters[path_leaf_db] = child_ion_numb
+                collect_ions_vacs_from_srim(
+                    tree=leaf_tree,
+                    ion_numb=child_ion_numb,
+                    event=event,
+                )
+
+        # Start from the primary ions given to Py2SRIM.run
+        nions = atomic_numbers.size
+
+        for i in range(nions):
+            event = int(i + 1)
+            ion_atomic_number = int(atomic_numbers[i])
+            ion_energy = energies[i]
+
+            # If this primary ion is below the threshold, it was never transferred
+            # to any SRIM branch (by construction of the SRIM tree),
+            # so there are no ions/vacs to collect for it.
+            if ion_energy < max_recoil_energy:
+                continue
+
+            # High-energy primary ion: follow SRIM cascades starting at Z/srim.db.
+            path_branch_db = self.__tree2path_db(
+                tree=(ion_atomic_number,),
+                create_parent_dir=False,
+            )
+
+            # No SRIM data for this ion: treat as terminal.
+            # Likely due to max_srim_iters or aborted runs.
+            if not path_branch_db.exists():
+                continue
+
+            # Ion index in this first-level SRIM DB.
+            ion_numb = srim_ion_counters[path_branch_db] + 1
+            srim_ion_counters[path_branch_db] = ion_numb
+
+            collect_ions_vacs_from_srim(
+                tree=(ion_atomic_number,),
+                ion_numb=ion_numb,
+                event=event,
+            )
 
     def run(
         self,
@@ -680,9 +981,8 @@ class Py2SRIM:
         max_srim_iters: int,
         fail_on_transmit: bool,
         fail_on_backscatt: bool,
-        remove_offsets: bool = False,
         ignore_32bit_warning: bool = True,
-    ) -> None:
+    ) -> RecoilsDB:
         """Run SRIM iteratively, creating a folder tree driven by a recoil-energy threshold.
 
         - group ions by atomic number, keeping only those with energy > ``max_recoil_energy``
@@ -726,10 +1026,13 @@ class Py2SRIM:
             If True, raise if any ion is transmitted (TRANSMIT.txt non-empty).
         fail_on_backscatt : bool
             If True, raise if any ion is backscattered (BACKSCAT.txt non-empty).
-        remove_offsets : bool (default=False)
-            Whether to remove initial ion position to have positions relative to ion start.
         ignore_32bit_warning : bool (default=True)
             Whether to ignore the 32-bit warning when using 32-bit SRIM with 64-bit Python.
+
+        Returns
+        -------
+        RecoilsDB
+            Database with all recoils collected.
         """
         self.dir_root = dir_root
         self.target = target
@@ -740,6 +1043,7 @@ class Py2SRIM:
             raise ValueError("calculation must be 'quick', 'full' or 'mono'")
 
         self.dir_root.mkdir(parents=True, exist_ok=True)
+        self.recoils_db = RecoilsDB(self.dir_root / "recoils.db")
 
         def run_branch(
             tree: tuple[int, ...],
@@ -764,7 +1068,6 @@ class Py2SRIM:
                 coszs=batch["coszs"],
                 fail_on_backscat=fail_on_backscatt,
                 fail_on_transmit=fail_on_transmit,
-                remove_offsets=remove_offsets,
                 ignore_32bit_warning=ignore_32bit_warning,
             )
             srimdb.close()
@@ -852,5 +1155,27 @@ class Py2SRIM:
             run_branch(tree, batch)
             if max_srim_iters > 1:
                 recurse(tree)
+
+        # Collect all recoils data into a single database
+        self.__collect_recoils(
+            max_recoil_energy=max_recoil_energy,
+            atomic_numbers=atomic_numbers,
+            energies=energies,
+            depths=depths,
+            ys=ys,
+            zs=zs,
+            cosxs=cosxs,
+            cosys=cosys,
+            coszs=coszs,
+        )
+        # Collect all ions and vacancies into a single database
+        self.__collect_ions_vacs(
+            max_recoil_energy=max_recoil_energy,
+            atomic_numbers=atomic_numbers,
+            energies=energies,
+        )
+        self.recoils_db.commit()
+
+        return self.recoils_db
 
     # endregion
