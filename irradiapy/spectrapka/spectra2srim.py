@@ -326,21 +326,25 @@ class Spectra2SRIM:
             ignore_32bit_warning=True,
         )
         # Undo artificial offsets during SRIM calculations to avoid backscattering/transmission.
-        events = self.recoils_db.read(
-            table="events",
-            what="event, x",
-        )
         cur = self.recoils_db.cursor()
-        for event, x in events:
-            factor = x - self.srim_width / 2.0
-            cur.execute(
-                "UPDATE recoils SET depth=depth+? WHERE event=?",
-                (factor, event),
+        cur.execute(
+            """
+            UPDATE recoils
+            SET depth = depth + (
+                SELECT x - ? FROM events WHERE events.event = recoils.event
             )
-            cur.execute(
-                "UPDATE ions_vacs SET depth=depth+? WHERE event=?",
-                (factor, event),
+            """,
+            (self.srim_width / 2.0,),
+        )
+        cur.execute(
+            """
+            UPDATE ions_vacs
+            SET depth = depth + (
+                SELECT x - ? FROM events WHERE events.event = ions_vacs.event
             )
+            """,
+            (self.srim_width / 2.0,),
+        )
         self.recoils_db.commit()
 
         return self.recoils_db
