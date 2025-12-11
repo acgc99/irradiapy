@@ -93,10 +93,10 @@ class RecoilsDB(sqlite3.Connection):
             exclude_recoils = []
         cur = self.cursor()
 
-        cur.execute("DROP TABLE IF EXISTS events")
+        cur.execute("DROP TABLE IF EXISTS spectrapkas")
         cur.execute(
             (
-                "CREATE TABLE IF NOT EXISTS events ("
+                "CREATE TABLE IF NOT EXISTS spectrapkas ("
                 "atom INTEGER, x REAL, y REAL, z REAL, vx REAL, vy REAL, vz REAL, element TEXT, "
                 "mass REAL, timestep INTEGER, recoil_energy REAL, time REAL, event INTEGER)"
             )
@@ -109,7 +109,7 @@ class RecoilsDB(sqlite3.Connection):
                     continue
                 cur.execute(
                     (
-                        "INSERT INTO events(atom, x, y, z, vx, vy, vz, element, mass, "
+                        "INSERT INTO spectrapkas(atom, x, y, z, vx, vy, vz, element, mass, "
                         "timestep, recoil_energy, time, event) "
                         "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
                     ),

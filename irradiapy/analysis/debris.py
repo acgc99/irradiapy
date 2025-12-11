@@ -37,7 +37,7 @@ def generate_debris(
         exclude_from_ions = []
     if exclude_from_vacs is None:
         exclude_from_vacs = []
-    if recoilsdb.table_exists("events"):
+    if recoilsdb.table_exists("spectrapkas"):
         __spectra2srim_generate_debris(
             recoilsdb=recoilsdb,
             dir_mddb=dir_mddb,
@@ -98,7 +98,7 @@ def __spectra2srim_generate_debris(
     )
 
     writer = LAMMPSWriter(path_debris, mode="w")
-    events = recoilsdb.read("events", what="event, time, timestep")
+    events = recoilsdb.read("spectrapkas", what="event, time, timestep")
     for event, time, timestep in events:
         data = {
             "xlo": 0.0,

@@ -115,7 +115,7 @@ class Spectra2SRIM:
         """
         data = list(
             self.recoils_db.read(
-                table="events",
+                table="spectrapkas",
                 what="x, y, z, vx, vy, vz, element, recoil_energy, time, event",
                 condition=condition,
             )
@@ -331,7 +331,7 @@ class Spectra2SRIM:
             """
             UPDATE recoils
             SET depth = depth + (
-                SELECT x - ? FROM events WHERE events.event = recoils.event
+                SELECT x - ? FROM spectrapkas WHERE spectrapkas.event = recoils.event
             )
             """,
             (self.srim_width / 2.0,),
@@ -340,7 +340,7 @@ class Spectra2SRIM:
             """
             UPDATE ions_vacs
             SET depth = depth + (
-                SELECT x - ? FROM events WHERE events.event = ions_vacs.event
+                SELECT x - ? FROM spectrapkas WHERE spectrapkas.event = ions_vacs.event
             )
             """,
             (self.srim_width / 2.0,),
