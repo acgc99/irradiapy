@@ -345,6 +345,13 @@ class Spectra2SRIM:
             """,
             (self.srim_width / 2.0,),
         )
+        cur.execute(
+            """
+            UPDATE layers
+            SET width = ?
+            """,
+            (self.matdict["sizex"],),
+        )
         self.recoils_db.commit()
 
         return self.recoils_db

@@ -339,3 +339,16 @@ class RecoilsDB(sqlite3.Connection):
         cur.close()
         self.target = Target(layers=layers)
         return self.target
+
+    def get_nevents(self) -> int:
+        """Get the number of events in the recoils database.
+
+        Returns
+        -------
+        int
+            Number of events.
+        """
+        cur = self.cursor()
+        nevents = cur.execute("SELECT MAX(event) FROM recoils").fetchone()[0]
+        cur.close()
+        return nevents if nevents is not None else 0
