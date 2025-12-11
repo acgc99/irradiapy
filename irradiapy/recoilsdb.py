@@ -1,10 +1,14 @@
 """This module contains the `RecoilsDB` class."""
 
 import sqlite3
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from types import TracebackType
 from typing import Generator
+
+from irradiapy.srim.target import Target
+from irradiapy.srim.target.element import Element
+from irradiapy.srim.target.layer import Layer
 
 
 @dataclass
@@ -18,10 +22,13 @@ class RecoilsDB(sqlite3.Connection):
     """
 
     path: Path
+    target: Target = field(init=False)
 
     def __post_init__(self) -> None:
         super().__init__(self.path)
         self.create_tables()
+        if self.table_exists("layers") and self.table_exists("elements"):
+            self.load_srim_target()
 
     def __exit__(
         self,
@@ -248,3 +255,87 @@ class RecoilsDB(sqlite3.Connection):
             else:
                 break
         cur.close()
+
+    def save_srim_target(self, target: Target) -> None:
+        """Saves the SRIM target into the database."""
+        cur = self.cursor()
+        cur.execute(
+            (
+                "CREATE TABLE IF NOT EXISTS layers("
+                "layer_numb INTEGER, width REAL,"
+                "phase INTEGER, density REAL, bragg INTEGER)"
+            )
+        )
+        cur.execute(
+            (
+                "CREATE TABLE IF NOT EXISTS elements("
+                "layer_numb INTEGER, stoich REAL, symbol TEXT,"
+                "atomic_number INTEGER, atomic_mass REAL,"
+                "e_d REAL, e_l REAL, e_s REAL)"
+            )
+        )
+        for i, layer in enumerate(target.layers):
+            cur.execute(
+                (
+                    "INSERT INTO layers"
+                    "(layer_numb, width, phase, density, bragg)"
+                    "VALUES(?, ?, ?, ?, ?)"
+                ),
+                [i, layer.width, layer.phase, layer.density, layer.bragg],
+            )
+            for j, element in enumerate(layer.elements):
+                cur.execute(
+                    (
+                        "INSERT INTO elements"
+                        "(layer_numb, stoich, symbol, atomic_number, atomic_mass, e_d, e_l, e_s)"
+                        "VALUES(?, ?, ?, ?, ?, ?, ?, ?)"
+                    ),
+                    [
+                        i,
+                        layer.stoichs[j],
+                        element.symbol,
+                        element.atomic_number,
+                        element.atomic_mass,
+                        element.e_d,
+                        element.e_l,
+                        element.e_s,
+                    ],
+                )
+        cur.close()
+        self.target = target
+
+    def load_srim_target(self) -> Target:
+        """Loads the SRIM target from the database."""
+        cur = self.cursor()
+        cur.execute("SELECT * FROM layers")
+        db_layers = list(cur.fetchall())
+        layers = []
+        for db_layer in db_layers:
+            cur.execute(("SELECT * FROM elements " f"WHERE layer_numb = {db_layer[0]}"))
+            db_elements = list(cur.fetchall())
+            elements = []
+            for db_element in db_elements:
+                elements.append(
+                    Element(
+                        db_element[2],
+                        db_element[3],
+                        db_element[4],
+                        db_element[5],
+                        db_element[6],
+                        db_element[7],
+                    )
+                )
+            stoichs = [db_element[1] for db_element in db_elements]
+            layers.append(
+                Layer(
+                    db_layer[1],
+                    db_layer[2],
+                    db_layer[3],
+                    elements,
+                    stoichs,
+                    db_layer[4],
+                )
+            )
+        cur.close()
+        self.target = Target(layers=layers)
+        return self.target

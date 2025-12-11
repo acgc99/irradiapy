@@ -1174,6 +1174,7 @@ class Py2SRIM:
             atomic_numbers=atomic_numbers,
             energies=energies,
         )
+        self.recoils_db.save_srim_target(self.target)
         self.recoils_db.commit()
 
         return self.recoils_db
