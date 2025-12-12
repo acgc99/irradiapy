@@ -24,6 +24,7 @@ def generate_debris(
     path_debris: Path,
     tdam_mode: materials.Material.TdamMode,
     dpa_mode: materials.Material.DpaMode,
+    energy_tolerance: float = 0.1,
     exclude_from_ions: list[int] | None = None,
     exclude_from_vacs: list[int] | None = None,
     seed: int = 0,
@@ -45,6 +46,7 @@ def generate_debris(
             path_debris=path_debris,
             tdam_mode=tdam_mode,
             dpa_mode=dpa_mode,
+            energy_tolerance=energy_tolerance,
             exclude_from_ions=exclude_from_ions,
             exclude_from_vacs=exclude_from_vacs,
             seed=seed,
@@ -57,6 +59,7 @@ def generate_debris(
             path_debris=path_debris,
             tdam_mode=tdam_mode,
             dpa_mode=dpa_mode,
+            energy_tolerance=energy_tolerance,
             exclude_from_ions=exclude_from_ions,
             exclude_from_vacs=exclude_from_vacs,
             seed=seed,
@@ -74,6 +77,7 @@ def __spectra2srim_generate_debris(
     path_debris: Path,
     tdam_mode: materials.Material.TdamMode,
     dpa_mode: materials.Material.DpaMode,
+    energy_tolerance: float,
     exclude_from_ions: list[int],
     exclude_from_vacs: list[int],
     seed: int = 0,
@@ -126,6 +130,7 @@ def __spectra2srim_generate_debris(
                 mat_target=material_target,
                 dpa_mode=dpa_mode,
                 tdam_mode=tdam_mode,
+                energy_tolerance=energy_tolerance,
                 seed=seed + event,
             )
             defects_ = damagedb.get_pka_debris(
@@ -155,6 +160,7 @@ def __py2srim_generate_debris(
     path_debris: Path,
     tdam_mode: materials.Material.TdamMode,
     dpa_mode: materials.Material.DpaMode,
+    energy_tolerance: float,
     exclude_from_ions: list[int],
     exclude_from_vacs: list[int],
     seed: int = 0,
@@ -219,6 +225,7 @@ def __py2srim_generate_debris(
                 mat_target=material_target,
                 dpa_mode=dpa_mode,
                 tdam_mode=tdam_mode,
+                energy_tolerance=energy_tolerance,
                 seed=seed + event,
             )
             defects_ = damagedb.get_pka_debris(
