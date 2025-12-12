@@ -1,6 +1,7 @@
 """Subpackage for materials."""
 
 from irradiapy.materials.ag import Ag
+from irradiapy.materials.component import Component
 from irradiapy.materials.cr import Cr
 from irradiapy.materials.cu import Cu
 from irradiapy.materials.fe import Fe
@@ -10,6 +11,7 @@ from irradiapy.materials.hf import Hf
 from irradiapy.materials.material import Material
 from irradiapy.materials.mn import Mn
 from irradiapy.materials.o import O
+from irradiapy.materials.srim_target import SRIMTarget
 from irradiapy.materials.ta import Ta
 from irradiapy.materials.w import W
 
