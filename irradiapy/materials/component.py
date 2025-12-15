@@ -321,7 +321,7 @@ class Component:
             return self.__calc_fer_arc_dpa(damage_energy, self)
         if mode == DpaMode.ARC:
             if self.ed_avr is None or self.b_arc is None or self.c_arc is None:
-                self.__calc_arc_dpa_elements(damage_energy, self)
+                return self.__calc_arc_dpa_elements(damage_energy, self)
             return self.__calc_arc_dpa(damage_energy, self)
         if mode == DpaMode.NRT:
             if self.ed_avr is None:
