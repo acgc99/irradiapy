@@ -162,10 +162,9 @@ def __py2srim_generate_debris(
     zhi: None | float = None,
 ) -> None:
     """Generate MD debris from Python to SRIM results."""
-    srim_target = recoilsdb.load_srim_target()
-    width = sum(layer.width for layer in srim_target.layers)
-    layers_edges = np.cumsum([0.0] + [layer.width for layer in srim_target.layers])
-    components = srim_target.layers
+    target = recoilsdb.load_target()
+    width = sum(component.width for component in target)
+    component_edges = np.cumsum([0.0] + [component.width for component in target])
 
     writer = LAMMPSWriter(path_debris, mode="w")
     nevents = recoilsdb.get_nevents()
@@ -190,13 +189,13 @@ def __py2srim_generate_debris(
         )
         for atom_numb, recoil_energy, depth, y, z, cosx, cosy, cosz in recoils:
             # Determine layer and select target material
-            layer_idx = np.searchsorted(layers_edges, depth, side="right") - 1
+            component_idx = np.searchsorted(component_edges, depth, side="right") - 1
 
             damagedb = DamageDB(
                 dir_mddb=dir_mddb,
                 compute_damage_energy=compute_damage_energy,
                 recoil=materials.ELEMENT_BY_ATOMIC_NUMBER[atom_numb],
-                component=components[layer_idx],
+                component=target[component_idx],
                 dpa_mode=dpa_mode,
                 damage_energy_mode=damage_energy_mode,
                 dist_fp=dist_fp,
