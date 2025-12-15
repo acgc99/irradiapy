@@ -6,6 +6,7 @@ from pathlib import Path
 from types import TracebackType
 
 from irradiapy import config
+from irradiapy.enums import Phases
 from irradiapy.materials.component import Component
 from irradiapy.materials.element import Element
 from irradiapy.srim.ofiles.backscat import Backscat
@@ -307,7 +308,7 @@ class SRIMDB(sqlite3.Connection):
         components = list(cur.fetchall())
         target = []
         for component_id, width, srim_phase, density, srim_bragg in components:
-            phase = Component.Phases.SOLID if srim_phase == 1 else Component.Phases.GAS
+            phase = Phases.SOLID if srim_phase == 1 else Phases.GAS
             cur.execute(
                 (
                     "SELECT component_id, atomic_number, "

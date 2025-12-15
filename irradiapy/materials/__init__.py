@@ -1,15 +1,8 @@
 """Subpackage for materials."""
 
+from irradiapy.enums import Phases
 from irradiapy.materials.component import Component
 from irradiapy.materials.element import Element
-
-# region Enums
-
-Phases = Component.Phases
-DpaMode = Component.DpaMode
-DamageEnergyMode = Component.DamageEnergyMode
-
-# endregion
 
 # region Elements
 
@@ -115,7 +108,7 @@ Fe_bcc = Component(
     elements=(Fe,),
     stoichs=(1.0,),
     name="Iron bcc",
-    phase=Component.Phases.SOLID,
+    phase=Phases.SOLID,
     density=7.8658,
     ax=2.87,
     ed_min=20.0,
@@ -129,7 +122,7 @@ W_bcc = Component(
     elements=(W,),
     stoichs=(1.0,),
     name="Tungsten bcc",
-    phase=Component.Phases.SOLID,
+    phase=Phases.SOLID,
     density=19.3,
     ax=3.1652,
     ed_min=42.0,

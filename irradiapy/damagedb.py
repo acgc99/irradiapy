@@ -12,8 +12,9 @@ from scipy.spatial.transform import Rotation
 from sklearn.decomposition import PCA
 
 from irradiapy import dtypes, utils
+from irradiapy.enums import DamageEnergyMode, DpaMode
 from irradiapy.io.lammpsreader import LAMMPSReader
-from irradiapy.materials import Component, DamageEnergyMode, DpaMode, Element
+from irradiapy.materials import Component, Element
 
 
 @dataclass

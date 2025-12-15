@@ -1,12 +1,12 @@
 """This module contains the `Component` class."""
 
 from dataclasses import dataclass, field
-from enum import Enum, auto
 from typing import Callable, Union
 
 import numpy as np
 import numpy.typing as npt
 
+from irradiapy.enums import DamageEnergyMode, DpaMode, Phases
 from irradiapy.materials.element import Element
 
 
@@ -67,8 +67,8 @@ class Component:
     def __post_init__(self) -> None:
         self.nelements = len(self.elements)
 
-        if not isinstance(self.phase, Component.Phases):
-            raise ValueError("phase must be an instance of Component.Phases Enum.")
+        if not isinstance(self.phase, Phases):
+            raise ValueError("phase must be an instance of Phases Enum.")
         self.srim_phase = self.phase.value - 1
 
         if sum(self.stoichs) != 1.0:
@@ -133,20 +133,7 @@ class Component:
             if getattr(element, attribute) is not None
         )
 
-    class Phases(Enum):
-        """Enumeration of material phases."""
-
-        SOLID = auto()
-        GAS = auto()
-        LIQUID = auto()
-
     # region Recoil to damage energy
-
-    class DamageEnergyMode(Enum):
-        """Enumeration of damage energy calculation modes."""
-
-        LINDHARD = auto()
-        SRIM = auto()
 
     def recoil_energy_to_damage_energy(
         self,
@@ -170,11 +157,11 @@ class Component:
         float
             Damage energy (eV).
         """
-        if mode == Component.DamageEnergyMode.SRIM:
+        if mode == DamageEnergyMode.SRIM:
             return self.__recoil_energy_to_damage_energy_srim(
                 recoil_energy, recoil, self
             )
-        if mode == Component.DamageEnergyMode.LINDHARD:
+        if mode == DamageEnergyMode.LINDHARD:
             return self.__recoil_energy_to_damage_energy_lindhard_component(
                 recoil_energy, recoil, self
             )
@@ -300,20 +287,6 @@ class Component:
 
     # region dpa models
 
-    class DpaMode(Enum):
-        """Enumeration of dpa calculation modes.
-
-        References
-        ----------
-        NRT : https://doi.org/10.1016/0029-5493(75)90035-7
-        ARC : https://doi.org/10.1038/s41467-018-03415-5
-        FERARC : https://doi.org/10.1103/PhysRevMaterials.5.073602
-        """
-
-        NRT = auto()
-        ARC = auto()
-        FERARC = auto()
-
     def damage_energy_to_dpa(
         self,
         damage_energy: float | npt.NDArray[np.float64],
@@ -337,7 +310,7 @@ class Component:
             Number of Frenkel pairs predicted by the specified dpa mode.
         """
         print(self.ed_min, self.ed_avr, self.b_arc, self.c_arc)
-        if mode == Component.DpaMode.FERARC:
+        if mode == DpaMode.FERARC:
             if (
                 self.ed_min is None
                 or self.ed_avr is None
@@ -346,11 +319,11 @@ class Component:
             ):
                 return self.__calc_fer_arc_dpa_elements(damage_energy, self)
             return self.__calc_fer_arc_dpa(damage_energy, self)
-        if mode == Component.DpaMode.ARC:
+        if mode == DpaMode.ARC:
             if self.ed_avr is None or self.b_arc is None or self.c_arc is None:
                 self.__calc_arc_dpa_elements(damage_energy, self)
             return self.__calc_arc_dpa(damage_energy, self)
-        if mode == Component.DpaMode.NRT:
+        if mode == DpaMode.NRT:
             if self.ed_avr is None:
                 return self.__calc_nrt_dpa_elements(damage_energy, self)
             return self.__calc_nrt_dpa(damage_energy, self)

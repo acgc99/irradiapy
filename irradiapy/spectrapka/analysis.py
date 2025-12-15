@@ -4,13 +4,9 @@ from pathlib import Path
 
 import numpy as np
 
+from irradiapy.enums import DamageEnergyMode, DpaMode
 from irradiapy.io import LAMMPSReader
-from irradiapy.materials import (
-    ELEMENT_BY_ATOMIC_NUMBER,
-    Component,
-    DamageEnergyMode,
-    DpaMode,
-)
+from irradiapy.materials import ELEMENT_BY_ATOMIC_NUMBER, Component
 from irradiapy.recoilsdb import RecoilsDB
 from irradiapy.utils.io import get_last_reader
 
