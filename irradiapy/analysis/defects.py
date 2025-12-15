@@ -151,8 +151,8 @@ def identify_lammps_dump(
 
 def plot_mddb_nd(
     target_dir: Path,
-    mat_pka: materials.Material,
-    mat_target: materials.Material,
+    mat_pka: materials.Element,
+    mat_target: materials.Element,
     path_plot: Path,
     dpi: int = 300,
 ) -> None:

@@ -11,8 +11,9 @@ from numpy.lib.recfunctions import structured_to_unstructured as str2unstr
 from scipy.spatial.transform import Rotation
 from sklearn.decomposition import PCA
 
-from irradiapy import dtypes, materials, utils
+from irradiapy import dtypes, utils
 from irradiapy.io.lammpsreader import LAMMPSReader
+from irradiapy.materials import Component, DamageEnergyMode, DpaMode, Element
 
 
 @dataclass
@@ -23,16 +24,16 @@ class DamageDB:
     ----------
     dir_mddb : Path
         Directory of the MD debris database.
-    compute_tdam : bool
+    compute_damage_energy : bool
         Whether to apply Lindhard's formula to the recoil energy. It should be `True` for
         MD simulations without electronic stopping.
-    mat_pka : materials.Material
+    recoil: Element
         PKA material.
-    mat_target : materials.Material
+    component: Component
         Target material.
     dpa_mode : materials.Material.DpaMode
         Mode for dpa calculation.
-    tdam_mode : materials.Material.TdamMode
+    damage_energy_mode : materials.Material.TdamMode
         Mode for PKA to damage energy calculation.
     energy_tolerance : float (default=0.1)
         Tolerance for energy decomposition. For example, if this value if ``0.1``, the PKA energy
@@ -46,11 +47,12 @@ class DamageDB:
     """
 
     dir_mddb: Path
-    compute_tdam: bool
-    mat_pka: "materials.Material"
-    mat_target: "materials.Material"
-    dpa_mode: "materials.Material.DpaMode"
-    tdam_mode: "materials.Material.TdamMode"
+    compute_damage_energy: bool
+    recoil: Element
+    component: Component
+    dpa_mode: DpaMode
+    damage_energy_mode: DamageEnergyMode
+    dist_fp: float
     energy_tolerance: float = 0.1
     seed: int = 0
     __rng: np.random.Generator = field(init=False)
@@ -70,13 +72,41 @@ class DamageDB:
         self.__energies = np.array(sorted(self.__files.keys(), reverse=True))
         self.__nenergies = len(self.__energies)
         # PKA energy to damage energy conversion
-        self.__compute_damage_energy = lambda x: self.mat_pka.epka_to_tdam(
-            mat_pka=self.mat_target, epka=x, mode=self.tdam_mode
+        self.__compute_damage_energy = (
+            lambda recoil_energy: self.component.recoil_energy_to_damage_energy(
+                recoil_energy=recoil_energy,
+                recoil=self.recoil,
+                mode=self.damage_energy_mode,
+            )
         )
         # Select the dpa model for residual energy
-        self.__calc_nd = lambda x: self.mat_target.tdam_to_dpa(
-            tdam=x, mode=self.dpa_mode
+        self.__calc_nd = lambda damage_energy: self.component.damage_energy_to_dpa(
+            damage_energy=damage_energy,
+            mode=self.dpa_mode,
         )
+
+    def __get_fp_types(self, nfp: int) -> npt.NDArray[np.int32]:
+        """Get the types of Frenkel pairs.
+
+        Parameters
+        ----------
+        nfp : int
+            Number of Frenkel pairs.
+
+        Returns
+        -------
+        npt.NDArray[np.int32]
+            Array of Frenkel pair types.
+        """
+        stoichs = np.asarray(self.component.stoichs, dtype=np.float64)
+        cdf = np.cumsum(stoichs)  # cumulative distribution function, e.g. [0.5, 1.0]
+        atomic_numbers = np.asarray(
+            [e.atomic_number for e in self.component.elements], dtype=np.int32
+        )
+        r = self.__rng.random(nfp)  # in [0, 1)
+        idx = np.searchsorted(cdf, r, side="right")
+        types = atomic_numbers[idx]
+        return types
 
     def __get_files(self, pka_e: float) -> tuple[dict[float, list[Path]], int]:
         """Get cascade files and number of residual FP for a given PKA energy.
@@ -103,7 +133,7 @@ class DamageDB:
             pka_e = self.__energies[mask][np.argmin(diff[mask])]
 
         residual_energy = (
-            self.__compute_damage_energy(pka_e) if self.compute_tdam else pka_e
+            self.__compute_damage_energy(pka_e) if self.compute_damage_energy else pka_e
         )
         cascade_counts = np.zeros(self.__nenergies, dtype=np.int64)
         for i, energy in enumerate(self.__energies):
@@ -269,8 +299,8 @@ class DamageDB:
             Defects after placing the FPs.
         """
         defects_ = np.zeros(2 * nfp, dtype=dtypes.defect)
-        defects_["type"][:nfp] = self.mat_target.atomic_number
-        defects_["x"][:nfp] = self.mat_target.dist_fp / 2.0
+        defects_["type"][:nfp] = self.__get_fp_types(nfp)
+        defects_["x"][:nfp] = self.dist_fp / 2.0
         pos = str2unstr(defects_[["x", "y", "z"]], dtype=np.float64, copy=False)
         pos[:nfp] = Rotation.random(nfp, rng=self.__rng).apply(pos[:nfp])
         pos[nfp:] = -pos[:nfp]
@@ -306,8 +336,8 @@ class DamageDB:
             Defects after generating.
         """
         defects_ = np.zeros(2 * nfp, dtype=dtypes.defect)
-        defects_["type"][:nfp] = self.mat_target.atomic_number
-        defects_["x"][:nfp] = self.mat_target.dist_fp / 2
+        defects_["type"][:nfp] = self.__get_fp_types(nfp)
+        defects_["x"][:nfp] = self.dist_fp / 2.0
         pos = str2unstr(defects_[["x", "y", "z"]], dtype=np.float64, copy=False)
         pos[:nfp] = Rotation.random(nfp, rng=self.__rng).apply(pos[:nfp])
         pos[nfp:] = -pos[:nfp]
@@ -315,7 +345,7 @@ class DamageDB:
         random = self.__rng.random((nfp, 3))
         theta = np.arccos(2.0 * random[:, 0] - 1.0)
         phi = 2.0 * np.pi * random[:, 1]
-        radius = nfp * self.mat_target.dist_fp / 2.0
+        radius = nfp * self.dist_fp / 2.0
         r = radius * np.cbrt(random[:, 2])
         points = np.empty((nfp, 3))
         points[:, 0] = r * np.sin(theta) * np.cos(phi)

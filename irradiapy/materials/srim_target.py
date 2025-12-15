@@ -27,6 +27,32 @@ class SRIMTarget:
         self.nlayers = len(self.layers)
         self.nelements = sum(len(layer.elements) for layer in self.layers)
 
+        # Check all optional attributes of layers are set
+        for layer in self.layers:
+            if layer.width is None:
+                raise ValueError("All layers must have 'width' defined for SRIMTarget.")
+            for element in layer.elements:
+                if element.ed_avr is None:
+                    raise ValueError(
+                        "All elements must have 'ed_avr' defined for SRIMTarget."
+                    )
+                if element.srim_el is None:
+                    raise ValueError(
+                        "All elements must have 'srim_el' defined for SRIMTarget."
+                    )
+                if element.srim_es is None:
+                    raise ValueError(
+                        "All elements must have 'srim_es' defined for SRIMTarget."
+                    )
+            if layer.srim_phase not in (0, 1):
+                raise ValueError(
+                    "All layers must have 'srim_phase' defined as 0 or 1 for SRIMTarget."
+                )
+            if layer.srim_bragg not in (0, 1):
+                raise ValueError(
+                    "All layers must have 'srim_bragg' defined as 0 or 1 for SRIMTarget."
+                )
+
     def trimin_description(self) -> str:
         """Return the target material description in the TRIMIN format."""
         string = (
@@ -42,7 +68,7 @@ class SRIMTarget:
             for j, element in enumerate(layer.elements):
                 string += (
                     f"Atom {i*len(layer.elements)+j+1} = {element.symbol} "
-                    f"=      {element.atomic_number} {element.atomic_mass}\n"
+                    f"=      {element.atomic_number} {element.mass_number}\n"
                 )
         return string
 
@@ -71,7 +97,7 @@ class SRIMTarget:
     def trimin_bragg(self) -> str:
         """Return the Bragg corrections in the TRIMIN format."""
         string = "target compound corrections (bragg)\n"
-        string += " ".join(map(str, (layer.bragg for layer in self.layers)))
+        string += " ".join(map(str, (layer.srim_bragg for layer in self.layers)))
         return string
 
     def trimin_displacement(self) -> str:
@@ -80,7 +106,7 @@ class SRIMTarget:
         string += " ".join(
             map(
                 str,
-                (element.e_d for layer in self.layers for element in layer.elements),
+                (element.ed_avr for layer in self.layers for element in layer.elements),
             )
         )
         return string
@@ -91,7 +117,11 @@ class SRIMTarget:
         string += " ".join(
             map(
                 str,
-                (element.e_l for layer in self.layers for element in layer.elements),
+                (
+                    element.srim_el
+                    for layer in self.layers
+                    for element in layer.elements
+                ),
             )
         )
         return string
@@ -102,7 +132,11 @@ class SRIMTarget:
         string += " ".join(
             map(
                 str,
-                (element.e_s for layer in self.layers for element in layer.elements),
+                (
+                    element.srim_es
+                    for layer in self.layers
+                    for element in layer.elements
+                ),
             )
         )
         return string

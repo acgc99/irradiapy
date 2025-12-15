@@ -1,13 +1,19 @@
-"""This module contains the `Component` class and some predefined components."""
+"""This module contains the `Component` class."""
 
+from __future__ import annotations
+
+import sqlite3
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Callable
+from typing import TYPE_CHECKING, Callable, Union
 
 import numpy as np
 import numpy.typing as npt
 
-from irradiapy.materials.element import Element, Fe, W
+from irradiapy.materials.element import Element
+
+if TYPE_CHECKING:
+    from irradiapy.recoilsdb import RecoilsDB
 
 
 @dataclass
@@ -26,7 +32,7 @@ class Component:
     elements: tuple[Element, ...]
     stoichs: tuple[float, ...]
     name: str
-    phase: int
+    phase: "Phases"
     density: float  # g/cm3
 
     # Position
@@ -43,9 +49,9 @@ class Component:
     ay: None | float = None  # Angstrom
     az: None | float = None  # Angstrom
     c: None | float = None  # for hcp
+    structure: None | str = None  # bcc, fcc, hcp, amorphous
 
     # Defect parameters
-    dist_fp: None | float = None  # Angstrom
     cutoff_sia: None | float = None  # Angstrom
     cutoff_vac: None | float = None  # Angstrom
 
@@ -54,50 +60,123 @@ class Component:
     ed_avr: None | float = None  # average displacement energy, eV
     b_arc: None | float = None
     c_arc: None | float = None
+    calculate_energies: bool = False
 
     # SRIM values
-    el_srim: None | float = None  # SRIM lattice binding energy, eV
-    es_srim: None | float = None  # SRIM surface binding energy, eV
-    phase_srim: None | int = field(init=False)  # SRIM phase (solid = 0; gas = 1)
-    bragg_srim: int = 1  # Stopping corrections for special bonding in compound targets.
+    srim_el: None | float = None  # SRIM lattice binding energy, eV
+    srim_es: None | float = None  # SRIM surface binding energy, eV
+    srim_phase: None | int = field(init=False)  # SRIM phase (solid = 0; gas = 1)
+    srim_bragg: int = 1  # Stopping corrections for special bonding in compound targets.
 
     nelements: int = field(init=False)
 
     def __post_init__(self) -> None:
         self.nelements = len(self.elements)
-        self.phase_srim = self.phase - 1
+
+        if not isinstance(self.phase, Component.Phases):
+            raise ValueError("phase must be an instance of Component.Phases Enum.")
+        self.srim_phase = self.phase.value - 1
+
+        if sum(self.stoichs) != 1.0:
+            raise ValueError("Sum of stoichiometric coefficients must be 1.0.")
 
         if self.cutoff_sia is None and self.ax is not None:
             self.cutoff_sia = ((np.sqrt(2.0) + np.sqrt(11.0) / 2.0) * self.ax / 2.0,)
         if self.cutoff_vac is None and self.ax is not None:
             self.cutoff_vac = ((1.0 + np.sqrt(2.0)) * self.ax / 2.0,)
-        if self.dist_fp is None and self.ax is not None:
-            self.dist_fp = 4.0 * self.ax
 
-        # if self.ed_avr is None:
-        #     self.ed_avr = self.__calculate_inverse_weighted_average(
-        #         self.elements,
-        #         self.stoichs,
-        #         "ed_avr",
-        #     )
-        # if self.ed_min is None:
-        #     self.ed_min = self.__calculate_inverse_weighted_average(
-        #         self.elements,
-        #         self.stoichs,
-        #         "ed_min",
-        #     )
-        # if self.el_srim is None:
-        #     self.el_srim = self.__calculate_inverse_weighted_average(
-        #         self.elements,
-        #         self.stoichs,
-        #         "el_srim",
-        #     )
-        # if self.es_srim is None:
-        #     self.es_srim = self.__calculate_inverse_weighted_average(
-        #         self.elements,
-        #         self.stoichs,
-        #         "es_srim",
-        #     )
+        if self.calculate_energies:
+            if self.ed_avr is None:
+                self.ed_avr = self.__calculate_inverse_weighted_average(
+                    self.elements,
+                    self.stoichs,
+                    "ed_avr",
+                )
+            if self.ed_min is None:
+                self.ed_min = self.__calculate_inverse_weighted_average(
+                    self.elements,
+                    self.stoichs,
+                    "ed_min",
+                )
+            if self.srim_el is None:
+                self.srim_el = self.__calculate_inverse_weighted_average(
+                    self.elements,
+                    self.stoichs,
+                    "srim_el",
+                )
+            if self.srim_es is None:
+                self.srim_es = self.__calculate_inverse_weighted_average(
+                    self.elements,
+                    self.stoichs,
+                    "srim_es",
+                )
+
+    def save(self, recoilsdb: RecoilsDB) -> None:
+        """Save the component to a SQLite database."""
+        cur = recoilsdb.cursor()
+        cur.execute(
+            (
+                "INSERT INTO components ("
+                "name, phase, density, "
+                "x0, y0, z0, width, height, length, "
+                "ax, ay, az, c, structure, "
+                "ed_min, ed_avr, b_arc, c_arc, "
+                "srim_el, srim_es, srim_phase, srim_bragg) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, "
+                "?, ?, ?, ?, ?)"
+            ),
+            (
+                self.name,
+                self.phase.name,
+                self.density,
+                self.x0,
+                self.y0,
+                self.z0,
+                self.width,
+                self.height,
+                self.length,
+                self.ax,
+                self.ay,
+                self.az,
+                self.c,
+                self.structure,
+                self.ed_min,
+                self.ed_avr,
+                self.b_arc,
+                self.c_arc,
+                self.srim_el,
+                self.srim_es,
+                self.srim_phase,
+                self.srim_bragg,
+            ),
+        )
+        component_id = cur.lastrowid
+        cur.close()
+        for element, stoich in zip(self.elements, self.stoichs):
+            cur = recoilsdb.cursor()
+            cur.execute(
+                (
+                    "INSERT INTO elements2 (component_id, atomic_number, "
+                    "mass_number, symbol, stoich, ed_min, ed_avr, b_arc, c_arc, srim_el, srim_es) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                ),
+                (
+                    component_id,
+                    element.atomic_number,
+                    element.mass_number,
+                    element.symbol,
+                    stoich,
+                    element.ed_min,
+                    element.ed_avr,
+                    element.b_arc,
+                    element.c_arc,
+                    element.srim_el,
+                    element.srim_es,
+                ),
+            )
+            cur.close()
+        recoilsdb.commit()
+        return component_id
 
     @staticmethod
     def __calculate_inverse_weighted_average(
@@ -330,6 +409,7 @@ class Component:
         float | npt.NDArray[np.float64]
             Number of Frenkel pairs predicted by the specified dpa mode.
         """
+        print(self.ed_min, self.ed_avr, self.b_arc, self.c_arc)
         if mode == Component.DpaMode.FERARC:
             if (
                 self.ed_min is None
@@ -352,7 +432,7 @@ class Component:
     @staticmethod
     def __calc_nrt_dpa(
         damage_energy: float | npt.NDArray[np.float64],
-        target: Element | "Component",
+        target: Union[Element, "Component"],
     ) -> float | npt.NDArray[np.float64]:
         """Calculate the NRT-dpa for the given damage energy.
 
@@ -415,7 +495,7 @@ class Component:
     @staticmethod
     def __calc_arc_dpa(
         damage_energy: float | npt.NDArray[np.float64],
-        target: Element | "Component",
+        target: Union[Element, "Component"],
     ) -> float | npt.NDArray[np.float64]:
         """Calculate the arc-dpa for the given damage energy.
 
@@ -486,7 +566,7 @@ class Component:
     @staticmethod
     def __calc_fer_arc_dpa(
         damage_energy: float | npt.NDArray[np.float64],
-        target: Element | "Component",
+        target: Union[Element, "Component"],
     ) -> float | npt.NDArray[np.float64]:
         """Calculate the fer-arc-dpa for the given damage energy.
 
@@ -603,33 +683,3 @@ class Component:
         return result
 
     # endregion
-
-
-Fe_bcc = Component(
-    elements=(Fe,),
-    stoichs=(1.0,),
-    name="Iron bcc",
-    phase=Component.Phases.SOLID,
-    density=7.8658,
-    ax=2.87,
-    ed_min=20.0,
-    ed_avr=40.0,
-    b_arc=-0.568,
-    c_arc=0.286,
-    el_srim=5.8,
-    es_srim=4.34,
-)
-W_bcc = Component(
-    elements=(W,),
-    stoichs=(1.0,),
-    name="Tungsten bcc",
-    phase=Component.Phases.SOLID,
-    density=19.3,
-    ax=3.1652,
-    ed_min=42.0,
-    ed_avr=70.0,
-    b_arc=-0.56,
-    c_arc=0.12,
-    el_srim=13.2,
-    es_srim=8.68,
-)

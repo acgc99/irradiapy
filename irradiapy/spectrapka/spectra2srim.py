@@ -8,9 +8,11 @@ from typing import Any
 
 import numpy as np
 
-from irradiapy import materials, srim
+from irradiapy import srim
+from irradiapy.materials import ATOMIC_NUMBER_BY_SYMBOL, ELEMENT_BY_SYMBOL, Phases
+from irradiapy.materials.component import Component as Layer
+from irradiapy.materials.srim_target import SRIMTarget
 from irradiapy.recoilsdb import RecoilsDB
-from irradiapy.srim.target import Target
 
 
 @dataclass
@@ -40,7 +42,7 @@ class Spectra2SRIM:
         Material dictionary with SPECTRA-PKA material information.
     target : srim.target.Target
         SRIM target.
-    recoils_db : RecoilsDB
+    recoilsdb : RecoilsDB
         Database to store all recoils collected from SPECTRA-PKA and SRIM calculations.
     check_interval : float (default=0.2)
         Interval to check for SRIM window/popups.
@@ -81,8 +83,8 @@ class Spectra2SRIM:
     dir_root: Path = field(init=False)
     srim_width: float = field(default=1e8, init=False)
     matdict: dict[str, Any] = field(init=False)
-    target: Target = field(init=False)
-    recoils_db: RecoilsDB = field(init=False)
+    target: SRIMTarget = field(init=False)
+    recoilsdb: RecoilsDB = field(init=False)
 
     check_interval: float = 0.2
     plot_type: int = 5
@@ -114,7 +116,7 @@ class Spectra2SRIM:
             events
         """
         data = list(
-            self.recoils_db.read(
+            self.recoilsdb.read(
                 table="spectrapkas",
                 what="x, y, z, vx, vy, vz, element, recoil_energy, time, event",
                 condition=condition,
@@ -135,7 +137,7 @@ class Spectra2SRIM:
         coszs = vz / v
 
         atomic_numbers = np.array(
-            [materials.ATOMIC_NUMBER_BY_SYMBOL[row[6]] for row in data], dtype=np.int32
+            [ATOMIC_NUMBER_BY_SYMBOL[row[6]] for row in data], dtype=np.int32
         )
         recoil_energies = 1e6 * np.array(
             [row[7] for row in data], dtype=np.float64
@@ -157,8 +159,13 @@ class Spectra2SRIM:
             events,
         )
 
-    def __spectrapka_in_to_srim_target(self) -> None:
+    def __spectrapka_in_to_srim_target(self, density: float) -> None:
         """Process the SPECTRA-PKA input file to generate SRIM target.
+
+        Parameters
+        ----------
+        density : float
+            Density of the target material in g/cm3.
 
         Notes
         -----
@@ -219,27 +226,20 @@ class Spectra2SRIM:
         )
 
         # Create SRIM target
-        elements = [
-            materials.MATERIALS_BY_SYMBOL[sym].srim_element
-            for sym in self.matdict["symbols"]
-        ]
-        density = np.mean(
-            [
-                materials.MATERIALS_BY_SYMBOL[sym].density
-                for sym in self.matdict["symbols"]
-            ]
-        )
-        layer = srim.target.Layer(
-            width=self.srim_width,
-            phase=0,
-            density=density,
+        elements = [ELEMENT_BY_SYMBOL[sym] for sym in self.matdict["symbols"]]
+        layer = Layer(
             elements=elements,
             stoichs=self.matdict["stoichs"],
+            name="layer1",
+            width=self.srim_width,
+            phase=Phases.SOLID,
+            density=density,
         )
-        self.target = srim.target.Target(layers=[layer])
+        self.target = SRIMTarget(layers=[layer])
 
     def run(
         self,
+        density: float,
         path_spectrapka_in,
         path_spectrapka_events,
         dir_root,
@@ -253,6 +253,8 @@ class Spectra2SRIM:
 
         Parameters
         ----------
+        density : float
+            Density of the target material in g/cm3.
         path_spectrapka_in : Path
             SPECTRA-PKA input file path, for target definition.
         path_spectrapka_events : Path
@@ -283,11 +285,11 @@ class Spectra2SRIM:
         self.srim_width = srim_width
 
         self.dir_root.mkdir(parents=True, exist_ok=True)
-        self.recoils_db = RecoilsDB(self.dir_root / "recoils.db")
-        self.__spectrapka_in_to_srim_target()
+        self.recoilsdb = RecoilsDB(self.dir_root / "recoils.db")
+        self.__spectrapka_in_to_srim_target(density=density)
 
         # Convert SPECTRA-PKA events to SQLite3 database
-        self.recoils_db.process_config_events(
+        self.recoilsdb.process_config_events(
             self.path_spectrapka_events, exclude_recoils
         )
         # Read from SQLite3 database
@@ -309,7 +311,7 @@ class Spectra2SRIM:
         py2srim = srim.Py2SRIM()
         py2srim.run(
             dir_root=self.dir_root,
-            target=self.target,
+            srim_target=self.target,
             calculation=calculation,
             atomic_numbers=atomic_numbers,
             energies=recoil_energies,
@@ -326,7 +328,7 @@ class Spectra2SRIM:
             ignore_32bit_warning=True,
         )
         # Undo artificial offsets during SRIM calculations to avoid backscattering/transmission.
-        cur = self.recoils_db.cursor()
+        cur = self.recoilsdb.cursor()
         cur.execute(
             """
             UPDATE recoils
@@ -352,6 +354,8 @@ class Spectra2SRIM:
             """,
             (self.matdict["sizex"],),
         )
-        self.recoils_db.commit()
+        self.recoilsdb.commit()
 
-        return self.recoils_db
+        self.target.layers[0].save(self.recoilsdb)
+
+        return self.recoilsdb

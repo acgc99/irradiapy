@@ -20,10 +20,11 @@ if TYPE_CHECKING:
 def generate_debris(
     recoilsdb: RecoilsDB,
     dir_mddb: Path,
-    compute_tdam: bool,
+    compute_damage_energy: bool,
     path_debris: Path,
-    tdam_mode: materials.Material.TdamMode,
-    dpa_mode: materials.Material.DpaMode,
+    damage_energy_mode: materials.DamageEnergyMode,
+    dpa_mode: materials.DpaMode,
+    dist_fp: float,
     energy_tolerance: float = 0.1,
     exclude_from_ions: list[int] | None = None,
     exclude_from_vacs: list[int] | None = None,
@@ -42,10 +43,11 @@ def generate_debris(
         __spectra2srim_generate_debris(
             recoilsdb=recoilsdb,
             dir_mddb=dir_mddb,
-            compute_tdam=compute_tdam,
+            compute_damage_energy=compute_damage_energy,
             path_debris=path_debris,
-            tdam_mode=tdam_mode,
+            damage_energy_mode=damage_energy_mode,
             dpa_mode=dpa_mode,
+            dist_fp=dist_fp,
             energy_tolerance=energy_tolerance,
             exclude_from_ions=exclude_from_ions,
             exclude_from_vacs=exclude_from_vacs,
@@ -55,10 +57,11 @@ def generate_debris(
         __py2srim_generate_debris(
             recoilsdb=recoilsdb,
             dir_mddb=dir_mddb,
-            compute_tdam=compute_tdam,
+            compute_damage_energy=compute_damage_energy,
             path_debris=path_debris,
-            tdam_mode=tdam_mode,
+            damage_energy_mode=damage_energy_mode,
             dpa_mode=dpa_mode,
+            dist_fp=dist_fp,
             energy_tolerance=energy_tolerance,
             exclude_from_ions=exclude_from_ions,
             exclude_from_vacs=exclude_from_vacs,
@@ -73,33 +76,20 @@ def generate_debris(
 def __spectra2srim_generate_debris(
     recoilsdb: RecoilsDB,
     dir_mddb: Path,
-    compute_tdam: bool,
+    compute_damage_energy: bool,
     path_debris: Path,
-    tdam_mode: materials.Material.TdamMode,
-    dpa_mode: materials.Material.DpaMode,
+    damage_energy_mode: materials.DamageEnergyMode,
+    dpa_mode: materials.DpaMode,
+    dist_fp: float,
     energy_tolerance: float,
     exclude_from_ions: list[int],
     exclude_from_vacs: list[int],
     seed: int = 0,
 ) -> None:
     """Generate MD debris from SPECTRA-PKA + SRIM results."""
-
     srim_target = recoilsdb.load_srim_target()
     width = srim_target.layers[0].width
-
-    symbols = [el.symbol for el in srim_target.layers[0].elements]
-    stoichs = srim_target.layers[0].stoichs
-    max_stoich_idx = np.argmax(stoichs)
-    material_target = materials.MATERIALS_BY_SYMBOL[symbols[max_stoich_idx]]
-    warnings.warn(
-        (
-            f"Material target for debris generation set to '{material_target.symbol}' "
-            "based on the highest stoichiometry in the material. "
-            "This is a limitation of the current code. You can provide a different "
-            "target by using the 'mat_target' argument."
-        ),
-        RuntimeWarning,
-    )
+    component = srim_target.layers[0]
 
     writer = LAMMPSWriter(path_debris, mode="w")
     events = recoilsdb.read("spectrapkas", what="event, time, timestep")
@@ -125,11 +115,12 @@ def __spectra2srim_generate_debris(
         for atom_numb, recoil_energy, depth, y, z, cosx, cosy, cosz in recoils:
             damagedb = DamageDB(
                 dir_mddb=dir_mddb,
-                compute_tdam=compute_tdam,
-                mat_pka=materials.MATERIALS_BY_ATOMIC_NUMBER[atom_numb],
-                mat_target=material_target,
+                compute_damage_energy=compute_damage_energy,
+                recoil=materials.ELEMENT_BY_ATOMIC_NUMBER[atom_numb],
+                component=component,
                 dpa_mode=dpa_mode,
-                tdam_mode=tdam_mode,
+                damage_energy_mode=damage_energy_mode,
+                dist_fp=dist_fp,
                 energy_tolerance=energy_tolerance,
                 seed=seed + event,
             )
@@ -156,10 +147,11 @@ def __spectra2srim_generate_debris(
 def __py2srim_generate_debris(
     recoilsdb: RecoilsDB,
     dir_mddb: Path,
-    compute_tdam: bool,
+    compute_damage_energy: bool,
     path_debris: Path,
-    tdam_mode: materials.Material.TdamMode,
-    dpa_mode: materials.Material.DpaMode,
+    damage_energy_mode: materials.DamageEnergyMode,
+    dpa_mode: materials.DpaMode,
+    dist_fp: float,
     energy_tolerance: float,
     exclude_from_ions: list[int],
     exclude_from_vacs: list[int],
@@ -170,27 +162,10 @@ def __py2srim_generate_debris(
     zhi: None | float = None,
 ) -> None:
     """Generate MD debris from Python to SRIM results."""
-
     srim_target = recoilsdb.load_srim_target()
     width = sum(layer.width for layer in srim_target.layers)
-
     layers_edges = np.cumsum([0.0] + [layer.width for layer in srim_target.layers])
-    material_targets = []
-    for layer in srim_target.layers:
-        symbols = [el.symbol for el in layer.elements]
-        stoichs = layer.stoichs
-        max_stoich_idx = np.argmax(stoichs)
-        mat_target = materials.MATERIALS_BY_SYMBOL[symbols[max_stoich_idx]]
-        material_targets.append(mat_target)
-    warnings.warn(
-        (
-            f"Material target for debris generation set to '{mat_target.symbol}' "
-            "based on the highest stoichiometry in the material. "
-            "This is a limitation of the current code. You can provide a different "
-            "target by using the 'mat_target' argument."
-        ),
-        RuntimeWarning,
-    )
+    components = srim_target.layers
 
     writer = LAMMPSWriter(path_debris, mode="w")
     nevents = recoilsdb.get_nevents()
@@ -216,15 +191,15 @@ def __py2srim_generate_debris(
         for atom_numb, recoil_energy, depth, y, z, cosx, cosy, cosz in recoils:
             # Determine layer and select target material
             layer_idx = np.searchsorted(layers_edges, depth, side="right") - 1
-            material_target = material_targets[layer_idx]
 
             damagedb = DamageDB(
                 dir_mddb=dir_mddb,
-                compute_tdam=compute_tdam,
-                mat_pka=materials.MATERIALS_BY_ATOMIC_NUMBER[atom_numb],
-                mat_target=material_target,
+                compute_damage_energy=compute_damage_energy,
+                recoil=materials.ELEMENT_BY_ATOMIC_NUMBER[atom_numb],
+                component=components[layer_idx],
                 dpa_mode=dpa_mode,
-                tdam_mode=tdam_mode,
+                damage_energy_mode=damage_energy_mode,
+                dist_fp=dist_fp,
                 energy_tolerance=energy_tolerance,
                 seed=seed + event,
             )

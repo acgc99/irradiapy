@@ -1,5 +1,7 @@
 """This module contains the `Py2SRIM` class."""
 
+# pylint: disable=too-many-lines
+
 import os
 import platform
 import subprocess
@@ -15,9 +17,9 @@ import numpy as np
 from numpy import typing as npt
 
 from irradiapy import config, dtypes, materials
+from irradiapy.materials.srim_target import SRIMTarget
 from irradiapy.recoilsdb import RecoilsDB
 from irradiapy.srim.srimdb import SRIMDB
-from irradiapy.srim.target.target import Target
 
 platform = platform.system()
 if platform == "Windows":
@@ -39,13 +41,13 @@ class Py2SRIM:
         Seed for SRIM randomness.
     dir_root: Path
         Root directory where all calculations will be stored.
-    target : Target
+    srim_target : SRIMTarget
         SRIM target.
     calculation : str
         SRIM calculation.
     dir_srim : Path (default=config.DIR_SRIM)
         Directory where SRIM is installed.
-    recoils_db : RecoilsDB
+    recoilsdb : RecoilsDB
         Database to store all recoils collected from SPECTRA-PKA and SRIM calculations.
     check_interval : float (default=0.2)
         Interval to check for SRIM window/popups.
@@ -82,10 +84,10 @@ class Py2SRIM:
     seed: int = 0
 
     dir_root: Path = field(init=False)
-    target: Target = field(init=False)
+    srim_target: SRIMTarget = field(init=False)
     calculation: str = field(init=False)
     dir_srim: Path = field(default_factory=lambda: config.DIR_SRIM)
-    recoils_db: RecoilsDB = field(init=False)
+    recoilsdb: RecoilsDB = field(init=False)
 
     check_interval: float = 0.2
     plot_type: int = 5
@@ -108,13 +110,10 @@ class Py2SRIM:
         self,
         atomic_numbers: npt.NDArray[np.int64],
         energies: npt.NDArray[np.float64],
-        target: Target,
     ) -> None:
         """Generates `TRIM.IN` file."""
         nions = len(atomic_numbers)
-        atomic_mass = materials.MATERIALS_BY_ATOMIC_NUMBER[
-            atomic_numbers[0]
-        ].mass_number
+        atomic_mass = materials.MASS_NUMBER_BY_ATOMIC_NUMBER[atomic_numbers[0]]
         energy = np.ceil(energies.max()) / 1e3
         if self.calculation == "quick":
             calculation = 4
@@ -146,20 +145,20 @@ class Py2SRIM:
                     f"{self.do_collisions} {self.exyz}\n"
                 )
             )
-            file.write(target.trimin_description() + "\n")
+            file.write(self.srim_target.trimin_description() + "\n")
             file.write(
                 (
                     "PlotType (0-5); Plot Depths: Xmin, Xmax(Ang.) [=0 0 for Viewing Full Target]\n"
                     f"{self.plot_type} {self.xmin} {self.xmax}\n"
                 )
             )
-            file.write(target.trimin_target_elements())
-            file.write(target.trimin_target_layers() + "\n")
-            file.write(target.trimin_phases() + "\n")
-            file.write(target.trimin_bragg() + "\n")
-            file.write(target.trimin_displacement() + "\n")
-            file.write(target.trimin_lattice() + "\n")
-            file.write(target.trimin_surface() + "\n")
+            file.write(self.srim_target.trimin_target_elements())
+            file.write(self.srim_target.trimin_target_layers() + "\n")
+            file.write(self.srim_target.trimin_phases() + "\n")
+            file.write(self.srim_target.trimin_bragg() + "\n")
+            file.write(self.srim_target.trimin_displacement() + "\n")
+            file.write(self.srim_target.trimin_lattice() + "\n")
+            file.write(self.srim_target.trimin_surface() + "\n")
             file.write("Stopping Power Version\n0\n")
 
     def __generate_trimdat(
@@ -348,13 +347,13 @@ class Py2SRIM:
     def __create_srimdb(
         self,
         path_db: Path,
-        target: Target,
+        srim_target: SRIMTarget,
         calculation: str,
     ) -> SRIMDB:
         """Creates a SRIMDB instance."""
         srimdb = SRIMDB(
             path_db=path_db,
-            target=target,
+            srim_target=srim_target,
             calculation=calculation,
             seed=self.seed,
             plot_type=self.plot_type,
@@ -561,7 +560,7 @@ class Py2SRIM:
 
         # Generate input files
         self.__generate_trimauto()
-        self.__generate_trimin(atomic_numbers, energies, self.target)
+        self.__generate_trimin(atomic_numbers, energies)
         trimdat = self.__generate_trimdat(
             atomic_numbers,
             energies,
@@ -672,7 +671,7 @@ class Py2SRIM:
 
             srimdb_branch = self.__create_srimdb(
                 path_db=path_branch_db,
-                target=None,
+                srim_target=None,
                 calculation=None,
             )
             collisions = list(
@@ -697,7 +696,7 @@ class Py2SRIM:
 
                 if recoil_energy < max_recoil_energy:
                     # This recoil is below threshold -> terminal; store it.
-                    self.recoils_db.insert_recoil(
+                    self.recoilsdb.insert_recoil(
                         event=event,
                         atomic_number=atomic_number,
                         recoil_energy=recoil_energy,
@@ -720,7 +719,7 @@ class Py2SRIM:
                 # If the child SRIM DB does not exist (e.g., limited by max_srim_iters),
                 # treat as terminal.
                 if not path_leaf_db.exists():
-                    self.recoils_db.insert_recoil(
+                    self.recoilsdb.insert_recoil(
                         event=event,
                         atomic_number=atomic_number,
                         recoil_energy=recoil_energy,
@@ -758,7 +757,7 @@ class Py2SRIM:
 
             # Low-energy primary ion -> store into final DB as terminal recoil.
             if ion_energy < max_recoil_energy:
-                self.recoils_db.insert_recoil(
+                self.recoilsdb.insert_recoil(
                     event=event,
                     atomic_number=ion_atomic_number,
                     recoil_energy=ion_energy,
@@ -780,7 +779,7 @@ class Py2SRIM:
             # No SRIM data for this ion: treat as terminal.
             # Likely due to max_srim_iters or an aborted run.
             if not path_branch_db.exists():
-                self.recoils_db.insert_recoil(
+                self.recoilsdb.insert_recoil(
                     event=event,
                     atomic_number=ion_atomic_number,
                     recoil_energy=ion_energy,
@@ -853,7 +852,7 @@ class Py2SRIM:
 
             srimdb_branch = self.__create_srimdb(
                 path_db=path_branch_db,
-                target=None,
+                srim_target=None,
                 calculation=None,
             )
 
@@ -882,7 +881,7 @@ class Py2SRIM:
 
             # Ions: atom_numb != 0, from TRIMDAT initial positions
             for depth, y, z, atom_numb in trimdat_rows:
-                self.recoils_db.insert_ion_vac(
+                self.recoilsdb.insert_ion_vac(
                     event=event,
                     atom_numb=int(atom_numb),
                     depth=depth,
@@ -892,7 +891,7 @@ class Py2SRIM:
 
             # Vacancies: atom_numb = 0, from RANGE_3D final positions
             for depth, y, z in range3d_rows:
-                self.recoils_db.insert_ion_vac(
+                self.recoilsdb.insert_ion_vac(
                     event=event,
                     atom_numb=0,
                     depth=depth,
@@ -967,7 +966,7 @@ class Py2SRIM:
     def run(
         self,
         dir_root: Path,
-        target: Target,
+        srim_target: SRIMTarget,
         calculation: str,
         atomic_numbers: npt.NDArray[np.int64],
         energies: npt.NDArray[np.float64],
@@ -998,7 +997,7 @@ class Py2SRIM:
         ----------
         dir_root: Path
             Root directory where all calculations will be stored.
-        target : Target
+        srim_target : SRIMTarget
             SRIM target.
         calculation : str
             SRIM calculation.
@@ -1035,7 +1034,7 @@ class Py2SRIM:
             Database with all recoils collected.
         """
         self.dir_root = dir_root
-        self.target = target
+        self.srim_target = srim_target
         self.calculation = calculation
         if max_srim_iters < 1:
             raise ValueError("max_srim_iters must be at least 1")
@@ -1043,7 +1042,7 @@ class Py2SRIM:
             raise ValueError("calculation must be 'quick', 'full' or 'mono'")
 
         self.dir_root.mkdir(parents=True, exist_ok=True)
-        self.recoils_db = RecoilsDB(self.dir_root / "recoils.db")
+        self.recoilsdb = RecoilsDB(self.dir_root / "recoils.db")
 
         def run_branch(
             tree: tuple[int, ...],
@@ -1053,7 +1052,7 @@ class Py2SRIM:
             path_db = self.__tree2path_db(tree, True)
             srimdb = self.__create_srimdb(
                 path_db=path_db,
-                target=self.target,
+                srim_target=self.srim_target,
                 calculation=self.calculation,
             )
             self.__run(
@@ -1082,7 +1081,7 @@ class Py2SRIM:
             # Collect recoils from this branch for the next iteration
             srimdb_branch = self.__create_srimdb(
                 path_db=path_db,
-                target=None,
+                srim_target=None,
                 calculation=None,
             )
             collisions = list(
@@ -1174,9 +1173,9 @@ class Py2SRIM:
             atomic_numbers=atomic_numbers,
             energies=energies,
         )
-        self.recoils_db.save_srim_target(self.target)
-        self.recoils_db.commit()
+        self.recoilsdb.save_srim_target(self.srim_target)
+        self.recoilsdb.commit()
 
-        return self.recoils_db
+        return self.recoilsdb
 
     # endregion

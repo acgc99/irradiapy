@@ -1,14 +1,15 @@
 """This module contains the `RecoilsDB` class."""
 
 import sqlite3
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from pathlib import Path
 from types import TracebackType
 from typing import Generator
 
-from irradiapy.srim.target import Target
-from irradiapy.srim.target.element import Element
-from irradiapy.srim.target.layer import Layer
+from irradiapy.materials import ELEMENT_BY_ATOMIC_NUMBER
+from irradiapy.materials.component import Component as Layer
+from irradiapy.materials.element import Element
+from irradiapy.materials.srim_target import SRIMTarget
 
 
 @dataclass
@@ -22,7 +23,7 @@ class RecoilsDB(sqlite3.Connection):
     """
 
     path: Path
-    target: Target = field(init=False)
+    srim_target: SRIMTarget = field(init=False)
 
     def __post_init__(self) -> None:
         super().__init__(self.path)
@@ -133,6 +134,25 @@ class RecoilsDB(sqlite3.Connection):
                 "CREATE TABLE IF NOT EXISTS ions_vacs ("
                 "event INTEGER, atom_numb INTEGER, depth REAL, "
                 "y REAL, z REAL)"
+            )
+        )
+        cur.execute(
+            (
+                "CREATE TABLE IF NOT EXISTS components ("
+                "component_id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, "
+                "phase INTEGER, density REAL, x0 REAL, y0 REAL, z0 REAL, "
+                "width REAL, height REAL, length REAL, "
+                "ax REAL, ay REAL, az REAL, c REAL, structure TEXT, "
+                "ed_min REAL, ed_avr REAL, b_arc REAL, c_arc REAL, calculate_energies BOOLEAN, "
+                "srim_el REAL, srim_es REAL, srim_phase INTEGER, srim_bragg INTEGER)"
+            )
+        )
+        cur.execute(
+            (
+                "CREATE TABLE IF NOT EXISTS elements2 ("
+                "component_id INTEGER, atomic_number INTEGER, mass_number REAL, "
+                "symbol TEXT, stoich REAL, ed_min REAL, ed_avr REAL, b_arc REAL, c_arc REAL, "
+                "srim_el REAL, srim_es REAL)"
             )
         )
         cur.close()
@@ -256,7 +276,7 @@ class RecoilsDB(sqlite3.Connection):
                 break
         cur.close()
 
-    def save_srim_target(self, target: Target) -> None:
+    def save_srim_target(self, srim_target: SRIMTarget) -> None:
         """Saves the SRIM target into the database."""
         cur = self.cursor()
         cur.execute(
@@ -274,14 +294,14 @@ class RecoilsDB(sqlite3.Connection):
                 "e_d REAL, e_l REAL, e_s REAL)"
             )
         )
-        for i, layer in enumerate(target.layers):
+        for i, layer in enumerate(srim_target.layers):
             cur.execute(
                 (
                     "INSERT INTO layers"
                     "(layer_numb, width, phase, density, bragg)"
                     "VALUES(?, ?, ?, ?, ?)"
                 ),
-                [i, layer.width, layer.phase, layer.density, layer.bragg],
+                [i, layer.width, layer.srim_phase, layer.density, layer.srim_bragg],
             )
             for j, element in enumerate(layer.elements):
                 cur.execute(
@@ -295,50 +315,63 @@ class RecoilsDB(sqlite3.Connection):
                         layer.stoichs[j],
                         element.symbol,
                         element.atomic_number,
-                        element.atomic_mass,
-                        element.e_d,
-                        element.e_l,
-                        element.e_s,
+                        element.mass_number,
+                        element.ed_avr,
+                        element.srim_el,
+                        element.srim_es,
                     ],
                 )
         cur.close()
-        self.target = target
+        self.srim_target = srim_target
 
-    def load_srim_target(self) -> Target:
+    def load_srim_target(self) -> SRIMTarget:
         """Loads the SRIM target from the database."""
         cur = self.cursor()
         cur.execute("SELECT * FROM layers")
         db_layers = list(cur.fetchall())
         layers = []
-        for db_layer in db_layers:
-            cur.execute(("SELECT * FROM elements " f"WHERE layer_numb = {db_layer[0]}"))
+        for layer_numb, width, srim_phase, density, srim_bragg in db_layers:
+            phase = Layer.Phases.SOLID if srim_phase == 1 else Layer.Phases.GAS
+            cur.execute(("SELECT * FROM elements2 " f"WHERE layer_numb = {layer_numb}"))
             db_elements = list(cur.fetchall())
             elements = []
-            for db_element in db_elements:
-                elements.append(
-                    Element(
-                        db_element[2],
-                        db_element[3],
-                        db_element[4],
-                        db_element[5],
-                        db_element[6],
-                        db_element[7],
-                    )
+            for (
+                _layer_numb,
+                _stoich,
+                symbol,
+                atomic_number,
+                mass_number,
+                ed_avr,
+                srim_el,
+                srim_es,
+            ) in db_elements:
+                element = Element(
+                    atomic_number=atomic_number,
+                    mass_number=mass_number,
+                    symbol=symbol,
+                    ed_min=ELEMENT_BY_ATOMIC_NUMBER[atomic_number].ed_min,
+                    b_arc=ELEMENT_BY_ATOMIC_NUMBER[atomic_number].b_arc,
+                    c_arc=ELEMENT_BY_ATOMIC_NUMBER[atomic_number].c_arc,
+                    ed_avr=ed_avr,
+                    srim_el=srim_el,
+                    srim_es=srim_es,
                 )
+                elements.append(element)
+
             stoichs = [db_element[1] for db_element in db_elements]
-            layers.append(
-                Layer(
-                    db_layer[1],
-                    db_layer[2],
-                    db_layer[3],
-                    elements,
-                    stoichs,
-                    db_layer[4],
-                )
+            layer = Layer(
+                elements=elements,
+                stoichs=stoichs,
+                name=f"layer{layer_numb}",
+                width=width,
+                density=density,
+                phase=phase,
+                srim_bragg=srim_bragg,
             )
-        cur.close()
-        self.target = Target(layers=layers)
-        return self.target
+            layers.append(layer)
+
+        self.srim_target = SRIMTarget(layers=layers)
+        return self.srim_target
 
     def get_nevents(self) -> int:
         """Get the number of events in the recoils database.

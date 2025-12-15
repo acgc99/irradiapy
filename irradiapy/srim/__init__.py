@@ -3,4 +3,3 @@
 from irradiapy.srim import analysis
 from irradiapy.srim.py2srim import Py2SRIM
 from irradiapy.srim.srimdb import SRIMDB
-from irradiapy.srim.target import Element, Layer, Target
