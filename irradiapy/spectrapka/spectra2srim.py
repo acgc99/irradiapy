@@ -236,7 +236,6 @@ class Spectra2SRIM:
             structure=self.matdict["lattice"],
             ax=self.matdict["a0"],
         )
-        print("initial", component)
         self.target = [component]
 
     def run(

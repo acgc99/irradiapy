@@ -38,8 +38,6 @@ def get_dpas(
         in the simulation box.
     """
     component = recoilsdb.load_target()[0]
-    print(component)
-    print(recoilsdb.path)
 
     natoms_cell = 1  # number of atoms per unit cell
     if component.structure == "bcc":
