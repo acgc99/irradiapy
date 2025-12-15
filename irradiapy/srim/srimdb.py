@@ -6,10 +6,8 @@ from pathlib import Path
 from types import TracebackType
 
 from irradiapy import config
-from irradiapy.materials import ELEMENT_BY_ATOMIC_NUMBER
-from irradiapy.materials.component import Component as Layer
+from irradiapy.materials.component import Component
 from irradiapy.materials.element import Element
-from irradiapy.materials.srim_target import SRIMTarget
 from irradiapy.srim.ofiles.backscat import Backscat
 from irradiapy.srim.ofiles.collision import Collision
 from irradiapy.srim.ofiles.e2recoil import E2Recoil
@@ -33,7 +31,7 @@ class SRIMDB(sqlite3.Connection):
     ----------
     path_db : Path
         Output database path.
-    srim_target : SRIMTarget, optional (default=None)
+    target : list[Component], optional (default=None)
         SRIM target. Do not provide this argument for read only.
     calculation : str, optional (default=None)
         SRIM calculation. Do not provide this argument for read only.
@@ -74,7 +72,7 @@ class SRIMDB(sqlite3.Connection):
     """
 
     path_db: Path
-    srim_target: None | SRIMTarget = None
+    target: None | list[Component] = None
     calculation: None | str = None
 
     seed: int = 0
@@ -139,20 +137,16 @@ class SRIMDB(sqlite3.Connection):
             raise ValueError("Invalid calculation mode.")
 
         self.nions = self.get_nions()
-        if (
-            self.srim_target
-            and self.calculation
-            and not self.table_exists("calculation")
-        ):
+        if self.target and self.calculation and not self.table_exists("calculation"):
             self.save_target_calculation()
         elif (
-            not self.srim_target
+            not self.target
             and not self.calculation
             and self.table_exists("calculation")
         ):
-            self.srim_target = self.load_target_calculation()
-        elif (self.srim_target and not self.calculation) or (
-            not self.srim_target and self.calculation
+            self.__load_target_calculation()
+        elif (self.target and not self.calculation) or (
+            not self.target and self.calculation
         ):
             raise ValueError(
                 "Both `srim_target` and `calculation` must be provided or None."
@@ -171,51 +165,97 @@ class SRIMDB(sqlite3.Connection):
         self.close()
         return False
 
+    def __save_component(self, component: Component) -> None:
+        """Save component into the recoils database."""
+        cur = self.cursor()
+        cur.execute(
+            (
+                "INSERT INTO components ("
+                "name, phase, density, "
+                "x0, y0, z0, width, height, length, "
+                "ax, ay, az, c, structure, "
+                "ed_min, ed_avr, b_arc, c_arc, "
+                "srim_el, srim_es, srim_phase, srim_bragg) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, "
+                "?, ?, ?, ?, ?)"
+            ),
+            (
+                component.name,
+                component.phase.name,
+                component.density,
+                component.x0,
+                component.y0,
+                component.z0,
+                component.width,
+                component.height,
+                component.length,
+                component.ax,
+                component.ay,
+                component.az,
+                component.c,
+                component.structure,
+                component.ed_min,
+                component.ed_avr,
+                component.b_arc,
+                component.c_arc,
+                component.srim_el,
+                component.srim_es,
+                component.srim_phase,
+                component.srim_bragg,
+            ),
+        )
+        # Save elements
+        component_id = cur.lastrowid
+        for element, stoich in zip(component.elements, component.stoichs):
+            cur.execute(
+                (
+                    "INSERT INTO elements (component_id, atomic_number, "
+                    "mass_number, symbol, stoich, ed_min, ed_avr, b_arc, c_arc, srim_el, srim_es) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                ),
+                (
+                    component_id,
+                    element.atomic_number,
+                    element.mass_number,
+                    element.symbol,
+                    stoich,
+                    element.ed_min,
+                    element.ed_avr,
+                    element.b_arc,
+                    element.c_arc,
+                    element.srim_el,
+                    element.srim_es,
+                ),
+            )
+        cur.close()
+        self.commit()
+        return component_id
+
     def save_target_calculation(self) -> None:
         """Saves the target and calculation parameters into the database."""
         cur = self.cursor()
         cur.execute(
             (
-                "CREATE TABLE IF NOT EXISTS layers("
-                "layer_numb INTEGER, width REAL,"
-                "phase INTEGER, density REAL, bragg INTEGER)"
+                "CREATE TABLE IF NOT EXISTS components ("
+                "component_id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, "
+                "phase INTEGER, density REAL, x0 REAL, y0 REAL, z0 REAL, "
+                "width REAL, height REAL, length REAL, "
+                "ax REAL, ay REAL, az REAL, c REAL, structure TEXT, "
+                "ed_min REAL, ed_avr REAL, b_arc REAL, c_arc REAL, calculate_energies BOOLEAN, "
+                "srim_el REAL, srim_es REAL, srim_phase INTEGER, srim_bragg INTEGER)"
             )
         )
         cur.execute(
             (
-                "CREATE TABLE IF NOT EXISTS elements("
-                "layer_numb INTEGER, stoich REAL, symbol TEXT,"
-                "atomic_number INTEGER, atomic_mass REAL,"
-                "e_d REAL, e_l REAL, e_s REAL)"
+                "CREATE TABLE IF NOT EXISTS elements ("
+                "component_id INTEGER, atomic_number INTEGER, mass_number REAL, "
+                "symbol TEXT, stoich REAL, ed_min REAL, ed_avr REAL, b_arc REAL, c_arc REAL, "
+                "srim_el REAL, srim_es REAL)"
             )
         )
-        for i, layer in enumerate(self.srim_target.layers):
-            cur.execute(
-                (
-                    "INSERT INTO layers"
-                    "(layer_numb, width, phase, density, bragg)"
-                    "VALUES(?, ?, ?, ?, ?)"
-                ),
-                [i, layer.width, layer.srim_phase, layer.density, layer.srim_bragg],
-            )
-            for j, element in enumerate(layer.elements):
-                cur.execute(
-                    (
-                        "INSERT INTO elements"
-                        "(layer_numb, stoich, symbol, atomic_number, atomic_mass, e_d, e_l, e_s)"
-                        "VALUES(?, ?, ?, ?, ?, ?, ?, ?)"
-                    ),
-                    [
-                        i,
-                        layer.stoichs[j],
-                        element.symbol,
-                        element.atomic_number,
-                        element.mass_number,
-                        element.ed_avr,
-                        element.srim_el,
-                        element.srim_es,
-                    ],
-                )
+        for component in self.target:
+            self.__save_component(component)
+
         cur.execute(
             (
                 "CREATE TABLE IF NOT EXISTS calculation("
@@ -258,24 +298,36 @@ class SRIMDB(sqlite3.Connection):
         cur.close()
         self.commit()
 
-    def load_target_calculation(self) -> SRIMTarget:
+    def __load_target_calculation(self) -> list[Component]:
         """Loads the target and calculation parameters from the database."""
         cur = self.cursor()
-        cur.execute("SELECT * FROM layers")
-        db_layers = list(cur.fetchall())
-        layers = []
-        for layer_numb, width, srim_phase, density, srim_bragg in db_layers:
-            phase = Layer.Phases.SOLID if srim_phase == 1 else Layer.Phases.GAS
-            cur.execute(("SELECT * FROM elements " f"WHERE layer_numb = {layer_numb}"))
+        cur.execute(
+            "SELECT component_id, width, srim_phase, density, srim_bragg FROM components"
+        )
+        components = list(cur.fetchall())
+        target = []
+        for component_id, width, srim_phase, density, srim_bragg in components:
+            phase = Component.Phases.SOLID if srim_phase == 1 else Component.Phases.GAS
+            cur.execute(
+                (
+                    "SELECT component_id, atomic_number, "
+                    "mass_number, symbol, stoich, ed_min, ed_avr, b_arc, c_arc, srim_el, srim_es "
+                    "FROM elements WHERE component_id = ?"
+                ),
+                (component_id,),
+            )
             db_elements = list(cur.fetchall())
             elements = []
             for (
-                _layer_numb,
-                _stoich,
-                symbol,
+                _component_id,
                 atomic_number,
                 mass_number,
+                symbol,
+                _stoich,
+                ed_min,
                 ed_avr,
+                b_arc,
+                c_arc,
                 srim_el,
                 srim_es,
             ) in db_elements:
@@ -283,26 +335,27 @@ class SRIMDB(sqlite3.Connection):
                     atomic_number=atomic_number,
                     mass_number=mass_number,
                     symbol=symbol,
-                    ed_min=ELEMENT_BY_ATOMIC_NUMBER[atomic_number].ed_min,
+                    ed_min=ed_min,
+                    b_arc=b_arc,
+                    c_arc=c_arc,
                     ed_avr=ed_avr,
-                    b_arc=ELEMENT_BY_ATOMIC_NUMBER[atomic_number].b_arc,
-                    c_arc=ELEMENT_BY_ATOMIC_NUMBER[atomic_number].c_arc,
                     srim_el=srim_el,
                     srim_es=srim_es,
                 )
                 elements.append(element)
 
-            stoichs = [db_element[1] for db_element in db_elements]
-            layer = Layer(
+            stoichs = [db_element[4] for db_element in db_elements]
+            component = Component(
                 elements=elements,
                 stoichs=stoichs,
-                name=f"layer{layer_numb}",
+                name=f"layer{component_id}",
                 width=width,
                 density=density,
                 phase=phase,
                 srim_bragg=srim_bragg,
             )
-            layers.append(layer)
+            target.append(component)
+        self.target = target
 
         cur.execute("SELECT * FROM calculation")
         db_calculation = cur.fetchone()
@@ -328,7 +381,7 @@ class SRIMDB(sqlite3.Connection):
         else:
             self.calculation = "mono"
         cur.close()
-        return SRIMTarget(layers)
+        return target
 
     def optimize(self) -> None:
         """Optimize the SQLite database.

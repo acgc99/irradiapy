@@ -1,6 +1,5 @@
 """Utility functions related to SPECTRA-PKa + SRIM data analysis and debris production."""
 
-import warnings
 from pathlib import Path
 
 import numpy as np
@@ -8,17 +7,16 @@ import numpy as np
 from irradiapy.io import LAMMPSReader
 from irradiapy.materials import (
     ELEMENT_BY_ATOMIC_NUMBER,
-    ELEMENT_BY_SYMBOL,
     Component,
     DamageEnergyMode,
     DpaMode,
 )
-from irradiapy.spectrapka.spectra2srim import Spectra2SRIM
+from irradiapy.recoilsdb import RecoilsDB
 from irradiapy.utils.io import get_last_reader
 
 
 def get_dpas(
-    spectrapka2srim: Spectra2SRIM,
+    recoilsdb: RecoilsDB,
     path_debris: Path | None = None,
     component: Component | None = None,
     damage_energy_mode: DamageEnergyMode = DamageEnergyMode.LINDHARD,
@@ -43,25 +41,24 @@ def get_dpas(
         A tuple containing the total NRT, arc, fer-arc (and debris) dpa values
         in the simulation box.
     """
-    component = spectrapka2srim.target.layers[0]
+    component = recoilsdb.load_target()[0]
 
-    natoms_cell = 1  # number of atoms per unit cell
-    if spectrapka2srim.matdict["lattice"] == "bcc":
-        natoms_cell = 2
-    elif spectrapka2srim.matdict["lattice"] == "fcc":
-        natoms_cell = 4
-    elif spectrapka2srim.matdict["lattice"] == "hcp":
-        natoms_cell = 2
-    else:
-        raise ValueError(f"Unknown lattice type: {spectrapka2srim.matdict['lattice']}")
-    natoms = spectrapka2srim.matdict["nsize"] ** 3 * natoms_cell
+    # natoms_cell = 1  # number of atoms per unit cell
+    # if spectrapka2srim.matdict["lattice"] == "bcc":
+    #     natoms_cell = 2
+    # elif spectrapka2srim.matdict["lattice"] == "fcc":
+    #     natoms_cell = 4
+    # elif spectrapka2srim.matdict["lattice"] == "hcp":
+    #     natoms_cell = 2
+    # else:
+    #     raise ValueError(f"Unknown lattice type: {spectrapka2srim.matdict['lattice']}")
+    # natoms = spectrapka2srim.matdict["nsize"] ** 3 * natoms_cell
+    natoms = int(1e6)  # FIXME
 
     nrt = 0
     arc = 0
     ferarc = 0
-    recoils = spectrapka2srim.recoils_db.read(
-        "recoils", what="atom_numb, recoil_energy"
-    )
+    recoils = recoilsdb.read("recoils", what="atom_numb, recoil_energy")
     for atom_numb, recoil_energy in recoils:
         damage_energy = component.recoil_energy_to_damage_energy(
             recoil_energy,

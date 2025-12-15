@@ -87,9 +87,9 @@ def __spectra2srim_generate_debris(
     seed: int = 0,
 ) -> None:
     """Generate MD debris from SPECTRA-PKA + SRIM results."""
-    srim_target = recoilsdb.load_srim_target()
-    width = srim_target.layers[0].width
-    component = srim_target.layers[0]
+    target = recoilsdb.load_target()
+    width = target[0].width
+    component = target[0]
 
     writer = LAMMPSWriter(path_debris, mode="w")
     events = recoilsdb.read("spectrapkas", what="event, time, timestep")

@@ -2,7 +2,6 @@
 
 from irradiapy.materials.component import Component
 from irradiapy.materials.element import Element
-from irradiapy.materials.srim_target import SRIMTarget
 
 # region Enums
 

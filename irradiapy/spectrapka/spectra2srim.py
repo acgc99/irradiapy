@@ -10,8 +10,7 @@ import numpy as np
 
 from irradiapy import srim
 from irradiapy.materials import ATOMIC_NUMBER_BY_SYMBOL, ELEMENT_BY_SYMBOL, Phases
-from irradiapy.materials.component import Component as Layer
-from irradiapy.materials.srim_target import SRIMTarget
+from irradiapy.materials.component import Component
 from irradiapy.recoilsdb import RecoilsDB
 
 
@@ -83,7 +82,7 @@ class Spectra2SRIM:
     dir_root: Path = field(init=False)
     srim_width: float = field(default=1e8, init=False)
     matdict: dict[str, Any] = field(init=False)
-    target: SRIMTarget = field(init=False)
+    target: list[Component] = field(init=False)
     recoilsdb: RecoilsDB = field(init=False)
 
     check_interval: float = 0.2
@@ -227,7 +226,7 @@ class Spectra2SRIM:
 
         # Create SRIM target
         elements = [ELEMENT_BY_SYMBOL[sym] for sym in self.matdict["symbols"]]
-        layer = Layer(
+        component = Component(
             elements=elements,
             stoichs=self.matdict["stoichs"],
             name="layer1",
@@ -235,7 +234,7 @@ class Spectra2SRIM:
             phase=Phases.SOLID,
             density=density,
         )
-        self.target = SRIMTarget(layers=[layer])
+        self.target = [component]
 
     def run(
         self,
@@ -311,7 +310,7 @@ class Spectra2SRIM:
         py2srim = srim.Py2SRIM()
         py2srim.run(
             dir_root=self.dir_root,
-            srim_target=self.target,
+            target=self.target,
             calculation=calculation,
             atomic_numbers=atomic_numbers,
             energies=recoil_energies,
@@ -349,13 +348,11 @@ class Spectra2SRIM:
         )
         cur.execute(
             """
-            UPDATE layers
+            UPDATE components
             SET width = ?
             """,
             (self.matdict["sizex"],),
         )
         self.recoilsdb.commit()
-
-        self.target.layers[0].save(self.recoilsdb)
 
         return self.recoilsdb

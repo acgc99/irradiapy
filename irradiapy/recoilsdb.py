@@ -1,15 +1,13 @@
 """This module contains the `RecoilsDB` class."""
 
 import sqlite3
-from dataclasses import dataclass, field, fields
+from dataclasses import dataclass, field
 from pathlib import Path
 from types import TracebackType
 from typing import Generator
 
-from irradiapy.materials import ELEMENT_BY_ATOMIC_NUMBER
-from irradiapy.materials.component import Component as Layer
+from irradiapy.materials.component import Component
 from irradiapy.materials.element import Element
-from irradiapy.materials.srim_target import SRIMTarget
 
 
 @dataclass
@@ -23,13 +21,13 @@ class RecoilsDB(sqlite3.Connection):
     """
 
     path: Path
-    srim_target: SRIMTarget = field(init=False)
+    target: list[Component] = field(init=False)
 
     def __post_init__(self) -> None:
         super().__init__(self.path)
         self.create_tables()
-        if self.table_exists("layers") and self.table_exists("elements"):
-            self.load_srim_target()
+        if self.table_exists("components") and self.table_exists("elements"):
+            self.load_target()
 
     def __exit__(
         self,
@@ -149,7 +147,7 @@ class RecoilsDB(sqlite3.Connection):
         )
         cur.execute(
             (
-                "CREATE TABLE IF NOT EXISTS elements2 ("
+                "CREATE TABLE IF NOT EXISTS elements ("
                 "component_id INTEGER, atomic_number INTEGER, mass_number REAL, "
                 "symbol TEXT, stoich REAL, ed_min REAL, ed_avr REAL, b_arc REAL, c_arc REAL, "
                 "srim_el REAL, srim_es REAL)"
@@ -276,72 +274,113 @@ class RecoilsDB(sqlite3.Connection):
                 break
         cur.close()
 
-    def save_srim_target(self, srim_target: SRIMTarget) -> None:
-        """Saves the SRIM target into the database."""
+    def __save_component(self, component: Component) -> None:
+        """Save component into the recoils database."""
         cur = self.cursor()
         cur.execute(
             (
-                "CREATE TABLE IF NOT EXISTS layers("
-                "layer_numb INTEGER, width REAL,"
-                "phase INTEGER, density REAL, bragg INTEGER)"
-            )
-        )
-        cur.execute(
+                "INSERT INTO components ("
+                "name, phase, density, "
+                "x0, y0, z0, width, height, length, "
+                "ax, ay, az, c, structure, "
+                "ed_min, ed_avr, b_arc, c_arc, "
+                "srim_el, srim_es, srim_phase, srim_bragg) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, "
+                "?, ?, ?, ?, ?)"
+            ),
             (
-                "CREATE TABLE IF NOT EXISTS elements("
-                "layer_numb INTEGER, stoich REAL, symbol TEXT,"
-                "atomic_number INTEGER, atomic_mass REAL,"
-                "e_d REAL, e_l REAL, e_s REAL)"
-            )
+                component.name,
+                component.phase.name,
+                component.density,
+                component.x0,
+                component.y0,
+                component.z0,
+                component.width,
+                component.height,
+                component.length,
+                component.ax,
+                component.ay,
+                component.az,
+                component.c,
+                component.structure,
+                component.ed_min,
+                component.ed_avr,
+                component.b_arc,
+                component.c_arc,
+                component.srim_el,
+                component.srim_es,
+                component.srim_phase,
+                component.srim_bragg,
+            ),
         )
-        for i, layer in enumerate(srim_target.layers):
+        # Save elements
+        component_id = cur.lastrowid
+        for element, stoich in zip(component.elements, component.stoichs):
             cur.execute(
                 (
-                    "INSERT INTO layers"
-                    "(layer_numb, width, phase, density, bragg)"
-                    "VALUES(?, ?, ?, ?, ?)"
+                    "INSERT INTO elements (component_id, atomic_number, "
+                    "mass_number, symbol, stoich, ed_min, ed_avr, b_arc, c_arc, srim_el, srim_es) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
                 ),
-                [i, layer.width, layer.srim_phase, layer.density, layer.srim_bragg],
+                (
+                    component_id,
+                    element.atomic_number,
+                    element.mass_number,
+                    element.symbol,
+                    stoich,
+                    element.ed_min,
+                    element.ed_avr,
+                    element.b_arc,
+                    element.c_arc,
+                    element.srim_el,
+                    element.srim_es,
+                ),
             )
-            for j, element in enumerate(layer.elements):
-                cur.execute(
-                    (
-                        "INSERT INTO elements"
-                        "(layer_numb, stoich, symbol, atomic_number, atomic_mass, e_d, e_l, e_s)"
-                        "VALUES(?, ?, ?, ?, ?, ?, ?, ?)"
-                    ),
-                    [
-                        i,
-                        layer.stoichs[j],
-                        element.symbol,
-                        element.atomic_number,
-                        element.mass_number,
-                        element.ed_avr,
-                        element.srim_el,
-                        element.srim_es,
-                    ],
-                )
         cur.close()
-        self.srim_target = srim_target
+        self.commit()
+        return component_id
 
-    def load_srim_target(self) -> SRIMTarget:
-        """Loads the SRIM target from the database."""
+    def save_target(self, target: list[Component]) -> None:
+        """Saves the target components into the database.
+
+        Parameters
+        ----------
+        target : list[Component]
+            List of components representing the target material.
+        """
+        for component in target:
+            self.__save_component(component)
+
+    def load_target(self) -> list[Component]:
+        """Loads the target from the database."""
         cur = self.cursor()
-        cur.execute("SELECT * FROM layers")
-        db_layers = list(cur.fetchall())
-        layers = []
-        for layer_numb, width, srim_phase, density, srim_bragg in db_layers:
-            phase = Layer.Phases.SOLID if srim_phase == 1 else Layer.Phases.GAS
-            cur.execute(("SELECT * FROM elements2 " f"WHERE layer_numb = {layer_numb}"))
+        cur.execute(
+            "SELECT component_id, width, srim_phase, density, srim_bragg FROM components"
+        )
+        components = list(cur.fetchall())
+        target = []
+        for component_id, width, srim_phase, density, srim_bragg in components:
+            phase = Component.Phases.SOLID if srim_phase == 1 else Component.Phases.GAS
+            cur.execute(
+                (
+                    "SELECT component_id, atomic_number, "
+                    "mass_number, symbol, stoich, ed_min, ed_avr, b_arc, c_arc, srim_el, srim_es "
+                    "FROM elements WHERE component_id = ?"
+                ),
+                (component_id,),
+            )
             db_elements = list(cur.fetchall())
             elements = []
             for (
-                _layer_numb,
-                _stoich,
-                symbol,
+                _component_id,
                 atomic_number,
                 mass_number,
+                symbol,
+                _stoich,
+                ed_min,
                 ed_avr,
+                b_arc,
+                c_arc,
                 srim_el,
                 srim_es,
             ) in db_elements:
@@ -349,29 +388,30 @@ class RecoilsDB(sqlite3.Connection):
                     atomic_number=atomic_number,
                     mass_number=mass_number,
                     symbol=symbol,
-                    ed_min=ELEMENT_BY_ATOMIC_NUMBER[atomic_number].ed_min,
-                    b_arc=ELEMENT_BY_ATOMIC_NUMBER[atomic_number].b_arc,
-                    c_arc=ELEMENT_BY_ATOMIC_NUMBER[atomic_number].c_arc,
+                    ed_min=ed_min,
+                    b_arc=b_arc,
+                    c_arc=c_arc,
                     ed_avr=ed_avr,
                     srim_el=srim_el,
                     srim_es=srim_es,
                 )
                 elements.append(element)
 
-            stoichs = [db_element[1] for db_element in db_elements]
-            layer = Layer(
+            stoichs = [db_element[4] for db_element in db_elements]
+            component = Component(
                 elements=elements,
                 stoichs=stoichs,
-                name=f"layer{layer_numb}",
+                name=f"layer{component_id}",
                 width=width,
                 density=density,
                 phase=phase,
                 srim_bragg=srim_bragg,
             )
-            layers.append(layer)
+            target.append(component)
 
-        self.srim_target = SRIMTarget(layers=layers)
-        return self.srim_target
+        cur.close()
+        self.target = target
+        return target
 
     def get_nevents(self) -> int:
         """Get the number of events in the recoils database.

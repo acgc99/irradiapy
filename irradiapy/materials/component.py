@@ -1,19 +1,13 @@
 """This module contains the `Component` class."""
 
-from __future__ import annotations
-
-import sqlite3
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import TYPE_CHECKING, Callable, Union
+from typing import Callable, Union
 
 import numpy as np
 import numpy.typing as npt
 
 from irradiapy.materials.element import Element
-
-if TYPE_CHECKING:
-    from irradiapy.recoilsdb import RecoilsDB
 
 
 @dataclass
@@ -110,73 +104,6 @@ class Component:
                     self.stoichs,
                     "srim_es",
                 )
-
-    def save(self, recoilsdb: RecoilsDB) -> None:
-        """Save the component to a SQLite database."""
-        cur = recoilsdb.cursor()
-        cur.execute(
-            (
-                "INSERT INTO components ("
-                "name, phase, density, "
-                "x0, y0, z0, width, height, length, "
-                "ax, ay, az, c, structure, "
-                "ed_min, ed_avr, b_arc, c_arc, "
-                "srim_el, srim_es, srim_phase, srim_bragg) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, "
-                "?, ?, ?, ?, ?)"
-            ),
-            (
-                self.name,
-                self.phase.name,
-                self.density,
-                self.x0,
-                self.y0,
-                self.z0,
-                self.width,
-                self.height,
-                self.length,
-                self.ax,
-                self.ay,
-                self.az,
-                self.c,
-                self.structure,
-                self.ed_min,
-                self.ed_avr,
-                self.b_arc,
-                self.c_arc,
-                self.srim_el,
-                self.srim_es,
-                self.srim_phase,
-                self.srim_bragg,
-            ),
-        )
-        component_id = cur.lastrowid
-        cur.close()
-        for element, stoich in zip(self.elements, self.stoichs):
-            cur = recoilsdb.cursor()
-            cur.execute(
-                (
-                    "INSERT INTO elements2 (component_id, atomic_number, "
-                    "mass_number, symbol, stoich, ed_min, ed_avr, b_arc, c_arc, srim_el, srim_es) "
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-                ),
-                (
-                    component_id,
-                    element.atomic_number,
-                    element.mass_number,
-                    element.symbol,
-                    stoich,
-                    element.ed_min,
-                    element.ed_avr,
-                    element.b_arc,
-                    element.c_arc,
-                    element.srim_el,
-                    element.srim_es,
-                ),
-            )
-            cur.close()
-        recoilsdb.commit()
-        return component_id
 
     @staticmethod
     def __calculate_inverse_weighted_average(
