@@ -139,13 +139,13 @@ class SRIMDB(sqlite3.Connection):
 
         self.nions = self.get_nions()
         if self.target and self.calculation and not self.table_exists("calculation"):
-            self.save_target_calculation()
+            self.__save_target_calculation()
         elif (
             not self.target
             and not self.calculation
             and self.table_exists("calculation")
         ):
-            self.__load_target_calculation()
+            self.load_target_calculation()
         elif (self.target and not self.calculation) or (
             not self.target and self.calculation
         ):
@@ -182,7 +182,7 @@ class SRIMDB(sqlite3.Connection):
             ),
             (
                 component.name,
-                component.phase.name,
+                component.phase.to_int(),
                 component.density,
                 component.x0,
                 component.y0,
@@ -232,7 +232,7 @@ class SRIMDB(sqlite3.Connection):
         self.commit()
         return component_id
 
-    def save_target_calculation(self) -> None:
+    def __save_target_calculation(self) -> None:
         """Saves the target and calculation parameters into the database."""
         cur = self.cursor()
         cur.execute(
@@ -299,16 +299,15 @@ class SRIMDB(sqlite3.Connection):
         cur.close()
         self.commit()
 
-    def __load_target_calculation(self) -> list[Component]:
+    def load_target_calculation(self) -> list[Component]:
         """Loads the target and calculation parameters from the database."""
         cur = self.cursor()
         cur.execute(
-            "SELECT component_id, width, srim_phase, density, srim_bragg FROM components"
+            "SELECT component_id, width, phase, density, srim_bragg FROM components"
         )
         components = list(cur.fetchall())
         target = []
-        for component_id, width, srim_phase, density, srim_bragg in components:
-            phase = Phases.SOLID if srim_phase == 1 else Phases.GAS
+        for component_id, width, phase, density, srim_bragg in components:
             cur.execute(
                 (
                     "SELECT component_id, atomic_number, "
@@ -352,7 +351,7 @@ class SRIMDB(sqlite3.Connection):
                 name=f"layer{component_id}",
                 width=width,
                 density=density,
-                phase=phase,
+                phase=Phases.from_int(phase),
                 srim_bragg=srim_bragg,
             )
             target.append(component)

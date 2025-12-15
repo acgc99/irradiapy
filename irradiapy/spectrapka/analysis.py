@@ -38,18 +38,20 @@ def get_dpas(
         in the simulation box.
     """
     component = recoilsdb.load_target()[0]
+    print(component)
+    print(recoilsdb.path)
 
-    # natoms_cell = 1  # number of atoms per unit cell
-    # if spectrapka2srim.matdict["lattice"] == "bcc":
-    #     natoms_cell = 2
-    # elif spectrapka2srim.matdict["lattice"] == "fcc":
-    #     natoms_cell = 4
-    # elif spectrapka2srim.matdict["lattice"] == "hcp":
-    #     natoms_cell = 2
-    # else:
-    #     raise ValueError(f"Unknown lattice type: {spectrapka2srim.matdict['lattice']}")
-    # natoms = spectrapka2srim.matdict["nsize"] ** 3 * natoms_cell
-    natoms = int(1e6)  # FIXME
+    natoms_cell = 1  # number of atoms per unit cell
+    if component.structure == "bcc":
+        natoms_cell = 2
+    elif component.structure == "fcc":
+        natoms_cell = 4
+    elif component.structure == "hcp":
+        natoms_cell = 2
+    else:
+        raise ValueError(f"Unknown lattice type: {component.structure}")
+    nsize = component.width // component.ax  # number of unit cells per side
+    natoms = nsize**3 * natoms_cell
 
     nrt = 0
     arc = 0

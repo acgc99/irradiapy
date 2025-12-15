@@ -291,7 +291,7 @@ class RecoilsDB(sqlite3.Connection):
             ),
             (
                 component.name,
-                component.phase.name,
+                component.phase.to_int(),
                 component.density,
                 component.x0,
                 component.y0,
@@ -356,12 +356,19 @@ class RecoilsDB(sqlite3.Connection):
         """Loads the target from the database."""
         cur = self.cursor()
         cur.execute(
-            "SELECT component_id, width, srim_phase, density, srim_bragg FROM components"
+            "SELECT component_id, phase, density, width, ax, structure, srim_bragg FROM components"
         )
         components = list(cur.fetchall())
         target = []
-        for component_id, width, srim_phase, density, srim_bragg in components:
-            phase = Phases.SOLID if srim_phase == 1 else Phases.GAS
+        for (
+            component_id,
+            phase,
+            density,
+            width,
+            ax,
+            structure,
+            srim_bragg,
+        ) in components:
             cur.execute(
                 (
                     "SELECT component_id, atomic_number, "
@@ -403,9 +410,11 @@ class RecoilsDB(sqlite3.Connection):
                 elements=elements,
                 stoichs=stoichs,
                 name=f"layer{component_id}",
-                width=width,
+                phase=Phases.from_int(phase),
                 density=density,
-                phase=phase,
+                width=width,
+                ax=ax,
+                structure=structure,
                 srim_bragg=srim_bragg,
             )
             target.append(component)

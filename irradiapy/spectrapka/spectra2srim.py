@@ -158,8 +158,8 @@ class Spectra2SRIM:
             events,
         )
 
-    def __spectrapka_in_to_srim_target(self, density: float) -> None:
-        """Process the SPECTRA-PKA input file to generate SRIM target.
+    def __recoils__spectrapka_in_to_target(self, density: float) -> None:
+        """Process the SPECTRA-PKA input file to generate target.
 
         Parameters
         ----------
@@ -233,7 +233,10 @@ class Spectra2SRIM:
             width=self.srim_width,
             phase=Phases.SOLID,
             density=density,
+            structure=self.matdict["lattice"],
+            ax=self.matdict["a0"],
         )
+        print("initial", component)
         self.target = [component]
 
     def run(
@@ -285,7 +288,7 @@ class Spectra2SRIM:
 
         self.dir_root.mkdir(parents=True, exist_ok=True)
         self.recoilsdb = RecoilsDB(self.dir_root / "recoils.db")
-        self.__spectrapka_in_to_srim_target(density=density)
+        self.__recoils__spectrapka_in_to_target(density=density)
 
         # Convert SPECTRA-PKA events to SQLite3 database
         self.recoilsdb.process_config_events(

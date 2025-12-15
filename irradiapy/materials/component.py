@@ -69,7 +69,7 @@ class Component:
 
         if not isinstance(self.phase, Phases):
             raise ValueError("phase must be an instance of Phases Enum.")
-        self.srim_phase = self.phase.value - 1
+        self.srim_phase = self.phase.to_int() - 1
 
         if sum(self.stoichs) != 1.0:
             raise ValueError("Sum of stoichiometric coefficients must be 1.0.")
@@ -309,7 +309,6 @@ class Component:
         float | npt.NDArray[np.float64]
             Number of Frenkel pairs predicted by the specified dpa mode.
         """
-        print(self.ed_min, self.ed_avr, self.b_arc, self.c_arc)
         if mode == DpaMode.FERARC:
             if (
                 self.ed_min is None

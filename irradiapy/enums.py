@@ -3,14 +3,52 @@
 from enum import Enum, auto
 
 
-class DamageEnergyMode(Enum):
+class CustomEnum(Enum):
+    """Base class for custom enumerations."""
+
+    def to_int(self) -> int:
+        """Get the integer value of the enum member.
+
+        Returns
+        -------
+        int
+            The integer value of the enum member.
+        """
+        return self.value
+
+    @classmethod
+    def from_int(cls, value: int) -> "CustomEnum":
+        """Get the enum member from its integer value.
+
+        Parameters
+        ----------
+        value : int
+            The integer value of the enum member.
+
+        Returns
+        -------
+        CustomEnum
+            The corresponding enum member.
+
+        Raises
+        ------
+        ValueError
+            If the integer value does not correspond to any enum member.
+        """
+        for member in cls:
+            if member.value == value:
+                return member
+        raise ValueError(f"Invalid integer value for {cls.__name__}: {value}")
+
+
+class DamageEnergyMode(CustomEnum):
     """Enumeration of damage energy calculation modes."""
 
     LINDHARD = auto()
     SRIM = auto()
 
 
-class DpaMode(Enum):
+class DpaMode(CustomEnum):
     """Enumeration of dpa calculation modes.
 
     References
@@ -25,7 +63,7 @@ class DpaMode(Enum):
     FERARC = auto()
 
 
-class Phases(Enum):
+class Phases(CustomEnum):
     """Enumeration of material phases."""
 
     SOLID = auto()
