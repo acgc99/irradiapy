@@ -8,12 +8,12 @@ import numpy as np
 from numpy import typing as npt
 
 
-def insert_array(path_db: Path, name: str, **kargs) -> None:
+def insert_array(path: Path, name: str, **kargs) -> None:
     """Insert or update an array in the arrays table.
 
     Parameters
     ----------
-    path_db : Path
+    path : Path
         Path to the SQLite database file.
     name : str
         Name of the array to insert or update.
@@ -24,7 +24,7 @@ def insert_array(path_db: Path, name: str, **kargs) -> None:
     np.savez(buffer, **kargs)
     blob = buffer.getvalue()
     buffer.close()
-    conn = sqlite3.connect(path_db)
+    conn = sqlite3.connect(path)
     cur = conn.cursor()
     cur.execute("CREATE TABLE IF NOT EXISTS arrays (name TEXT UNIQUE, data BLOB)")
     cur.execute(
@@ -36,12 +36,12 @@ def insert_array(path_db: Path, name: str, **kargs) -> None:
     conn.close()
 
 
-def read_array(path_db: Path, name: str) -> dict[str, npt.NDArray]:
+def read_array(path: Path, name: str) -> dict[str, npt.NDArray]:
     """Read an array from the arrays table.
 
     Parameters
     ----------
-    path_db : Path
+    path : Path
         Path to the SQLite database file.
     name : str
         Name of the array to read.
@@ -51,7 +51,7 @@ def read_array(path_db: Path, name: str) -> dict[str, npt.NDArray]:
     dict[str, npt.NDArray]
         Dictionary containing the array data.
     """
-    conn = sqlite3.connect(path_db)
+    conn = sqlite3.connect(path)
     cur = conn.cursor()
     cur.execute("SELECT data FROM arrays WHERE name = ?", (name,))
     row = cur.fetchone()
@@ -69,17 +69,17 @@ def read_array(path_db: Path, name: str) -> dict[str, npt.NDArray]:
     return data
 
 
-def delete_array(path_db: Path, name: str) -> None:
+def delete_array(path: Path, name: str) -> None:
     """Delete an array from the arrays table.
 
     Parameters
     ----------
-    path_db : Path
+    path : Path
         Path to the SQLite database file.
     name : str
         Name of the array to delete.
     """
-    conn = sqlite3.connect(path_db)
+    conn = sqlite3.connect(path)
     cur = conn.cursor()
     cur.execute("DELETE FROM arrays WHERE name = ?", (name,))
     conn.commit()
@@ -87,15 +87,15 @@ def delete_array(path_db: Path, name: str) -> None:
     conn.close()
 
 
-def delete_all_arrays(path_db: Path) -> None:
+def delete_all_arrays(path: Path) -> None:
     """Drop the arrays table from the database.
 
     Parameters
     ----------
-    path_db : Path
+    path : Path
         Path to the SQLite database file.
     """
-    conn = sqlite3.connect(path_db)
+    conn = sqlite3.connect(path)
     cur = conn.cursor()
     cur.execute("DROP TABLE IF EXISTS arrays")
     conn.commit()

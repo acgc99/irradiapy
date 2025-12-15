@@ -30,7 +30,7 @@ class SRIMDB(sqlite3.Connection):
 
     Attributes
     ----------
-    path_db : Path
+    path : Path
         Output database path.
     target : list[Component], optional (default=None)
         SRIM target. Do not provide this argument for read only.
@@ -72,7 +72,7 @@ class SRIMDB(sqlite3.Connection):
         Class storing `VACANCY.txt` data.
     """
 
-    path_db: Path
+    path: Path
     target: None | list[Component] = None
     calculation: None | str = None
 
@@ -113,14 +113,14 @@ class SRIMDB(sqlite3.Connection):
 
         Parameters
         ----------
-        path_db : Path
+        path : Path
             Output database path.
         target : Target, optional (default=None)
             SRIM target. Do not provide this argument for read only.
         calculation : Calculation, optional (default=None)
             SRIM calculation. Do not provide this argument for read only.
         """
-        super().__init__(self.path_db)
+        super().__init__(self.path)
         self.backscat = Backscat(self)
         self.e2recoil = E2Recoil(self)
         self.ioniz = Ioniz(self)
