@@ -7,7 +7,7 @@ from math import sqrt
 from pathlib import Path
 from typing import TYPE_CHECKING, Generator
 
-from irradiapy.srim.ofiles.srimfile import SRIMFile
+from irradiapy.srim.srimfile import SRIMFile
 
 if TYPE_CHECKING:
     from irradiapy.srim.srimdb import SRIMDB

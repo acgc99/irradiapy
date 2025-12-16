@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Generator
 
 import numpy as np
 
-from irradiapy.srim.ofiles.srimfile import SRIMFile
+from irradiapy.srim.srimfile import SRIMFile
 
 if TYPE_CHECKING:
     from irradiapy.srim.srimdb import SRIMDB

@@ -1,34 +1,34 @@
-"""This module contains the `Sputter` class."""
+"""This module contains the `Transmit` class."""
 
 from pathlib import Path
 from typing import TYPE_CHECKING, Generator
 
-from irradiapy.srim.ofiles.srimfile import SRIMFile
+from irradiapy.srim.srimfile import SRIMFile
 
 if TYPE_CHECKING:
     from irradiapy.srim.srimdb import SRIMDB
 
 
-class Sputter(SRIMFile):
-    """Class to handle `SPUTTER.txt` file."""
+class Transmit(SRIMFile):
+    """Class to handle `TRANSMIT.txt` file."""
 
-    def process_file(self, sputter_path: Path) -> None:
-        """Processes `SPUTTER.txt` file.
+    def process_file(self, transmit_path: Path) -> None:
+        """Processes `TRANSMIT.txt` file.
 
         Parameters
         ----------
-        sputter_path : Path
-            `SPUTTER.txt` path.
+        transmit_path : Path
+            `TRANSMIT.txt` path.
         """
         cur = self.cursor()
         cur.execute(
             (
-                "CREATE TABLE sputter"
+                "CREATE TABLE transmit"
                 "(ion_numb INTEGER, atom_numb INTEGER, energy REAL, depth REAL,"
                 "y REAL, z REAL, cosx REAL, cosy REAL, cosz REAL)"
             )
         )
-        with open(sputter_path, "r", encoding="utf-8") as file:
+        with open(transmit_path, "r", encoding="utf-8") as file:
             for line in file:
                 if line.startswith(" Numb"):
                     break
@@ -47,7 +47,7 @@ class Sputter(SRIMFile):
                 cosz = data[8]
                 cur.execute(
                     (
-                        "INSERT INTO sputter"
+                        "INSERT INTO transmit"
                         "(ion_numb, atom_numb, energy, depth, y, z, cosx, cosy, cosz)"
                         "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)"
                     ),
@@ -59,7 +59,7 @@ class Sputter(SRIMFile):
     def read(
         self, what: str = "*", condition: str = ""
     ) -> Generator[tuple, None, None]:
-        """Reads sputter data from the database as a generator.
+        """Reads transmit data from the database as a generator.
 
         Parameters
         ----------
@@ -74,7 +74,7 @@ class Sputter(SRIMFile):
             Data from the database.
         """
         cur = self.cursor()
-        cur.execute(f"SELECT {what} FROM sputter {condition}")
+        cur.execute(f"SELECT {what} FROM transmit {condition}")
         while True:
             data = cur.fetchone()
             if data:
@@ -83,37 +83,37 @@ class Sputter(SRIMFile):
                 break
         cur.close()
 
-    def get_natoms(self) -> int:
-        """Returns the number of atoms in the database.
+    def get_nions(self) -> int:
+        """Returns the number of ions in the database.
 
         Returns
         -------
         int
-            Number of atoms.
+            Number of ions.
         """
         cur = self.cursor()
-        cur.execute("SELECT COUNT(1) FROM sputter")
-        natoms = cur.fetchone()[0]
+        cur.execute("SELECT COUNT(1) FROM transmit")
+        nions = cur.fetchone()[0]
         cur.close()
-        return natoms
+        return nions
 
     def merge(self, srimdb2: "SRIMDB") -> None:
-        """Merges the sputter table with another database.
+        """Merges the transmit table with another database.
 
         Parameters
         ----------
         srimdb2 : SRIMDB
             SRIM database to merge.
         """
-        nions = self.srim.nions
+        nions = self.srim.transmit.get_nions()
         cur = self.cursor()
         cur.execute(f"ATTACH DATABASE '{srimdb2.db_path}' AS srimdb2")
         cur.execute(
             (
-                "INSERT INTO sputter"
+                "INSERT INTO transmit"
                 "(ion_numb, atom_numb, energy, depth, y, z, cosx, cosy, cosz)"
                 "SELECT ion_numb + ?, atom_numb, energy, depth, y, z, cosx, "
-                "cosy, cosz FROM srimdb2.sputter"
+                "cosy, cosz FROM srimdb2.transmit"
             ),
             (nions,),
         )

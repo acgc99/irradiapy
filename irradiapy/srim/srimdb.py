@@ -9,19 +9,19 @@ from irradiapy import config
 from irradiapy.enums import Phases
 from irradiapy.materials.component import Component
 from irradiapy.materials.element import Element
-from irradiapy.srim.ofiles.backscat import Backscat
-from irradiapy.srim.ofiles.collision import Collision
-from irradiapy.srim.ofiles.e2recoil import E2Recoil
-from irradiapy.srim.ofiles.ioniz import Ioniz
-from irradiapy.srim.ofiles.lateral import Lateral
-from irradiapy.srim.ofiles.novac import Novac
-from irradiapy.srim.ofiles.phonon import Phonon
-from irradiapy.srim.ofiles.range import Range
-from irradiapy.srim.ofiles.range3d import Range3D
-from irradiapy.srim.ofiles.sputter import Sputter
-from irradiapy.srim.ofiles.transmit import Transmit
-from irradiapy.srim.ofiles.trimdat import Trimdat
-from irradiapy.srim.ofiles.vacancy import Vacancy
+from irradiapy.srim.backscat import Backscat
+from irradiapy.srim.collision import Collision
+from irradiapy.srim.e2recoil import E2Recoil
+from irradiapy.srim.ioniz import Ioniz
+from irradiapy.srim.lateral import Lateral
+from irradiapy.srim.novac import Novac
+from irradiapy.srim.phonon import Phonon
+from irradiapy.srim.range import Range
+from irradiapy.srim.range3d import Range3D
+from irradiapy.srim.sputter import Sputter
+from irradiapy.srim.transmit import Transmit
+from irradiapy.srim.trimdat import Trimdat
+from irradiapy.srim.vacancy import Vacancy
 
 
 @dataclass(kw_only=True)
