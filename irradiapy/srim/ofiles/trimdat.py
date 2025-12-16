@@ -51,6 +51,7 @@ class Trimdat(SRIMFile):
                     ),
                     [ion_numb, atom_numb, energy, depth, y, z, cosx, cosy, cosz],
                 )
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_trimdat_ion ON trimdat(ion_numb)")
         cur.close()
         self.srim.commit()
 
