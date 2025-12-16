@@ -318,100 +318,6 @@ class Py2SRIM:
 
     # endregion
 
-    # region Recoils direction
-
-    @staticmethod
-    def __get_dir(
-        pos0: npt.NDArray[np.float64],
-        pos: npt.NDArray[np.float64],
-    ) -> npt.NDArray[np.float64]:
-        """Gets the direction from two positions.
-
-        Parameters
-        pos0 : npt.NDArray[np.float64]
-            Initial position.
-        pos : npt.NDArray[np.float64]
-            Final position.
-        """
-        diff = pos - pos0
-        with warnings.catch_warnings():
-            warnings.filterwarnings(
-                "ignore",
-                category=RuntimeWarning,
-                message="invalid value encountered in divide",
-            )
-            direction = diff / np.linalg.norm(diff)
-        return direction
-
-    @staticmethod
-    def __add_recoils_dirs(srimdb: SRIMDB, trimdat: dtypes.Trimdat) -> None:
-        cur = srimdb.cursor()
-
-        # Add columns only if missing (avoid errors if rerun)
-        cols = {r[1] for r in cur.execute("PRAGMA table_info(collision)")}
-        if "cosx" not in cols:
-            cur.execute("ALTER TABLE collision ADD COLUMN cosx REAL")
-            cur.execute("ALTER TABLE collision ADD COLUMN cosy REAL")
-            cur.execute("ALTER TABLE collision ADD COLUMN cosz REAL")
-
-        # Helps the WHERE ion_numb=? scans a lot
-        cur.execute(
-            "CREATE INDEX IF NOT EXISTS idx_collision_ion ON collision(ion_numb)"
-        )
-
-        nions = srimdb.get_nions()
-
-        sel = srimdb.cursor()
-        upd = srimdb.cursor()
-
-        # Single transaction for all updates
-        srimdb.execute("BEGIN")
-
-        chunk = 20000
-        for ion_numb in range(1, nions + 1):
-            pos0 = trimdat[ion_numb - 1]["pos"]
-            cos_prev = trimdat[ion_numb - 1]["dir"]
-
-            sel.execute(
-                "SELECT rowid, depth, y, z FROM collision "
-                "WHERE ion_numb = ? ORDER BY rowid",
-                (ion_numb,),
-            )
-
-            batch = []
-            for rowid, depth, y, z in sel:
-                pos = np.array([depth, y, z])
-                cosx, cosy, cosz = Py2SRIM.__get_dir(pos0, pos)
-
-                if np.isnan(cosx) or np.isnan(cosy) or np.isnan(cosz):
-                    # same-position case: reuse previous direction
-                    cosx, cosy, cosz = cos_prev
-                else:
-                    cos_prev = (cosx, cosy, cosz)
-
-                batch.append((float(cosx), float(cosy), float(cosz), int(rowid)))
-                pos0 = pos
-
-                if len(batch) >= chunk:
-                    upd.executemany(
-                        "UPDATE collision SET cosx=?, cosy=?, cosz=? WHERE rowid=?",
-                        batch,
-                    )
-                    batch.clear()
-
-            if batch:
-                upd.executemany(
-                    "UPDATE collision SET cosx=?, cosy=?, cosz=? WHERE rowid=?",
-                    batch,
-                )
-
-        srimdb.commit()
-        sel.close()
-        upd.close()
-        cur.close()
-
-    # endregion
-
     # region Checks
 
     def __check_transmit(self, srimdb: SRIMDB) -> None:
@@ -655,7 +561,7 @@ class Py2SRIM:
         # Generate input files
         self.__generate_trimauto()
         self.__generate_trimin(atomic_numbers, energies)
-        trimdat = self.__generate_trimdat(
+        self.__generate_trimdat(
             atomic_numbers,
             energies,
             depths=depths,
@@ -682,7 +588,6 @@ class Py2SRIM:
 
         # Append output files
         srimdb.append_output()
-        self.__add_recoils_dirs(srimdb, trimdat)
         srimdb.commit()
         if fail_on_transmit:
             self.__check_transmit(srimdb)
