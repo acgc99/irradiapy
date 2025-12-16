@@ -79,13 +79,13 @@ class Vacancy(SRIMFile):
         """
         vacancies_1 = ", ".join(
             f"vacancies_{i}_{j} REAL"
-            for i, layer in enumerate(self.srim.target.layers)
-            for j in range(len(layer.elements))
+            for i, component in enumerate(self.srim.target)
+            for j in range(len(component.elements))
         )
         vacancies_2 = ", ".join(
             f"vacancies_{i}_{j}"
-            for i, layer in enumerate(self.srim.target.layers)
-            for j in range(len(layer.elements))
+            for i, component in enumerate(self.srim.target)
+            for j in range(len(component.elements))
         )
         vacancies_3 = ", ".join(["?" for _ in range(len(vacancies_1.split(", ")))])
         cur = self.cursor()

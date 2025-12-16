@@ -75,13 +75,13 @@ class E2Recoil(SRIMFile):
         """
         energy_absorbed_1 = ", ".join(
             f"energy_absorbed_{i}_{j} REAL"
-            for i, layer in enumerate(self.srim.target.layers)
-            for j in range(len(layer.elements))
+            for i, component in enumerate(self.srim.target)
+            for j in range(len(component.elements))
         )
         energy_absorbed_2 = ", ".join(
             f"energy_absorbed_{i}_{j}"
-            for i, layer in enumerate(self.srim.target.layers)
-            for j in range(len(layer.elements))
+            for i, component in enumerate(self.srim.target)
+            for j in range(len(component.elements))
         )
         energy_absorbed_3 = ", ".join(
             ["?" for _ in range(len(energy_absorbed_1.split(", ")))]

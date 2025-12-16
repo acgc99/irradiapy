@@ -79,13 +79,13 @@ class Range(SRIMFile):
         """
         target_atoms_1 = ", ".join(
             f"tgt_atoms_{i}_{j} REAL"
-            for i, layer in enumerate(self.srim.target.layers)
-            for j in range(len(layer.elements))
+            for i, component in enumerate(self.srim.target)
+            for j in range(len(component.elements))
         )
         target_atoms_2 = ", ".join(
             f"tgt_atoms_{i}_{j}"
-            for i, layer in enumerate(self.srim.target.layers)
-            for j in range(len(layer.elements))
+            for i, component in enumerate(self.srim.target)
+            for j in range(len(component.elements))
         )
         target_atoms_3 = ", ".join(
             ["?" for _ in range(len(target_atoms_1.split(", ")))]
