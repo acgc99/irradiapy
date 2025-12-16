@@ -303,11 +303,11 @@ class SRIMDB(sqlite3.Connection):
         """Loads the target and calculation parameters from the database."""
         cur = self.cursor()
         cur.execute(
-            "SELECT component_id, width, phase, density, srim_bragg FROM components"
+            "SELECT component_id, width, name, phase, density, srim_bragg FROM components"
         )
         components = list(cur.fetchall())
         target = []
-        for component_id, width, phase, density, srim_bragg in components:
+        for component_id, width, name, phase, density, srim_bragg in components:
             cur.execute(
                 (
                     "SELECT component_id, atomic_number, "
@@ -348,7 +348,7 @@ class SRIMDB(sqlite3.Connection):
             component = Component(
                 elements=elements,
                 stoichs=stoichs,
-                name=f"layer{component_id}",
+                name=name,
                 width=width,
                 density=density,
                 phase=Phases.from_int(phase),

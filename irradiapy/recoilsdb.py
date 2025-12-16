@@ -356,12 +356,13 @@ class RecoilsDB(sqlite3.Connection):
         """Loads the target from the database."""
         cur = self.cursor()
         cur.execute(
-            "SELECT component_id, phase, density, width, ax, structure, srim_bragg FROM components"
+            "SELECT component_id, name, phase, density, width, ax, structure, srim_bragg FROM components"
         )
         components = list(cur.fetchall())
         target = []
         for (
             component_id,
+            name,
             phase,
             density,
             width,
@@ -409,7 +410,7 @@ class RecoilsDB(sqlite3.Connection):
             component = Component(
                 elements=elements,
                 stoichs=stoichs,
-                name=f"layer{component_id}",
+                name=name,
                 phase=Phases.from_int(phase),
                 density=density,
                 width=width,
