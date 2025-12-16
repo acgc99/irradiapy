@@ -344,55 +344,70 @@ class Py2SRIM:
         return direction
 
     @staticmethod
-    def __add_recoils_dirs(srimdb: SRIMDB, trimdat: dtypes.Trimdat) -> tuple:
-        """Add recoil directions to collision table.
+    def __add_recoils_dirs(srimdb: SRIMDB, trimdat: dtypes.Trimdat) -> None:
+        cur = srimdb.cursor()
 
-        Parameters
-        ----------
-        trimdat : dtypes.Trimdat
-            TRIMDAT data.
-        """
-        cur = srimdb.collision.cursor()
-        cur.execute("ALTER TABLE collision ADD COLUMN cosx REAL")
-        cur.execute("ALTER TABLE collision ADD COLUMN cosy REAL")
-        cur.execute("ALTER TABLE collision ADD COLUMN cosz REAL")
+        # Add columns only if missing (avoid errors if rerun)
+        cols = {r[1] for r in cur.execute("PRAGMA table_info(collision)")}
+        if "cosx" not in cols:
+            cur.execute("ALTER TABLE collision ADD COLUMN cosx REAL")
+            cur.execute("ALTER TABLE collision ADD COLUMN cosy REAL")
+            cur.execute("ALTER TABLE collision ADD COLUMN cosz REAL")
+
+        # Helps the WHERE ion_numb=? scans a lot
+        cur.execute(
+            "CREATE INDEX IF NOT EXISTS idx_collision_ion ON collision(ion_numb)"
+        )
 
         nions = srimdb.get_nions()
-        for nion in range(nions):
-            pos0 = trimdat[nion]["pos"]
-            cosx0, cosy0, cosz0 = trimdat[nion]["dir"]
-            for collision in srimdb.collision.read(what="rowid, depth, y, z"):
-                rowid, depth, y, z = collision
+
+        sel = srimdb.cursor()
+        upd = srimdb.cursor()
+
+        # Single transaction for all updates
+        srimdb.execute("BEGIN")
+
+        chunk = 20000
+        for ion_numb in range(1, nions + 1):
+            pos0 = trimdat[ion_numb - 1]["pos"]
+            cos_prev = trimdat[ion_numb - 1]["dir"]
+
+            sel.execute(
+                "SELECT rowid, depth, y, z FROM collision "
+                "WHERE ion_numb = ? ORDER BY rowid",
+                (ion_numb,),
+            )
+
+            batch = []
+            for rowid, depth, y, z in sel:
                 pos = np.array([depth, y, z])
                 cosx, cosy, cosz = Py2SRIM.__get_dir(pos0, pos)
-                # There are some rare cases, specially at high energies,
-                # when there are two PKA at the same position. I think this
-                # is because they are really close and when saved into
-                # COLLISON.txt, positions are rounded and they coincide.
-                # In such cases (if statement triggered), we assume that the
-                # second PKA has the same direction as the first one.
+
                 if np.isnan(cosx) or np.isnan(cosy) or np.isnan(cosz):
-                    warnings.warn(
-                        (
-                            "Two PKAs at the same position, assuming same direction. This is "
-                            "likely because of SRIM rounding positions when saving into "
-                            "COLLISON.txt."
-                        ),
-                        RuntimeWarning,
-                    )
-                    cosx, cosy, cosz = cosx0, cosy0, cosz0
+                    # same-position case: reuse previous direction
+                    cosx, cosy, cosz = cos_prev
                 else:
-                    cosx0, cosy0, cosz0 = cosx, cosy, cosz
-                cur.execute(
-                    "UPDATE collision SET cosx = ?, cosy = ?, cosz = ? WHERE rowid = ?",
-                    (
-                        cosx,
-                        cosy,
-                        cosz,
-                        rowid,
-                    ),
-                )
+                    cos_prev = (cosx, cosy, cosz)
+
+                batch.append((float(cosx), float(cosy), float(cosz), int(rowid)))
                 pos0 = pos
+
+                if len(batch) >= chunk:
+                    upd.executemany(
+                        "UPDATE collision SET cosx=?, cosy=?, cosz=? WHERE rowid=?",
+                        batch,
+                    )
+                    batch.clear()
+
+            if batch:
+                upd.executemany(
+                    "UPDATE collision SET cosx=?, cosy=?, cosz=? WHERE rowid=?",
+                    batch,
+                )
+
+        srimdb.commit()
+        sel.close()
+        upd.close()
         cur.close()
 
     # endregion
@@ -425,13 +440,13 @@ class Py2SRIM:
 
     def __create_srimdb(
         self,
-        path_db: Path,
+        path: Path,
         target: list[Component],
         calculation: str,
     ) -> SRIMDB:
         """Creates a SRIMDB instance."""
         srimdb = SRIMDB(
-            path_db=path_db,
+            path=path,
             target=target,
             calculation=calculation,
             seed=self.seed,
@@ -577,8 +592,8 @@ class Py2SRIM:
         )
         if create_parent_dir:
             dir_branch.mkdir(parents=True, exist_ok=True)
-        path_db = dir_branch / "srim.db"
-        return path_db
+        path = dir_branch / "srim.db"
+        return path
 
     def __run(
         self,
@@ -632,7 +647,7 @@ class Py2SRIM:
         if srimdb.table_exists("trimdat"):
             raise RuntimeError(
                 (
-                    f"The database {srimdb.path_db} is already populated "
+                    f"The database {srimdb.path} is already populated "
                     "with data from another simulation, use another one."
                 )
             )
@@ -742,14 +757,14 @@ class Py2SRIM:
                 Event index, 1-based. Here it is the original ion index + 1 from Py2SRIM.run.
             """
             # Path to current SRIM DB for this tree
-            path_branch_db = self.__tree2path_db(tree, create_parent_dir=False)
+            path_branch = self.__tree2path_db(tree, create_parent_dir=False)
 
             # If this SRIM DB does not exist (e.g., max_srim_iters prevented creation), stop here.
-            if not path_branch_db.exists():
+            if not path_branch.exists():
                 return
 
             srimdb_branch = self.__create_srimdb(
-                path_db=path_branch_db,
+                path=path_branch,
                 target=None,
                 calculation=None,
             )
@@ -850,14 +865,14 @@ class Py2SRIM:
                 continue
 
             # High-energy primary ion: follow SRIM cascades starting at atomic_number/srim.db.
-            path_branch_db = self.__tree2path_db(
+            path_branch = self.__tree2path_db(
                 (ion_atomic_number,),
                 create_parent_dir=False,
             )
 
             # No SRIM data for this ion: treat as terminal.
             # Likely due to max_srim_iters or an aborted run.
-            if not path_branch_db.exists():
+            if not path_branch.exists():
                 self.recoilsdb.insert_recoil(
                     event=event,
                     atomic_number=ion_atomic_number,
@@ -872,8 +887,8 @@ class Py2SRIM:
                 continue
 
             # Ion index in this first-level SRIM DB.
-            ion_numb = srim_ion_counters[path_branch_db] + 1
-            srim_ion_counters[path_branch_db] = ion_numb
+            ion_numb = srim_ion_counters[path_branch] + 1
+            srim_ion_counters[path_branch] = ion_numb
 
             collect_recoils_from_srim(
                 tree=(ion_atomic_number,),
@@ -923,14 +938,14 @@ class Py2SRIM:
                 Event index, 1-based (ion index from Py2SRIM.run).
             """
             # Path to current SRIM DB for this tree
-            path_branch_db = self.__tree2path_db(tree, create_parent_dir=False)
+            path_branch = self.__tree2path_db(tree, create_parent_dir=False)
 
             # If this SRIM DB does not exist (e.g., max_srim_iters prevented creation), stop.
-            if not path_branch_db.exists():
+            if not path_branch.exists():
                 return
 
             srimdb_branch = self.__create_srimdb(
-                path_db=path_branch_db,
+                path=path_branch,
                 target=None,
                 calculation=None,
             )
@@ -1022,19 +1037,19 @@ class Py2SRIM:
                 continue
 
             # High-energy primary ion: follow SRIM cascades starting at Z/srim.db.
-            path_branch_db = self.__tree2path_db(
+            path_branch = self.__tree2path_db(
                 tree=(ion_atomic_number,),
                 create_parent_dir=False,
             )
 
             # No SRIM data for this ion: treat as terminal.
             # Likely due to max_srim_iters or aborted runs.
-            if not path_branch_db.exists():
+            if not path_branch.exists():
                 continue
 
             # Ion index in this first-level SRIM DB.
-            ion_numb = srim_ion_counters[path_branch_db] + 1
-            srim_ion_counters[path_branch_db] = ion_numb
+            ion_numb = srim_ion_counters[path_branch] + 1
+            srim_ion_counters[path_branch] = ion_numb
 
             collect_ions_vacs_from_srim(
                 tree=(ion_atomic_number,),
@@ -1128,9 +1143,9 @@ class Py2SRIM:
             batch: dict[str, npt.NDArray[np.float64]],
         ) -> None:
             """Run SRIM for one branch in the tree and write dir_root/.../srim.db."""
-            path_db = self.__tree2path_db(tree, True)
+            path = self.__tree2path_db(tree, True)
             srimdb = self.__create_srimdb(
-                path_db=path_db,
+                path=path,
                 target=self.target,
                 calculation=self.calculation,
             )
@@ -1152,14 +1167,14 @@ class Py2SRIM:
 
         def recurse(tree: tuple[int, ...]) -> None:
             """Process one srim.db and recursively spawn branches."""
-            path_db = self.__tree2path_db(tree, False)
+            path = self.__tree2path_db(tree, False)
             # Database not existing: no recoils to process
-            if not path_db.exists():
+            if not path.exists():
                 return
 
             # Collect recoils from this branch for the next iteration
             srimdb_branch = self.__create_srimdb(
-                path_db=path_db,
+                path=path,
                 target=None,
                 calculation=None,
             )

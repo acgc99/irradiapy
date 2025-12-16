@@ -509,15 +509,8 @@ class SRIMDB(sqlite3.Connection):
         self.optimize()
 
     def append_output(self) -> None:
-        """Appends SRIM output files into the database.
-
-        Note
-        ----
-        Although reading and saving information from the TRIM.DAT and TRIM.IN files
-        instead of directly using the Python objects provided as input to SRIMDB.run
-        may seem redundant, this approach is maintained to preserve the ability to read
-        SRIM configuration files. The resulting performance loss is relatively minor.
-        """
+        """Appends SRIM output files into the database."""
+        self.trimdat.process_file(self.dir_srim / "TRIM.DAT")  # This must be first
         self.backscat.process_file(self.dir_srim / "SRIM Outputs/BACKSCAT.txt")
         self.collision.process_file(self.dir_srim / "SRIM Outputs/COLLISON.txt")
         self.e2recoil.process_file(self.dir_srim / "E2RECOIL.txt")
@@ -528,7 +521,6 @@ class SRIMDB(sqlite3.Connection):
         self.range.process_file(self.dir_srim / "RANGE.txt")
         self.sputter.process_file(self.dir_srim / "SRIM Outputs/SPUTTER.txt")
         self.transmit.process_file(self.dir_srim / "SRIM Outputs/TRANSMIT.txt")
-        self.trimdat.process_file(self.dir_srim / "TRIM.DAT")
         self.nions = self.get_nions()
         self.vacancy.process_file(self.dir_srim / "VACANCY.txt")
         if self.calculation in ["full", "mono"]:
