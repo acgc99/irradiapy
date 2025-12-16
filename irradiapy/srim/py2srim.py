@@ -184,7 +184,7 @@ class Py2SRIM:
                 )
                 layer_info = f'{i} "layer{i}" {component.width} {component.density} '
                 layer_info += " ".join(
-                    map(str, prev_stoichs + component.stoichs + next_stoichs)
+                    map(str, prev_stoichs + list(component.stoichs) + next_stoichs)
                 )
                 layers_info.append(layer_info)
             file.write(string + "\n".join(layers_info) + "\n")
