@@ -146,11 +146,12 @@ def fit_lorentzian(
             [x_end, x_sum, ys.max(), asymmetry],
         ),
     )
+    errors = np.sqrt(np.diag(pcov)).astype(float)
 
     def fit_function(xs_fit: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         return lorentzian(xs_fit, *popt)
 
-    return popt, pcov, fit_function
+    return popt, errors, fit_function
 
 
 # endregion
@@ -256,11 +257,12 @@ def fit_gaussian(
             [x_end, x_sum, ys.max(), asymmetry],
         ),
     )
+    errors = np.sqrt(np.diag(pcov)).astype(float)
 
     def fit_function(xs_fit: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         return gaussian(xs_fit, *popt)
 
-    return popt, pcov, fit_function
+    return popt, errors, fit_function
 
 
 # endregion
@@ -297,19 +299,16 @@ def fit_power_law(
 ) -> tuple[float, float, Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]]:
     """Fit a power law to the given histogram data: y = a * x**k.
 
-    Note
-    ----
-    The fit is done in log-log space, so the input data should be positive.
+    Fitted in log-log space: log(y) = log(a) + k * log(x)
 
     Parameters
     ----------
     xs : npt.NDArray[np.float64]
-        X values where the function is evaluated.
+        x-values where the function is evaluated.
     ys : npt.NDArray[np.float64]
-        Y values at the given xs.
+        y-values at the given xs.
     yerrs : npt.NDArray[np.float64], optional
-        Y errors.
-
+        y-errors.
     Returns
     -------
     tuple[float, float, Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]]
@@ -318,25 +317,34 @@ def fit_power_law(
         - (error_a, error_k): Errors of the fitted parameters.
         - fit_function: Function that evaluates the fitted power law.
     """
-    # Power law: y = a * x**k
-    # Fitted in log-log space: log(y) = log(a) + k * log(x)
-    popt, popv = curve_fit(
+    if np.any(xs <= 0.0) or np.any(ys <= 0.0):
+        raise ValueError("xs and ys must be positive for power law fitting.")
+    if yerrs is not None and np.any(yerrs <= 0.0):
+        raise ValueError("yerrs must be positive for power law fitting.")
+
+    if yerrs is None:
+        sigma_log = None
+        absolute_sigma = False
+    else:
+        yerrs = np.asarray(yerrs, dtype=float)
+        sigma_log = yerrs / ys  # error of log(y)
+        absolute_sigma = True
+
+    popt, pcov = curve_fit(
         lambda x, a, b: a + b * x,
         np.log(xs),
         np.log(ys),
-        sigma=yerrs / ys,
-        absolute_sigma=True,
+        sigma=sigma_log,
+        absolute_sigma=absolute_sigma,
     )
-    a = np.exp(popt[0])
-    k = popt[1]
-    errors = np.sqrt(np.diag(popv))
-    error_a = a * errors[0]
-    error_k = errors[1]
+    popt = np.array([np.exp(popt[0]), popt[1]])
+    errors = np.sqrt(np.diag(pcov)).astype(float)
+    errors = np.array([popt[0] * errors[0], errors[1]])
 
     def fit_function(x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        return power_law(x, a, k)
+        return power_law(x, *popt)
 
-    return (a, k), (error_a, error_k), fit_function
+    return popt, errors, fit_function
 
 
 # endregion
@@ -408,7 +416,7 @@ def fit_offset_power_law(
         - fit_function: Function that evaluates the fitted power law.
     """
     # Power law: y = a * x**k + b
-    popt, popv = curve_fit(
+    popt, pcov = curve_fit(
         offset_power_law,
         xs,
         ys,
@@ -416,14 +424,12 @@ def fit_offset_power_law(
         absolute_sigma=yerrs is not None,
         p0=(1.0, 1.0, 0.0),
     )
-    a, k, b = popt[0], popt[1], popt[2]
-    errors = np.sqrt(np.diag(popv)).astype(float)
-    error_a, error_k, error_b = errors
+    errors = np.sqrt(np.diag(pcov)).astype(float)
 
     def fit_function(x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        return offset_power_law(x, a, k, b)
+        return offset_power_law(x, *popt)
 
-    return (a, k, b), (error_a, error_k, error_b), fit_function
+    return popt, errors, fit_function
 
 
 # endregion
@@ -476,17 +482,13 @@ def fit_linear(
         - (error_a, error_b): Errors of the fitted parameters.
         - fit_function: Function that evaluates the fitted linear function.
     """
-    popt, popv = curve_fit(linear, xs, ys, sigma=yerrs)
-    a = popt[0]
-    b = popt[1]
-    errors = np.sqrt(np.diag(popv))
-    error_a = errors[0]
-    error_b = errors[1]
+    popt, pcov = curve_fit(linear, xs, ys, sigma=yerrs)
+    errors = np.sqrt(np.diag(pcov)).astype(float)
 
     def fit_function(x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        return linear(x, a, b)
+        return linear(x, *popt)
 
-    return (a, b), (error_a, error_b), fit_function
+    return popt, errors, fit_function
 
 
 # endregion
