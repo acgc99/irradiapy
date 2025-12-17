@@ -113,7 +113,7 @@ class Py2SRIM:
     ) -> None:
         """Generates `TRIM.IN` file."""
         nions = len(atomic_numbers)
-        atomic_mass = materials.MASS_NUMBER_BY_ATOMIC_NUMBER[atomic_numbers[0]]
+        atomic_mass = materials.ATOMIC_WEIGHT_BY_ATOMIC_NUMBER[atomic_numbers[0]]
         energy = np.ceil(energies.max()) / 1e3
         ncomponents = len(self.target)
         nelements = sum(len(component.elements) for component in self.target)
@@ -171,7 +171,7 @@ class Py2SRIM:
                 for j, element in enumerate(component.elements):
                     string += (
                         f"Atom {i*len(component.elements)+j+1} = {element.symbol} "
-                        f"=      {element.atomic_number} {element.mass_number}\n"
+                        f"=      {element.atomic_number} {element.atomic_weight}\n"
                     )
             file.write(string)
             # Target layers

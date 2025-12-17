@@ -211,13 +211,13 @@ class SRIMDB(sqlite3.Connection):
             cur.execute(
                 (
                     "INSERT INTO elements (component_id, atomic_number, "
-                    "mass_number, symbol, stoich, ed_min, ed_avr, b_arc, c_arc, srim_el, srim_es) "
+                    "atomic_weight, symbol, stoich, ed_min, ed_avr, b_arc, c_arc, srim_el, srim_es) "
                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
                 ),
                 (
                     component_id,
                     element.atomic_number,
-                    element.mass_number,
+                    element.atomic_weight,
                     element.symbol,
                     stoich,
                     element.ed_min,
@@ -249,7 +249,7 @@ class SRIMDB(sqlite3.Connection):
         cur.execute(
             (
                 "CREATE TABLE IF NOT EXISTS elements ("
-                "component_id INTEGER, atomic_number INTEGER, mass_number REAL, "
+                "component_id INTEGER, atomic_number INTEGER, atomic_weight REAL, "
                 "symbol TEXT, stoich REAL, ed_min REAL, ed_avr REAL, b_arc REAL, c_arc REAL, "
                 "srim_el REAL, srim_es REAL)"
             )
@@ -320,7 +320,7 @@ class SRIMDB(sqlite3.Connection):
             cur.execute(
                 (
                     "SELECT component_id, atomic_number, "
-                    "mass_number, symbol, stoich, ed_min, ed_avr, b_arc, c_arc, srim_el, srim_es "
+                    "atomic_weight, symbol, stoich, ed_min, ed_avr, b_arc, c_arc, srim_el, srim_es "
                     "FROM elements WHERE component_id = ?"
                 ),
                 (component_id,),
@@ -330,7 +330,7 @@ class SRIMDB(sqlite3.Connection):
             for (
                 _component_id,
                 atomic_number,
-                mass_number,
+                atomic_weight,
                 symbol,
                 _stoich,
                 ed_min,
@@ -342,7 +342,7 @@ class SRIMDB(sqlite3.Connection):
             ) in db_elements:
                 element = Element(
                     atomic_number=atomic_number,
-                    mass_number=mass_number,
+                    atomic_weight=atomic_weight,
                     symbol=symbol,
                     ed_min=ed_min,
                     b_arc=b_arc,

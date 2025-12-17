@@ -28,6 +28,7 @@ class Component:
     name: str
     phase: "Phases"
     density: float  # g/cm3
+    atomic_density: float = field(init=False)  # atoms/angstrom^3
 
     # Position
     x0: None | float = None  # Angstrom
@@ -66,6 +67,7 @@ class Component:
 
     def __post_init__(self) -> None:
         self.nelements = len(self.elements)
+        self.atomic_density = self.__calculate_atomic_density()
 
         if not isinstance(self.phase, Phases):
             raise ValueError("phase must be an instance of Phases Enum.")
@@ -73,6 +75,12 @@ class Component:
 
         if sum(self.stoichs) != 1.0:
             raise ValueError("Sum of stoichiometric coefficients must be 1.0.")
+
+        if self.structure in ["bcc", "fcc"] and self.ax is not None:
+            if self.ay is None:
+                self.ay = self.ax
+            if self.az is None:
+                self.az = self.ax
 
         if self.cutoff_sia is None and self.ax is not None:
             self.cutoff_sia = ((np.sqrt(2.0) + np.sqrt(11.0) / 2.0) * self.ax / 2.0,)
@@ -132,6 +140,16 @@ class Component:
             for element, stoich in zip(elements, stoichs)
             if getattr(element, attribute) is not None
         )
+
+    def __calculate_atomic_density(self) -> float:
+        """Calculate the density in units of atoms / angstrom^3 from density in g / cm3."""
+        g_cm3_to_amu_a3 = 0.602214129
+        atomic_mass = sum(
+            element.atomic_weight * stoich
+            for element, stoich in zip(self.elements, self.stoichs)
+        )  # amu / atom
+        atomic_density = self.density * g_cm3_to_amu_a3 / atomic_mass
+        return atomic_density
 
     # region Recoil to damage energy
 
@@ -236,15 +254,15 @@ class Component:
             ** 0.5
         )
         redu = (
-            (element.mass_number * recoil_energy)
-            / (recoil.mass_number + element.mass_number)
+            (element.atomic_weight * recoil_energy)
+            / (recoil.atomic_weight + element.atomic_weight)
             * a
             / (recoil.atomic_number * element.atomic_number * e2)
         )
         k = (
             0.1337
             * recoil.atomic_number ** (1.0 / 6.0)
-            * (recoil.atomic_number / recoil.mass_number) ** 0.5
+            * (recoil.atomic_number / recoil.atomic_weight) ** 0.5
         )
         g = 3.4008 * redu ** (1.0 / 6.0) + 0.40244 * redu ** (3.0 / 4.0) + redu
         return recoil_energy / (1.0 + k * g)

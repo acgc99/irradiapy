@@ -11,14 +11,14 @@ class Element:
     ----------
     atomic_number : int
         Atomic number.
-    mass_number : float
-        Mass number (atomic mass units).
+    atomic_weight: float
+        Atomic weight (atomic mass units).
     symbol : str
         Chemical symbol.
     """
 
     atomic_number: int
-    mass_number: float
+    atomic_weight: float
     symbol: str
 
     # dpa parameters

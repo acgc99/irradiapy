@@ -8,22 +8,22 @@ from irradiapy.materials.element import Element
 
 H = Element(
     atomic_number=1,
-    mass_number=1.00784,
+    atomic_weight=1.00784,
     symbol="H",
 )
 He = Element(
     atomic_number=2,
-    mass_number=4.002602,
+    atomic_weight=4.002602,
     symbol="He",
 )
 O = Element(
     atomic_number=8,
-    mass_number=15.999,
+    atomic_weight=15.999,
     symbol="O",
 )
 Cr = Element(
     atomic_number=24,
-    mass_number=51.9961,
+    atomic_weight=51.9961,
     symbol="Cr",
     ed_avr=40.0,
     srim_el=7.8,
@@ -31,12 +31,12 @@ Cr = Element(
 )
 Mn = Element(
     atomic_number=25,
-    mass_number=54.938044,
+    atomic_weight=54.938044,
     symbol="Mn",
 )
 Fe = Element(
     atomic_number=26,
-    mass_number=55.845,
+    atomic_weight=55.845,
     symbol="Fe",
     ed_min=20.0,
     ed_avr=40.0,
@@ -47,7 +47,7 @@ Fe = Element(
 )
 Cu = Element(
     atomic_number=29,
-    mass_number=63.546,
+    atomic_weight=63.546,
     symbol="Cu",
     ed_min=25.0,
     ed_avr=33.0,
@@ -56,7 +56,7 @@ Cu = Element(
 )
 Ag = Element(
     atomic_number=47,
-    mass_number=107.87,
+    atomic_weight=107.87,
     symbol="Ag",
     ed_avr=39.0,
     srim_el=4.0,
@@ -64,17 +64,17 @@ Ag = Element(
 )
 Hf = Element(
     atomic_number=72,
-    mass_number=178.49,
+    atomic_weight=178.49,
     symbol="Hf",
 )
 Ta = Element(
     atomic_number=73,
-    mass_number=180.94788,
+    atomic_weight=180.94788,
     symbol="Ta",
 )
 W = Element(
     atomic_number=74,
-    mass_number=183.84,
+    atomic_weight=183.84,
     symbol="W",
     ed_min=42.0,
     ed_avr=70.0,
@@ -89,11 +89,11 @@ ELEMENT_BY_SYMBOL = {element.symbol: element for element in ELEMENTS}
 ELEMENT_BY_ATOMIC_NUMBER = {
     element.atomic_number: element for element in ELEMENT_BY_SYMBOL.values()
 }
-MASS_NUMBER_BY_SYMBOL = {
-    symbol: element.mass_number for symbol, element in ELEMENT_BY_SYMBOL.items()
+ATOMIC_WEIGHT_BY_SYMBOL = {
+    symbol: element.atomic_weight for symbol, element in ELEMENT_BY_SYMBOL.items()
 }
-MASS_NUMBER_BY_ATOMIC_NUMBER = {
-    atomic_number: element.mass_number
+ATOMIC_WEIGHT_BY_ATOMIC_NUMBER = {
+    atomic_number: element.atomic_weight
     for atomic_number, element in ELEMENT_BY_ATOMIC_NUMBER.items()
 }
 ATOMIC_NUMBER_BY_SYMBOL = {
