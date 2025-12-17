@@ -6,7 +6,7 @@ from typing import Callable, Union
 import numpy as np
 import numpy.typing as npt
 
-from irradiapy.enums import DamageEnergyMode, DpaMode, Phases
+from irradiapy.enums import DamageEnergyMode, DisplacementMode, Phases
 from irradiapy.materials.element import Element
 
 
@@ -50,7 +50,7 @@ class Component:
     cutoff_sia: None | float = None  # Angstrom
     cutoff_vac: None | float = None  # Angstrom
 
-    # dpa parameters
+    # Displacement parameters
     ed_min: None | float = None  # displacement energy, eV
     ed_avr: None | float = None  # average displacement energy, eV
     b_arc: None | float = None
@@ -303,14 +303,14 @@ class Component:
 
     # endregion
 
-    # region dpa models
+    # region Displacement models
 
-    def damage_energy_to_dpa(
+    def damage_energy_to_displacements(
         self,
         damage_energy: float | npt.NDArray[np.float64],
-        mode: DpaMode,
+        mode: DisplacementMode,
     ) -> int | npt.NDArray[np.float64]:
-        """Convert damage energy to dpa.
+        """Convert damage energy to displaced atoms.
 
         Tries to use the component parameters first; if not available, uses the element
         parameters (weighted average).
@@ -319,39 +319,39 @@ class Component:
         ----------
         damage_energy : float | npt.NDArray[np.float64]
             Damage energy, in eV.
-        mode : DpaMode
-            Dpa calculation mode.
+        mode : DisplacementMode
+            Displaced atoms calculation mode.
 
         Returns
         -------
         float | npt.NDArray[np.float64]
-            Number of Frenkel pairs predicted by the specified dpa mode.
+            Number of Frenkel pairs predicted by the specified displacement mode.
         """
-        if mode == DpaMode.FERARC:
+        if mode == DisplacementMode.FERARC:
             if (
                 self.ed_min is None
                 or self.ed_avr is None
                 or self.b_arc is None
                 or self.c_arc is None
             ):
-                return self.__calc_fer_arc_dpa_elements(damage_energy, self)
-            return self.__calc_fer_arc_dpa(damage_energy, self)
-        if mode == DpaMode.ARC:
+                return self.__calc_fer_arc_displacements_elements(damage_energy, self)
+            return self.__calc_fer_arc_displacements(damage_energy, self)
+        if mode == DisplacementMode.ARC:
             if self.ed_avr is None or self.b_arc is None or self.c_arc is None:
-                return self.__calc_arc_dpa_elements(damage_energy, self)
-            return self.__calc_arc_dpa(damage_energy, self)
-        if mode == DpaMode.NRT:
+                return self.__calc_arc_displacements_elements(damage_energy, self)
+            return self.__calc_arc_displacements(damage_energy, self)
+        if mode == DisplacementMode.NRT:
             if self.ed_avr is None:
-                return self.__calc_nrt_dpa_elements(damage_energy, self)
-            return self.__calc_nrt_dpa(damage_energy, self)
-        raise ValueError("Invalid dpa calculation mode.")
+                return self.__calc_nrt_displacements_elements(damage_energy, self)
+            return self.__calc_nrt_displacements(damage_energy, self)
+        raise ValueError("Invalid displacement calculation mode.")
 
     @staticmethod
-    def __calc_nrt_dpa(
+    def __calc_nrt_displacements(
         damage_energy: float | npt.NDArray[np.float64],
         target: Union[Element, "Component"],
     ) -> float | npt.NDArray[np.float64]:
-        """Calculate the NRT-dpa for the given damage energy.
+        """Calculate the NRT-displacements for the given damage energy.
 
         Parameters
         ----------
@@ -363,7 +363,7 @@ class Component:
         Returns
         -------
         int | numpy.ndarray
-            Number of Frenkel pairs predicted by NRT-dpa.
+            Number of Frenkel pairs predicted by NRT-displacements.
         """
         min_threshold = target.ed_avr
         max_threshold = 2.5 * target.ed_avr
@@ -380,18 +380,17 @@ class Component:
         if isinstance(damage_energy, np.ndarray) and np.issubdtype(
             damage_energy.dtype, np.number
         ):
-            return Component.__apply_dpa_thresholds(
+            return Component.__apply_displacement_thresholds(
                 damage_energy, min_threshold, max_threshold, scaling_func
             )
         raise TypeError("damage_energy must be a number or numpy array of numbers")
 
     @staticmethod
-    def __calc_nrt_dpa_elements(
+    def __calc_nrt_displacements_elements(
         damage_energy: float | npt.NDArray[np.float64],
         component: "Component",
     ) -> float | npt.NDArray[np.float64]:
-        """Calculate the NRT-dpa for the given damage energy using component elements.
-
+        """Calculate the NRT-displacements for the given damage energy using component elements.
         Parameters
         ----------
         damage_energy : float | npt.NDArray[np.float64]
@@ -402,19 +401,21 @@ class Component:
         Returns
         -------
         float | npt.NDArray[np.float64]
-            Number of Frenkel pairs predicted by NRT-dpa.
+            Number of Frenkel pairs predicted by NRT-displacements.
         """
-        nrt_dpa = 0.0
+        nrt_displacements = 0.0
         for element, stoich in zip(component.elements, component.stoichs):
-            nrt_dpa += stoich * Component.__calc_nrt_dpa(damage_energy, element)
-        return nrt_dpa
+            nrt_displacements += stoich * Component.__calc_nrt_displacements(
+                damage_energy, element
+            )
+        return nrt_displacements
 
     @staticmethod
-    def __calc_arc_dpa(
+    def __calc_arc_displacements(
         damage_energy: float | npt.NDArray[np.float64],
         target: Union[Element, "Component"],
     ) -> float | npt.NDArray[np.float64]:
-        """Calculate the arc-dpa for the given damage energy.
+        """Calculate the arc-displacements for the given damage energy.
 
         Parameters
         ----------
@@ -426,7 +427,7 @@ class Component:
         Returns
         -------
         float | npt.NDArray[np.float64]
-            Number of Frenkel pairs predicted by arc-dpa.
+            Number of Frenkel pairs predicted by arc-displacements.
         """
         min_threshold = target.ed_avr
         max_threshold = 2.5 * target.ed_avr
@@ -447,7 +448,7 @@ class Component:
                 return scaling_func(damage_energy) * eff
             return 1.0
         if isinstance(damage_energy, np.ndarray):
-            return Component.__apply_dpa_thresholds(
+            return Component.__apply_displacement_thresholds(
                 damage_energy,
                 min_threshold,
                 max_threshold,
@@ -457,11 +458,11 @@ class Component:
         raise TypeError("damage_energy must be a number or numpy array of numbers")
 
     @staticmethod
-    def __calc_arc_dpa_elements(
+    def __calc_arc_displacements_elements(
         damage_energy: float | npt.NDArray[np.float64],
         component: "Component",
     ) -> float | npt.NDArray[np.float64]:
-        """Calculate the arc-dpa for the given damage energy using component elements.
+        """Calculate the arc-displacements for the given damage energy using component elements.
 
         Parameters
         ----------
@@ -473,20 +474,21 @@ class Component:
         Returns
         -------
         float | npt.NDArray[np.float64]
-            Number of Frenkel pairs predicted by arc-dpa.
+            Number of Frenkel pairs predicted by arc-displacements.
         """
-        arc_dpa = 0.0
+        arc_displacements = 0.0
         for element, stoich in zip(component.elements, component.stoichs):
-            arc_dpa += stoich * Component.__calc_arc_dpa(damage_energy, element)
-        return arc_dpa
+            arc_displacements += stoich * Component.__calc_arc_displacements(
+                damage_energy, element
+            )
+        return arc_displacements
 
     @staticmethod
-    def __calc_fer_arc_dpa(
+    def __calc_fer_arc_displacements(
         damage_energy: float | npt.NDArray[np.float64],
         target: Union[Element, "Component"],
     ) -> float | npt.NDArray[np.float64]:
-        """Calculate the fer-arc-dpa for the given damage energy.
-
+        """Calculate the fer-arc-displacements for the given damage energy.
         Parameters
         ----------
         damage_energy : float | npt.NDArray[np.float64]
@@ -497,7 +499,7 @@ class Component:
         Returns
         -------
         float | npt.NDArray[np.float64]
-            Number of Frenkel pairs predicted by modified arc-dpa.
+            Number of Frenkel pairs predicted by modified arc-displacements.
         """
         min_threshold = target.ed_min
         max_threshold = 2.5 * target.ed_avr
@@ -518,7 +520,7 @@ class Component:
                 return scaling_func(damage_energy) * eff
             return scaling_func(damage_energy)
         if isinstance(damage_energy, np.ndarray):
-            return Component.__apply_dpa_thresholds(
+            return Component.__apply_displacement_thresholds(
                 damage_energy,
                 min_threshold,
                 max_threshold,
@@ -529,12 +531,11 @@ class Component:
         raise TypeError("damage_energy must be a number or numpy array of numbers")
 
     @staticmethod
-    def __calc_fer_arc_dpa_elements(
+    def __calc_fer_arc_displacements_elements(
         damage_energy: float | npt.NDArray[np.float64],
         component: "Component",
     ) -> float | npt.NDArray[np.float64]:
-        """Calculate the fer-arc-dpa for the given damage energy using component elements.
-
+        """Calculate the fer-arc-displacements for the given damage energy using component elements.
         Parameters
         ----------
         damage_energy : float | npt.NDArray[np.float64]
@@ -545,15 +546,17 @@ class Component:
         Returns
         -------
         float | npt.NDArray[np.float64]
-            Number of Frenkel pairs predicted by modified arc-dpa.
+            Number of Frenkel pairs predicted by fer-arc-displacements.
         """
-        fer_arc_dpa = 0.0
+        fer_arc_displacements = 0.0
         for element, stoich in zip(component.elements, component.stoichs):
-            fer_arc_dpa += stoich * Component.__calc_fer_arc_dpa(damage_energy, element)
-        return fer_arc_dpa
+            fer_arc_displacements += stoich * Component.__calc_fer_arc_displacements(
+                damage_energy, element
+            )
+        return fer_arc_displacements
 
     @staticmethod
-    def __apply_dpa_thresholds(
+    def __apply_displacement_thresholds(
         damage_energy: npt.NDArray[np.float64],
         min_threshold: float,
         max_threshold: float,
@@ -561,16 +564,16 @@ class Component:
         efficiency_func: Callable[[float], float] = None,
         middle_func: Callable[[float], float] = None,
     ) -> npt.NDArray[np.float64]:
-        """Apply dpa thresholds and scaling/efficiency functions.
+        """Apply displacement thresholds and scaling/efficiency functions.
 
         Parameters
         ----------
         damage_energy : npt.NDArray[np.float64]
             Damage energy array.
         min_threshold : float
-            Minimum threshold for dpa.
+            Minimum threshold for displacements.
         max_threshold : float
-            Maximum threshold for dpa.
+            Maximum threshold for displacements.
         scaling_func : Callable[[float], float]
             Function to scale damage energy.
         efficiency_func : Callable[[float], float], optional (default=None)
@@ -581,7 +584,7 @@ class Component:
         Returns
         -------
         npt.NDArray[np.float64]
-            Array of dpa values.
+            Array of displacement values.
         """
         result = np.ones_like(damage_energy, dtype=np.float64)
         below_mask = damage_energy < min_threshold

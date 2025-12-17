@@ -12,7 +12,7 @@ from scipy.spatial.transform import Rotation
 from sklearn.decomposition import PCA
 
 from irradiapy import dtypes, utils
-from irradiapy.enums import DamageEnergyMode, DpaMode
+from irradiapy.enums import DamageEnergyMode, DisplacementMode
 from irradiapy.io.lammpsreader import LAMMPSReader
 from irradiapy.materials import Component, Element
 
@@ -32,9 +32,9 @@ class DamageDB:
         PKA material.
     component: Component
         Target material.
-    dpa_mode : materials.Material.DpaMode
-        Mode for dpa calculation.
-    damage_energy_mode : materials.Material.TdamMode
+    displacement_mode : materials.Material.DisplacementMode
+        Mode for displaced atoms calculation.
+    damage_energy_mode : materials.Material.DamageEnergyMode
         Mode for PKA to damage energy calculation.
     energy_tolerance : float (default=0.1)
         Tolerance for energy decomposition. For example, if this value if ``0.1``, the PKA energy
@@ -51,7 +51,7 @@ class DamageDB:
     compute_damage_energy: bool
     recoil: Element
     component: Component
-    dpa_mode: DpaMode
+    displacement_mode: DisplacementMode
     damage_energy_mode: DamageEnergyMode
     dist_fp: float
     energy_tolerance: float = 0.1
@@ -80,10 +80,12 @@ class DamageDB:
                 mode=self.damage_energy_mode,
             )
         )
-        # Select the dpa model for residual energy
-        self.__calc_nd = lambda damage_energy: self.component.damage_energy_to_dpa(
-            damage_energy=damage_energy,
-            mode=self.dpa_mode,
+        # Select the displacement model for residual energy
+        self.__calc_nd = (
+            lambda damage_energy: self.component.damage_energy_to_displacements(
+                damage_energy=damage_energy,
+                mode=self.displacement_mode,
+            )
         )
 
     def __get_fp_types(self, nfp: int) -> npt.NDArray[np.int32]:

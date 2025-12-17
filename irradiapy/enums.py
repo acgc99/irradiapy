@@ -48,8 +48,8 @@ class DamageEnergyMode(CustomEnum):
     SRIM = auto()
 
 
-class DpaMode(CustomEnum):
-    """Enumeration of dpa calculation modes.
+class DisplacementMode(CustomEnum):
+    """Enumeration of displaced atoms calculation modes.
 
     References
     ----------

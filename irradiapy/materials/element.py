@@ -21,7 +21,7 @@ class Element:
     atomic_weight: float
     symbol: str
 
-    # dpa parameters
+    # Displacement parameters
     ed_min: None | float = None  # displacement energy, eV
     ed_avr: None | float = None  # average displacement energy, eV
     b_arc: None | float = None
