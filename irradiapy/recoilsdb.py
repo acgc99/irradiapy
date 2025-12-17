@@ -436,3 +436,16 @@ class RecoilsDB(sqlite3.Connection):
         nevents = cur.execute("SELECT MAX(event) FROM recoils").fetchone()[0]
         cur.close()
         return nevents if nevents is not None else 0
+
+    def get_nrecoils(self) -> int:
+        """Get the number of recoils in the recoils database.
+
+        Returns
+        -------
+        int
+            Number of recoils.
+        """
+        cur = self.cursor()
+        nrecoils = cur.execute("SELECT COUNT(*) FROM recoils").fetchone()[0]
+        cur.close()
+        return nrecoils if nrecoils is not None else 0
