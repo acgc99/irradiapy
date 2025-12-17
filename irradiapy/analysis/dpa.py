@@ -275,6 +275,7 @@ def dpa(
             damage_energy_mode,
             path_debris=path_debris,
             fluence=fluence,
+            nbins=1,
         )
     hist_nrt = depth_dpa_return["hist_nrt"]
     hist_arc = depth_dpa_return["hist_arc"]
