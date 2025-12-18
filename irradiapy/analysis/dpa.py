@@ -23,6 +23,7 @@ def depth_dpa(
     recoilsdb: RecoilsDB,
     damage_energy_mode: DamageEnergyMode,
     fluence: float = 1.0,
+    axis: str = "x",
     path_fit: None | Path = None,
     p0: None | float = None,
     asymmetry: float = 1.0,
@@ -61,14 +62,26 @@ def depth_dpa(
     return_values = {}
 
     target = recoilsdb.load_target()
-    width = sum(component.width for component in target)
-    component_edges = np.cumsum([0.0] + [component.width for component in target])
+    if axis == "x":
+        width = sum(component.width for component in target)
+        component_edges = np.cumsum([0.0] + [component.width for component in target])
+        recoils = recoilsdb.read("recoils", what="depth, atom_numb, recoil_energy")
+    elif axis == "y":
+        width = sum(component.height for component in target)
+        component_edges = np.cumsum([0.0] + [component.height for component in target])
+        recoils = recoilsdb.read("recoils", what="y, atom_numb, recoil_energy")
+    elif axis == "z":
+        width = sum(component.length for component in target)
+        component_edges = np.cumsum([0.0] + [component.length for component in target])
+        recoils = recoilsdb.read("recoils", what="z, atom_numb, recoil_energy")
+    else:
+        raise ValueError("Axis must be 'x', 'y', or 'z'.")
+
     depth_edges = np.linspace(0.0, width, nbins + 1)
     depth_centers = (depth_edges[1:] + depth_edges[:-1]) / 2.0
 
     nevents = recoilsdb.get_nevents()
     nrecoils = recoilsdb.get_nrecoils()
-    recoils = recoilsdb.read("recoils", what="depth, atom_numb, recoil_energy")
     depths = np.empty(nrecoils)
     nrts = np.empty(nrecoils)
     arcs = np.empty(nrecoils)
@@ -135,7 +148,7 @@ def depth_dpa(
         depths = []
         reader = LAMMPSReader(path_debris)
         for defects in reader:
-            depths.extend(defects["atoms"]["x"][defects["atoms"]["type"] == 0])
+            depths.extend(defects["atoms"][axis][defects["atoms"]["type"] == 0])
         depths = np.array(depths)
 
         hist_debris, _ = np.histogram(depths, bins=depth_edges)

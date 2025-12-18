@@ -303,7 +303,7 @@ class SRIMDB(sqlite3.Connection):
         """Loads the target and calculation parameters from the database."""
         cur = self.cursor()
         cur.execute(
-            "SELECT component_id, name, phase, density, width, ax, structure, srim_bragg FROM components"
+            "SELECT component_id, name, phase, density, width, height, length, ax, structure, srim_bragg FROM components"
         )
         components = list(cur.fetchall())
         target = []
@@ -313,6 +313,8 @@ class SRIMDB(sqlite3.Connection):
             phase,
             density,
             width,
+            height,
+            length,
             ax,
             structure,
             srim_bragg,
@@ -361,6 +363,8 @@ class SRIMDB(sqlite3.Connection):
                 phase=Phases.from_int(phase),
                 density=density,
                 width=width,
+                height=height,
+                length=length,
                 ax=ax,
                 structure=structure,
                 srim_bragg=srim_bragg,
