@@ -124,14 +124,14 @@ class RecoilsDB(sqlite3.Connection):
         cur.execute(
             (
                 "CREATE TABLE IF NOT EXISTS recoils ("
-                "event INTEGER, atom_numb INTEGER, recoil_energy REAL, depth REAL, "
+                "event INTEGER, atom_numb INTEGER, recoil_energy REAL, x REAL, "
                 "y REAL, z REAL, cosx REAL, cosy REAL, cosz REAL)"
             )
         )
         cur.execute(
             (
                 "CREATE TABLE IF NOT EXISTS ions_vacs ("
-                "event INTEGER, atom_numb INTEGER, depth REAL, "
+                "event INTEGER, atom_numb INTEGER, x REAL, "
                 "y REAL, z REAL)"
             )
         )
@@ -162,7 +162,7 @@ class RecoilsDB(sqlite3.Connection):
         event: int,
         atomic_number: int,
         recoil_energy: float,
-        depth: float,
+        x: float,
         y: float,
         z: float,
         cosx: float,
@@ -179,8 +179,8 @@ class RecoilsDB(sqlite3.Connection):
             Atomic number of the recoil.
         recoil_energy : float
             Recoil energy in eV.
-        depth : float
-            Depth, x-position, in Angstrom.
+        x : float
+            x-position, in Angstrom.
         y : float
             y-position in Angstrom.
         z : float
@@ -195,7 +195,7 @@ class RecoilsDB(sqlite3.Connection):
         cur = self.cursor()
         cur.execute(
             (
-                "INSERT INTO recoils(event, atom_numb, recoil_energy, depth, y, z, "
+                "INSERT INTO recoils(event, atom_numb, recoil_energy, x, y, z, "
                 "cosx, cosy, cosz) "
                 "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)"
             ),
@@ -203,7 +203,7 @@ class RecoilsDB(sqlite3.Connection):
                 event,
                 atomic_number,
                 recoil_energy,
-                depth,
+                x,
                 y,
                 z,
                 cosx,
@@ -217,7 +217,7 @@ class RecoilsDB(sqlite3.Connection):
         self,
         event: int,
         atom_numb: int,
-        depth: float,
+        x: float,
         y: float,
         z: float,
     ) -> None:
@@ -229,8 +229,8 @@ class RecoilsDB(sqlite3.Connection):
             Original SPECTRA event index (1-based).
         atom_numb : int
             Atomic number of the ion (0 for vacancy).
-        depth : float
-            Depth, x-position, in Angstrom.
+        x : float
+            x-position, in Angstrom.
         y : float
             y-position in Angstrom.
         z : float
@@ -239,10 +239,10 @@ class RecoilsDB(sqlite3.Connection):
         cur = self.cursor()
         cur.execute(
             (
-                "INSERT INTO ions_vacs(event, atom_numb, depth, y, z) "
+                "INSERT INTO ions_vacs(event, atom_numb, x, y, z) "
                 "VALUES(?, ?, ?, ?, ?)"
             ),
-            (event, atom_numb, depth, y, z),
+            (event, atom_numb, x, y, z),
         )
         cur.close()
 

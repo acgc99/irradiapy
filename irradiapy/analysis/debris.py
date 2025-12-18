@@ -109,10 +109,10 @@ def __spectra2srim_generate_debris(
 
         recoils = recoilsdb.read(
             "recoils",
-            what="atom_numb, recoil_energy, depth, y, z, cosx, cosy, cosz",
+            what="atom_numb, recoil_energy, x, y, z, cosx, cosy, cosz",
             condition=f"WHERE event={event}",
         )
-        for atom_numb, recoil_energy, depth, y, z, cosx, cosy, cosz in recoils:
+        for atom_numb, recoil_energy, x, y, z, cosx, cosy, cosz in recoils:
             damagedb = DamageDB(
                 dir_mddb=dir_mddb,
                 compute_damage_energy=compute_damage_energy,
@@ -125,7 +125,7 @@ def __spectra2srim_generate_debris(
                 seed=seed + event,
             )
             defects_ = damagedb.get_pka_debris(
-                recoil_energy, np.array([depth, y, z]), np.array([cosx, cosy, cosz])
+                recoil_energy, np.array([x, y, z]), np.array([cosx, cosy, cosz])
             )
             defects = np.concatenate((defects, defects_))
 
@@ -184,12 +184,12 @@ def __py2srim_generate_debris(
 
         recoils = recoilsdb.read(
             "recoils",
-            what="atom_numb, recoil_energy, depth, y, z, cosx, cosy, cosz",
+            what="atom_numb, recoil_energy, x, y, z, cosx, cosy, cosz",
             condition=f"WHERE event = {event}",
         )
-        for atom_numb, recoil_energy, depth, y, z, cosx, cosy, cosz in recoils:
+        for atom_numb, recoil_energy, x, y, z, cosx, cosy, cosz in recoils:
             # Determine layer and select target material
-            component_idx = np.searchsorted(component_edges, depth, side="right") - 1
+            component_idx = np.searchsorted(component_edges, x, side="right") - 1
 
             damagedb = DamageDB(
                 dir_mddb=dir_mddb,
@@ -203,7 +203,7 @@ def __py2srim_generate_debris(
                 seed=seed + event,
             )
             defects_ = damagedb.get_pka_debris(
-                recoil_energy, np.array([depth, y, z]), np.array([cosx, cosy, cosz])
+                recoil_energy, np.array([x, y, z]), np.array([cosx, cosy, cosz])
             )
             defects = np.concatenate((defects, defects_))
 
@@ -255,13 +255,13 @@ def __place_ions_vacs(
     # Logic to exclude some ions/vacs if needed based on the ion type
     ions_vacs = recoilsdb.read(
         "ions_vacs",
-        what="atom_numb, depth, y, z",
+        what="atom_numb, x, y, z",
         condition=f"WHERE event={event}",
     )
     count = 0
     past_atom_numb = 0
     ions_vacs = list(ions_vacs)
-    for atom_numb, depth, y, z in ions_vacs:
+    for atom_numb, x, y, z in ions_vacs:
         if count == 0 and atom_numb == 0:
             raise ValueError(
                 (
@@ -282,7 +282,7 @@ def __place_ions_vacs(
                 continue
 
         defect = np.array(
-            [(atom_numb, depth, y, z)],
+            [(atom_numb, x, y, z)],
             dtype=dtypes.defect,
         )
         defects = np.concatenate((defects, defect))

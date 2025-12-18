@@ -699,7 +699,7 @@ class Py2SRIM:
                         event=event,
                         atomic_number=atomic_number,
                         recoil_energy=recoil_energy,
-                        depth=depth,
+                        x=depth,
                         y=y,
                         z=z,
                         cosx=cosx,
@@ -722,7 +722,7 @@ class Py2SRIM:
                         event=event,
                         atomic_number=atomic_number,
                         recoil_energy=recoil_energy,
-                        depth=depth,
+                        x=depth,
                         y=y,
                         z=z,
                         cosx=cosx,
@@ -760,7 +760,7 @@ class Py2SRIM:
                     event=event,
                     atomic_number=ion_atomic_number,
                     recoil_energy=ion_energy,
-                    depth=depth,
+                    x=depth,
                     y=y,
                     z=z,
                     cosx=cosx,
@@ -782,7 +782,7 @@ class Py2SRIM:
                     event=event,
                     atomic_number=ion_atomic_number,
                     recoil_energy=ion_energy,
-                    depth=depth,
+                    x=depth,
                     y=y,
                     z=z,
                     cosx=cosx,
@@ -883,7 +883,7 @@ class Py2SRIM:
                 self.recoilsdb.insert_ion_vac(
                     event=event,
                     atom_numb=int(atom_numb),
-                    depth=depth,
+                    x=depth,
                     y=y,
                     z=z,
                 )
@@ -893,7 +893,7 @@ class Py2SRIM:
                 self.recoilsdb.insert_ion_vac(
                     event=event,
                     atom_numb=0,
-                    depth=depth,
+                    x=depth,
                     y=y,
                     z=z,
                 )

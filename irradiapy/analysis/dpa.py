@@ -65,15 +65,12 @@ def depth_dpa(
     if axis == "x":
         width = sum(component.width for component in target)
         component_edges = np.cumsum([0.0] + [component.width for component in target])
-        recoils = recoilsdb.read("recoils", what="depth, atom_numb, recoil_energy")
     elif axis == "y":
         width = sum(component.height for component in target)
         component_edges = np.cumsum([0.0] + [component.height for component in target])
-        recoils = recoilsdb.read("recoils", what="y, atom_numb, recoil_energy")
     elif axis == "z":
         width = sum(component.length for component in target)
         component_edges = np.cumsum([0.0] + [component.length for component in target])
-        recoils = recoilsdb.read("recoils", what="z, atom_numb, recoil_energy")
     else:
         raise ValueError("Axis must be 'x', 'y', or 'z'.")
 
@@ -87,6 +84,7 @@ def depth_dpa(
     arcs = np.empty(nrecoils)
     ferarcs = np.empty(nrecoils)
     i = 0
+    recoils = recoilsdb.read("recoils", what=f"{axis}, atom_numb, recoil_energy")
     for depth, atom_numb, recoil_energy in recoils:
         # Use recoil depth to find the depth center, then use that to find the component
         # and use that center for the histogram
