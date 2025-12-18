@@ -121,6 +121,7 @@ def recoil_energies(
 
 def plot_recoil_energy_depth(
     recoilsdb: RecoilsDB,
+    axis: str = "x",
     depth_nbins: int = 100,
     energy_nbins: int = 100,
     max_recoil_energy: float | None = None,
@@ -157,12 +158,22 @@ def plot_recoil_energy_depth(
     """
     return_values = {}
 
+    what = ""
+    if axis == "x":
+        what = "depth, recoil_energy"
+    elif axis == "y":
+        what = "y, recoil_energy"
+    elif axis == "z":
+        what = "z, recoil_energy"
+    else:
+        raise ValueError("Axis must be 'x', 'y', or 'z'.")
+
     nevents = recoilsdb.get_nevents()
     data = np.array(
         list(
             recoilsdb.read(
                 table="recoils",
-                what="depth, recoil_energy",
+                what=what,
                 condition=(
                     f"WHERE recoil_energy <= {max_recoil_energy}"
                     if max_recoil_energy is not None
@@ -345,6 +356,7 @@ def plot_recoils_distances(
 
 def plot_injected_ions(
     recoilsdb: RecoilsDB,
+    axis: str = "x",
     nbins: int = 100,
     p0: None | float = None,
     asymmetry: float = 1.0,
@@ -382,13 +394,22 @@ def plot_injected_ions(
     """
     return_values = {}
 
+    if axis == "x":
+        what = "depth"
+    elif axis == "y":
+        what = "y"
+    elif axis == "z":
+        what = "z"
+    else:
+        raise ValueError("Axis must be 'x', 'y', or 'z'.")
+
     nevents = recoilsdb.get_nevents()
     depths = np.empty(nevents)
     for event in range(1, nevents + 1):
         ions_vacs = list(
             recoilsdb.read(
                 table="ions_vacs",
-                what="depth",
+                what=what,
                 condition=f"WHERE event = {event}",
             )
         )
