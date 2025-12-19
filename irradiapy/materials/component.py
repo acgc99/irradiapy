@@ -46,10 +46,6 @@ class Component:
     c: None | float = None  # for hcp
     structure: None | str = None  # bcc, fcc, hcp, amorphous
 
-    # Defect parameters
-    cutoff_sia: None | float = None  # Angstrom
-    cutoff_vac: None | float = None  # Angstrom
-
     # Displacement parameters
     ed_min: None | float = None  # displacement energy, eV
     ed_avr: None | float = None  # average displacement energy, eV
@@ -81,11 +77,6 @@ class Component:
                 self.ay = self.ax
             if self.az is None:
                 self.az = self.ax
-
-        if self.cutoff_sia is None and self.ax is not None:
-            self.cutoff_sia = ((np.sqrt(2.0) + np.sqrt(11.0) / 2.0) * self.ax / 2.0,)
-        if self.cutoff_vac is None and self.ax is not None:
-            self.cutoff_vac = ((1.0 + np.sqrt(2.0)) * self.ax / 2.0,)
 
         if self.calculate_energies:
             if self.ed_avr is None:
