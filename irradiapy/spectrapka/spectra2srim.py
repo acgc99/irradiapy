@@ -333,7 +333,7 @@ class Spectra2SRIM:
         cur.execute(
             """
             UPDATE recoils
-            SET depth = depth + (
+            SET x = x + (
                 SELECT x - ? FROM spectrapkas WHERE spectrapkas.event = recoils.event
             )
             """,
@@ -342,7 +342,7 @@ class Spectra2SRIM:
         cur.execute(
             """
             UPDATE ions_vacs
-            SET depth = depth + (
+            SET x = x + (
                 SELECT x - ? FROM spectrapkas WHERE spectrapkas.event = ions_vacs.event
             )
             """,
