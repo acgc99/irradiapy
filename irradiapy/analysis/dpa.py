@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 
+from irradiapy.analysis.analysisdb import AnalysisDB
 from irradiapy.enums import DamageEnergyMode, DisplacementMode
 from irradiapy.io.lammpsreader import LAMMPSReader
 from irradiapy.materials import ELEMENT_BY_ATOMIC_NUMBER
@@ -19,48 +20,50 @@ if TYPE_CHECKING:
     from irradiapy.materials.component import Component
 
 
-def depth_dpa(
+def depth_dpa_hist(
     recoilsdb: RecoilsDB,
+    analysisdb: AnalysisDB,
+    axis: str,
     damage_energy_mode: DamageEnergyMode,
-    fluence: float = 1.0,
-    axis: str = "x",
-    path_fit: None | Path = None,
-    p0: None | float = None,
-    asymmetry: float = 1.0,
+    fluence: float,
     path_debris: Path | None = None,
     nbins: int = 100,
-    show: bool = False,
-    plot_path: Path | None = None,
-    dpi: int = 300,
-) -> dict[str, any]:
-    """Get depth-resolved dpa distribution and plot it.
+    p0: None | float = None,
+    asymmetry: float = 1.0,
+) -> None:
+    """Get depth dpa histogram and save it into database.
+
+    Fit: asymmetric lorentzian function.
+    Tries to fit to Eq. (2) of
+    Nuclear Instruments and Methods in Physics Research B 500-501 (2021) 52-56.
 
     Parameters
     ----------
     recoilsdb : RecoilsDB
         Recoils database.
+    analysisdb : AnalysisDB
+        Database for storing results.
+    axis : str
+        Axis along which to calculate depth ('x', 'y', or 'z').
     damage_energy_mode : DamageEnergyMode
         Damage energy calculation mode.
+    fluence : float
+        Fluence in ions/Å².
     path_debris : Path | None, optional (default=None)
-        Path to the debris LAMMPS file to compute the debris dpa, by default
+        Path to the debris LAMMPS file to compute the debris dpa.
     nbins : int, optional (default=100)
-        Number of depth nbins.
-    show : bool, optional (default=False)
-        Whether to show the plot.
-    plot_path : Path | None, optional (default=None)
-        Output path for the plot.
-    dpi : int, optional (default=300)
-        Dots per inch.
+        Number of bins for the depth histogram.
+    p0 : float | None, optional (default=None)
+        Initial guess for Lorentzian fit.
+    asymmetry : float, optional (default=1.0)
+        Bound for the asymmetry fit parameter. Fit will be done in (-asymmetry, asymmetry).
 
     Returns
     -------
-    defaultdict
-        Dictionary with depth edges and histograms for NRT, ARC, FERARC, and debris
-        (if debris path is provided). Also includes fit parameters and functions if fitting
-        is requested.
+    dict[str, npt.NDArray[np.float64]]
+        Dictionary with depth centers and dpa histograms. Keys: 'depth_centers', 'nrt', 'arc',
+        'ferarc', and optionally 'debris'.
     """
-    return_values = {}
-
     target = recoilsdb.load_target()
     if axis == "x":
         width = sum(component.width for component in target)
@@ -73,7 +76,6 @@ def depth_dpa(
         component_edges = np.cumsum([0.0] + [component.length for component in target])
     else:
         raise ValueError("Axis must be 'x', 'y', or 'z'.")
-
     depth_edges = np.linspace(0.0, width, nbins + 1)
     depth_centers = (depth_edges[1:] + depth_edges[:-1]) / 2.0
 
@@ -131,15 +133,17 @@ def depth_dpa(
         natoms[i] = int(component.atomic_density * dx)
 
     hist_nrt, _ = np.histogram(depths, bins=depth_edges, weights=nrts)
+    hist_nrt = hist_nrt * fluence / (natoms * nevents)
     hist_arc, _ = np.histogram(depths, bins=depth_edges, weights=arcs)
     hist_ferarc, _ = np.histogram(depths, bins=depth_edges, weights=ferarcs)
-    hist_nrt = hist_nrt * fluence / (natoms * nevents)
     hist_arc = hist_arc * fluence / (natoms * nevents)
     hist_ferarc = hist_ferarc * fluence / (natoms * nevents)
-    return_values["depth_edges"] = depth_edges
-    return_values["hist_nrt"] = hist_nrt
-    return_values["hist_arc"] = hist_arc
-    return_values["hist_ferarc"] = hist_ferarc
+    hists = {
+        "depth_centers": depth_centers,
+        "nrt": hist_nrt,
+        "arc": hist_arc,
+        "ferarc": hist_ferarc,
+    }
 
     hist_debris = None
     if path_debris is not None:
@@ -151,148 +155,150 @@ def depth_dpa(
 
         hist_debris, _ = np.histogram(depths, bins=depth_edges)
         hist_debris = hist_debris * fluence / (natoms * nevents)
-        return_values["hist_debris"] = hist_debris
+        hists["debris"] = hist_debris
 
-    # Fit
-    if path_fit:
+    for model, hist in hists.items():
+        if model == "depth_centers":
+            continue
+        analysisdb.save_depth_dpa_hist(
+            axis=axis, model=model, depth_centers=depth_centers, hist=hist
+        )
 
-        def fit_hist(hist: npt.NDArray[np.float64], label: str) -> None:
-            params, err_params, fit_function = fit_lorentzian(
-                depth_centers, hist, p0, asymmetry
-            )
-            return_values[f"params_{label}"] = params
-            return_values[f"errors_{label}"] = err_params
-            return_values[f"fitfunc_{label}"] = fit_function
+    def fit_hist(model: str, hist: npt.NDArray[np.float64]) -> tuple[
+        tuple[float, float, float, float],
+        tuple[float, float, float, float],
+    ]:
+        params, errors, _ = fit_lorentzian(depth_centers, hist, p0, asymmetry)
+        analysisdb.save_depth_dpa_hist_fit_params(axis, model, *params)
+        analysisdb.save_depth_dpa_hist_fit_errors(axis, model, *errors)
+        return params, errors
 
-        def write_params(key: str, label: str) -> None:
-            params = return_values[f"params_{key}"]
-            err_params = return_values[f"errors_{key}"]
-            file.write(f"{label}\n")
-            file.write(f"x0 = {params[0]} ± {err_params[0]}\n")
-            file.write(f"sigma = {params[1]} ± {err_params[1]}\n")
-            file.write(f"A = {params[2]} ± {err_params[2]}\n")
-            file.write(f"a = {params[3]} ± {err_params[3]}\n")
+    try:
+        fit_hist(model="nrt", hist=hist_nrt)
+        fit_hist(model="arc", hist=hist_arc)
+        fit_hist(model="ferarc", hist=hist_ferarc)
+        if hist_debris is not None:
+            fit_hist(model="debris", hist=hist_debris)
 
-        try:
-            fit_hist(hist_nrt, "nrt")
-            fit_hist(hist_arc, "arc")
-            fit_hist(hist_ferarc, "ferarc")
-            if "hist_debris" in return_values:
-                fit_hist(hist_debris, "debris")
+    except Exception as exc:  # pylint: disable=broad-except
+        print(f"Fit failed: {exc}")
 
-            file = open(path_fit, "w", encoding="utf-8")
-            file.write(
-                (
-                    "Displaced atoms fit fit. See Eq. (2) of "
-                    "Nuclear Instruments and Methods in Physics Research B "
-                    "500-501 (2021) 52-56\n"
-                )
-            )
-            file.write("x in angstroms\n")
-            file.write(
-                (
-                    "A * sigma ** 2 / "
-                    "( sigma ** 2 + (1 + e ** (a * (x - x0)) ** 2) / 4 * (x - x0) ** 2 )\n"
-                )
-            )
-            if "fitfunc_nrt" in return_values:
-                write_params("nrt", "NRT")
-            if "fitfunc_arc" in return_values:
-                write_params("arc", "arc")
-            if "fitfunc_ferarc" in return_values:
-                write_params("ferarc", "fer-arc")
-            if hist_debris is not None and "fitfunc_debris" in return_values:
-                write_params("debris", "debris")
-            file.close()
+    return hists
 
-        except Exception as exc:  # pylint: disable=broad-except
-            print(f"Fit failed: {exc}")
 
-    # Plot
-    if show or plot_path:
-        fig = plt.figure()
-        gs = fig.add_gridspec()
-        ax = fig.add_subplot(gs[0, 0])
-        ax.set_xlabel(r"Depth ($\mathrm{\AA}$)")
-        ax.set_ylabel("Displacements per atom")
+def depth_dpa_hist_plot(
+    analysisdb: AnalysisDB,
+    axis: str,
+    fits: bool = False,
+    plot_path: Path | None = None,
+    show: bool = False,
+    dpi: int = 300,
+) -> None:
+    """Plot depth dpa histogram.
 
-        def plot_fit(key: str, scatter: plt.Line2D) -> None:
-            if f"fitfunc_{key}" not in return_values:
-                return
+    Parameters
+    ----------
+    analysisdb : AnalysisDB
+        Database. Must contain depth dpa data.
+    axis : str
+        Axis along which to plot depth ('x', 'y', or 'z').
+    fits : bool, optional (default=False)
+        Whether to plot the fit functions.
+    plot_path : Path | None, optional (default=None)
+        Path to save the plot. If None, the plot is not saved.
+    show : bool, optional (default=False)
+        Whether to show the plot.
+    dpi : int, optional (default=300)
+        DPI for saving the plot.
+    """
+    if fits:
+        fit_nrt = analysisdb.load_depth_dpa_hist_fit_functions(axis, "nrt")
+        fit_arc = analysisdb.load_depth_dpa_hist_fit_functions(axis, "arc")
+        fit_ferarc = analysisdb.load_depth_dpa_hist_fit_functions(axis, "ferarc")
+        fits = {
+            "nrt": fit_nrt,
+            "arc": fit_arc,
+            "ferarc": fit_ferarc,
+        }
+
+    depth_centers, hist_nrt = analysisdb.load_depth_dpa_hist(axis=axis, model="nrt")
+    _, hist_arc = analysisdb.load_depth_dpa_hist(axis=axis, model="arc")
+    _, hist_ferarc = analysisdb.load_depth_dpa_hist(axis=axis, model="ferarc")
+    hists = {
+        "nrt": hist_nrt,
+        "arc": hist_arc,
+        "ferarc": hist_ferarc,
+    }
+    hist_debris = None
+    if analysisdb.table_has_column(f"depth_dpa_{axis}", "debris"):
+        _, hist_debris = analysisdb.load_depth_dpa_hist(axis=axis, model="debris")
+        hists["debris"] = hist_debris
+        if fits:
+            fit_debris = analysisdb.load_depth_dpa_hist_fit_functions(axis, "debris")
+            fits["debris"] = fit_debris
+    models = list(hists.keys())
+
+    fig = plt.figure()
+    gs = fig.add_gridspec()
+    ax = fig.add_subplot(gs[0, 0])
+    ax.set_xlabel(r"Depth ($\mathrm{\AA}$)")
+    ax.set_ylabel("Displacements per atom")
+
+    for model in models:
+        scatter = ax.scatter(depth_centers, hists[model], label=model, marker=".")
+        if fits is not False:
             ax.plot(
-                depth_centers,
-                return_values[f"fitfunc_{key}"](depth_centers),
-                c=scatter.get_facecolor(),
+                depth_centers, fits[model](depth_centers), c=scatter.get_facecolor()
             )
 
-        if "hist_nrt" in return_values:
-            s1 = ax.scatter(depth_centers, hist_nrt, label="NRT", marker=".")
-            plot_fit("nrt", s1)
-        if "hist_arc" in return_values:
-            s2 = ax.scatter(depth_centers, hist_arc, label="arc", marker=".")
-            plot_fit("arc", s2)
-        if "hist_ferarc" in return_values:
-            s3 = ax.scatter(depth_centers, hist_ferarc, label="fer-arc", marker=".")
-            plot_fit("ferarc", s3)
-        if "hist_debris" in return_values:
-            s4 = ax.scatter(depth_centers, hist_debris, label="debris", marker=".")
-            plot_fit("debris", s4)
-
-        # Finish
-        ax.legend()
-        fig.tight_layout()
-        if plot_path:
-            plt.savefig(plot_path, dpi=dpi)
-        if show:
-            plt.show()
-        plt.close()
-
-    return return_values
+    ax.legend()
+    fig.tight_layout()
+    if plot_path:
+        plt.savefig(plot_path, dpi=dpi)
+    if show:
+        plt.show()
+    plt.close()
 
 
-def dpa(
-    recoilsdb: RecoilsDB,
-    damage_energy_mode: DamageEnergyMode | None = None,
-    fluence: float | None = None,
-    path_debris: Path | None = None,
-    depth_dpa_return: dict[str, any] | None = None,
-) -> dict[str, float]:
+def dpa(recoilsdb: RecoilsDB, analysisdb: AnalysisDB) -> dict[str, float]:
     """Calculate dpa values from the recoils database.
 
     Parameters
     ----------
     recoilsdb : RecoilsDB
         Recoils database.
-    damage_energy_mode : DamageEnergyMode, optional (default=None)
-        Damage energy calculation mode. Required if histograms are not provided.
-    fluence : float, optional (default=None)
-        Fluence in ions/Å². Required if histograms are not provided.
-    path_debris : Path | None, optional (default=None)
-        Path to the debris LAMMPS file to compute the debris dpa.
-    depth_dpa_return : defaultdict | None, optional (default=None)
-        If provided (from depth_dpa()), uses the histograms and depth edges from this dictionary.
+    analysisdb : AnalysisDB
+        Database. Must contain depth dpa data.
 
     Returns
     -------
-    defaultdict
-        Dictionary with dpa values: 'nrt', 'arc', 'ferarc', and 'debris' (if debris
-        histogram is provided).
+    dict[str, float]
+        Dictionary with dpa values: 'nrt', 'arc', 'ferarc', and 'debris'.
     """
-    return_values = {}
+    if analysisdb.table_exists("depth_dpa_x") is True:
+        axis = "x"
+    elif analysisdb.table_exists("depth_dpa_y") is True:
+        axis = "y"
+    elif analysisdb.table_exists("depth_dpa_z") is True:
+        axis = "z"
+    else:
+        raise ValueError("No depth dpa data found in analysisdb.")
 
-    if not depth_dpa_return:
-        depth_dpa_return = depth_dpa(
-            recoilsdb,
-            damage_energy_mode,
-            path_debris=path_debris,
-            fluence=fluence,
-            nbins=1,
+    depth_centers, hist_nrt = analysisdb.load_depth_dpa_hist(axis=axis, model="nrt")
+    _, hist_arc = analysisdb.load_depth_dpa_hist(axis=axis, model="arc")
+    _, hist_ferarc = analysisdb.load_depth_dpa_hist(axis=axis, model="ferarc")
+    hist_debris = None
+    if analysisdb.table_has_column(f"depth_dpa_{axis}", "debris"):
+        _, hist_debris = analysisdb.load_depth_dpa_hist(axis=axis, model="debris")
+
+    dx2 = (depth_centers[1] - depth_centers[0]) / 2.0
+    depth_edges = np.concatenate(
+        (
+            [depth_centers[0] - dx2],
+            (depth_centers[1:] + depth_centers[:-1]) / 2.0,
+            [depth_centers[-1] + dx2],
         )
-    hist_nrt = depth_dpa_return["hist_nrt"]
-    hist_arc = depth_dpa_return["hist_arc"]
-    hist_ferarc = depth_dpa_return["hist_ferarc"]
-    hist_debris = depth_dpa_return["hist_debris"]
-    depth_edges = depth_dpa_return["depth_edges"]
+    )
 
     target = recoilsdb.load_target()
     component_edges = np.cumsum([0.0] + [component.width for component in target])
@@ -313,15 +319,16 @@ def dpa(
         natoms[i] = component.atomic_density * dx
 
     natoms_total = np.sum(natoms)
-    nrt = np.sum(hist_nrt * natoms) / natoms_total
-    arc = np.sum(hist_arc * natoms) / natoms_total
-    ferarc = np.sum(hist_ferarc * natoms) / natoms_total
-    return_values["nrt"] = float(nrt)
-    return_values["arc"] = float(arc)
-    return_values["ferarc"] = float(ferarc)
+    nrt = float(np.sum(hist_nrt * natoms) / natoms_total)
+    arc = float(np.sum(hist_arc * natoms) / natoms_total)
+    ferarc = float(np.sum(hist_ferarc * natoms) / natoms_total)
+    dpas = {"nrt": nrt, "arc": arc, "ferarc": ferarc}
 
     if hist_debris is not None:
-        debris = np.sum(hist_debris * natoms) / natoms_total
-        return_values["debris"] = float(debris)
+        debris = float(np.sum(hist_debris * natoms) / natoms_total)
+        dpas["debris"] = debris
 
-    return return_values
+    for model, dpa_val in dpas.items():
+        analysisdb.save_dpa(model, dpa_val)
+
+    return dpas
