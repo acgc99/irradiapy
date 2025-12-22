@@ -296,7 +296,11 @@ def fit_power_law(
     xs: npt.NDArray[np.float64],
     ys: npt.NDArray[np.float64],
     yerrs: None | npt.NDArray[np.float64] = None,
-) -> tuple[float, float, Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]]:
+) -> tuple[
+    npt.NDArray[np.float64],
+    npt.NDArray[np.float64],
+    Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]],
+]:
     """Fit a power law to the given histogram data: y = a * x**k.
 
     Fitted in log-log space: log(y) = log(a) + k * log(x)
@@ -311,11 +315,12 @@ def fit_power_law(
         y-errors.
     Returns
     -------
-    tuple[float, float, Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]]
-        Tuple containing:
-        - (a, k): Fitted parameters of the power law.
-        - (error_a, error_k): Errors of the fitted parameters.
-        - fit_function: Function that evaluates the fitted power law.
+    popt : npt.NDArray[np.float64]
+        Optimal values for the parameters.
+    pcov : npt.NDArray[np.float64]
+        Covariance of popt.
+    fit_function : Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]
+        Function that evaluates the fitted power law.
     """
     if np.any(xs <= 0.0) or np.any(ys <= 0.0):
         raise ValueError("xs and ys must be positive for power law fitting.")
@@ -381,8 +386,8 @@ def fit_offset_power_law(
     ys: npt.NDArray[np.float64],
     yerrs: None | npt.NDArray[np.float64] = None,
 ) -> tuple[
-    tuple[float, float, float],
-    tuple[float, float, float],
+    npt.NDArray[np.float64],
+    npt.NDArray[np.float64],
     Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]],
 ]:
     """Fit a power law with an offset to the given histogram data: y = a * x**k + b.
@@ -403,17 +408,12 @@ def fit_offset_power_law(
 
     Returns
     -------
-    tuple[
-        tuple[float, float, float],
-        tuple[float, float, float],
-        tuple[float, float, float],
-        Callable[[npt.NDArray[np.float64]],
-        npt.NDArray[np.float64]]
-    ]
-        Tuple containing:
-        - (a, k, b): Fitted parameters of the power law.
-        - (error_a, error_k, error_b): Errors of the fitted parameters.
-        - fit_function: Function that evaluates the fitted power law.
+    popt : npt.NDArray[np.float64]
+        Optimal values for the parameters.
+    pcov : npt.NDArray[np.float64]
+        Covariance of popt.
+    fit_function : Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]
+        Function that evaluates the fitted power law with offset.
     """
     # Power law: y = a * x**k + b
     popt, pcov = curve_fit(
@@ -462,7 +462,11 @@ def fit_linear(
     xs: npt.NDArray[np.float64],
     ys: npt.NDArray[np.float64],
     yerrs: None | npt.NDArray[np.float64] = None,
-) -> tuple[float, float, Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]]:
+) -> tuple[
+    npt.NDArray[np.float64],
+    npt.NDArray[np.float64],
+    Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]],
+]:
     """Fit a linear function to the given data: y = a * x + b.
 
     Parameters
@@ -476,11 +480,12 @@ def fit_linear(
 
     Returns
     -------
-    tuple[float, float, Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]]
-        Tuple containing:
-        - (a, b): Fitted parameters of the linear function.
-        - (error_a, error_b): Errors of the fitted parameters.
-        - fit_function: Function that evaluates the fitted linear function.
+    popt : npt.NDArray[np.float64]
+        Optimal values for the parameters.
+    pcov : npt.NDArray[np.float64]
+        Covariance of popt.
+    fit_function : Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]
+        Function that evaluates the fitted linear function.
     """
     popt, pcov = curve_fit(linear, xs, ys, sigma=yerrs)
     errors = np.sqrt(np.diag(pcov)).astype(float)
