@@ -711,3 +711,292 @@ class AnalysisDB(sqlite3.Connection):
         return next(value)[1]
 
     # endregion
+
+    # region Clustering fraction
+
+    def save_clustering_fraction_hist(
+        self,
+        axis: str,
+        min_size: int,
+        depth_centers: npt.NDArray[np.float64],
+        ifraction: npt.NDArray[np.float64],
+        vfraction: npt.NDArray[np.float64],
+    ) -> None:
+        """Save clustering fraction histogram into the database.
+
+        Parameters
+        ----------
+        axis : str
+            Axis along which the clustering fraction data is calculated ('x', 'y', or 'z').
+        min_size : int
+            Minimum cluster size to be considered clustered.
+        depth_centers : npt.NDArray[np.float64]
+            Centers of the depth bins.
+        ifraction : npt.NDArray[np.float64]
+            SIA clustering fraction values.
+        vfraction : npt.NDArray[np.float64]
+            Vacancy clustering fraction values.
+        """
+        table_name = f"clustering_fraction_{axis}_{min_size}"
+        cur = self.cursor()
+        cur.execute(
+            f"CREATE TABLE IF NOT EXISTS {table_name} "
+            "(depth_centers REAL, ifraction REAL, vfraction REAL)"
+        )
+        cur.executemany(
+            f"INSERT INTO {table_name} (depth_centers, ifraction, vfraction) VALUES (?, ?, ?)",
+            zip(depth_centers, ifraction, vfraction),
+        )
+        self.commit()
+        cur.close()
+
+    def load_clustering_fraction_hist(
+        self,
+        axis: str,
+        min_size: int,
+    ) -> tuple[
+        npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]
+    ]:
+        """Load clustering fraction histogram from the database.
+
+        Parameters
+        ----------
+        axis : str
+            Axis along which the clustering fraction data is calculated ('x', 'y', or 'z').
+        min_size : int
+            Minimum cluster size to be considered clustered.
+
+        Returns
+        -------
+        tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]]
+            A tuple containing depth centers and clustering fractions for SIAs and vacancies.
+        """
+        table_name = f"clustering_fraction_{axis}_{min_size}"
+        data = list(
+            self.read(table=table_name, what="depth_centers, ifraction, vfraction")
+        )
+        depth_centers = np.array([row[0] for row in data])
+        ifraction = np.array([row[1] for row in data])
+        vfraction = np.array([row[2] for row in data])
+        return depth_centers, ifraction, vfraction
+
+    # endregion
+
+    # region Cluster size scaling law
+
+    def save_cluster_size_hist(
+        self,
+        vacancies: bool,
+        size_centers: npt.NDArray[np.float64],
+        hist: npt.NDArray[np.float64],
+    ) -> None:
+        """Save cluster size histogram into the database.
+
+        Parameters
+        ----------
+        vacancies : bool
+            Whether the histogram is for vacancies or SIAs.
+        size_centers : npt.NDArray[np.float64]
+            Centers of the size bins.
+        hist : npt.NDArray[np.float64]
+            Histogram values.
+        """
+        table_name = "cluster_size_vacs" if vacancies else "cluster_size_sias"
+        cur = self.cursor()
+        cur.execute(
+            f"CREATE TABLE IF NOT EXISTS {table_name} (size_centers REAL, counts REAL)"
+        )
+        cur.executemany(
+            f"INSERT INTO {table_name} (size_centers, counts) VALUES (?, ?)",
+            zip(size_centers, hist),
+        )
+        self.commit()
+        cur.close()
+
+    def save_cluster_size_hist_fit_params(
+        self,
+        vacancies: bool,
+        small: bool,
+        a: float,
+        k: float,
+    ) -> None:
+        """Save cluster size histogram fit parameters into the database.
+
+        Fit: power law function.
+
+        Parameters
+        ----------
+        vacancies : bool
+            Whether the histogram is for vacancies or SIAs.
+        small : bool
+            Whether the fit is for small or large sizes.
+        a : float
+            Fit parameter a.
+        k : float
+            Fit parameter k.
+        """
+        table_name = (
+            "cluster_size_params_vacs" if vacancies else "cluster_size_params_sias"
+        )
+        size_range = "small" if small else "large"
+        cur = self.cursor()
+        cur.execute(
+            f"CREATE TABLE IF NOT EXISTS {table_name} "
+            "(size_range TEXT PRIMARY KEY, a REAL, k REAL)"
+        )
+        cur.execute(
+            f"INSERT INTO {table_name} (size_range, a, k) VALUES (?, ?, ?)",
+            (size_range, a, k),
+        )
+        self.commit()
+        cur.close()
+
+    def save_cluster_size_hist_fit_errors(
+        self,
+        vacancies: bool,
+        small: bool,
+        a: float,
+        k: float,
+    ) -> None:
+        """Save cluster size histogram fit errors into the database.
+
+        Fit: power law function.
+
+        Parameters
+        ----------
+        vacancies : bool
+            Whether the histogram is for vacancies or SIAs.
+        small : bool
+            Whether the fit is for small or large sizes.
+        a : float
+            Fit error for parameter a.
+        k : float
+            Fit error for parameter k.
+        """
+        table_name = (
+            "cluster_size_errors_vacs" if vacancies else "cluster_size_errors_sias"
+        )
+        size_range = "small" if small else "large"
+        cur = self.cursor()
+        cur.execute(
+            f"CREATE TABLE IF NOT EXISTS {table_name} "
+            "(size_range TEXT PRIMARY KEY, a REAL, k REAL)"
+        )
+        cur.execute(
+            f"INSERT INTO {table_name} (size_range, a, k) VALUES (?, ?, ?)",
+            (size_range, a, k),
+        )
+        self.commit()
+        cur.close()
+
+    def load_cluster_size_hist(
+        self,
+        vacancies: bool,
+    ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+        """Load cluster size histogram from the database.
+
+        Parameters
+        ----------
+        vacancies : bool
+            Whether the histogram is for vacancies or SIAs.
+
+        Returns
+        -------
+        tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]
+            A tuple containing size centers and histogram values.
+        """
+        table_name = "cluster_size_vacs" if vacancies else "cluster_size_sias"
+        data = list(self.read(table=table_name, what="size_centers, counts"))
+        size_centers = np.array([row[0] for row in data])
+        hist = np.array([row[1] for row in data])
+        return size_centers, hist
+
+    def load_cluster_size_hist_fit_parameters(
+        self,
+        vacancies: bool,
+        small: bool,
+    ) -> tuple[float, float]:
+        """Load cluster size histogram fit parameters from the database.
+
+        Fit: power law function.
+
+        Parameters
+        ----------
+        vacancies : bool
+            Whether the histogram is for vacancies or SIAs.
+        small : bool
+            Whether the fit is for small or large sizes.
+
+        Returns
+        -------
+        tuple[float, float]
+            Fit parameters (a, k).
+        """
+        table_name = (
+            "cluster_size_params_vacs" if vacancies else "cluster_size_params_sias"
+        )
+        size_range = "small" if small else "large"
+        params = self.read(
+            table=table_name,
+            what="a, k",
+            condition=f"WHERE size_range='{size_range}'",
+        )
+        return next(params)
+
+    def load_cluster_size_hist_fit_errors(
+        self,
+        vacancies: bool,
+        small: bool,
+    ) -> tuple[float, float]:
+        """Load cluster size histogram fit errors from the database.
+
+        Fit: power law function.
+
+        Parameters
+        ----------
+        vacancies : bool
+            Whether the histogram is for vacancies or SIAs.
+        small : bool
+            Whether the fit is for small or large sizes.
+
+        Returns
+        -------
+        tuple[float, float]
+            Fit errors (a, k).
+        """
+        table_name = (
+            "cluster_size_errors_vacs" if vacancies else "cluster_size_errors_sias"
+        )
+        size_range = "small" if small else "large"
+        errors = self.read(
+            table=table_name,
+            what="a, k",
+            condition=f"WHERE size_range='{size_range}'",
+        )
+        return next(errors)
+
+    def load_cluster_size_hist_fit_function(
+        self,
+        vacancies: bool,
+        small: bool,
+    ) -> Callable:
+        """Load cluster size histogram fit function from the database.
+
+        Fit: power law function.
+
+        Parameters
+        ----------
+        vacancies : bool
+            Whether the histogram is for vacancies or SIAs.
+        small : bool
+            Whether the fit is for small or large sizes.
+
+        Returns
+        -------
+        Callable
+            A function representing the fit.
+        """
+        a, k = self.load_cluster_size_hist_fit_parameters(vacancies, small)
+        return lambda x: power_law(x, a, k)
+
+    # endregion

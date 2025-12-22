@@ -3,22 +3,22 @@
 from collections import defaultdict
 from pathlib import Path
 
-import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.colors import LogNorm, Normalize
 from matplotlib.gridspec import GridSpec
 from matplotlib.image import NonUniformImage
 from numpy import typing as npt
 
-from irradiapy import dtypes, utils
+from irradiapy import dtypes
+from irradiapy.analysis.analysisdb import AnalysisDB
 from irradiapy.io.lammpsreader import LAMMPSReader
 from irradiapy.io.lammpswriter import LAMMPSWriter
+from irradiapy.utils.math import fit_power_law
 
-# region Clustering
 
-
-def clusterize(
-    defects: dtypes.Atom, cutoff: float
+def clusterize_atoms(
+    atoms: dtypes.Atom, cutoff: float
 ) -> tuple[dtypes.Acluster, dtypes.Ocluster]:
     """Identify atom clusters.
 
@@ -40,14 +40,13 @@ def clusterize(
     tuple[dtypes.Acluster, dtypes.Ocluster]
         Atomic and object clusters.
     """
-    cutoff2 = cutoff**2
-    natoms = defects.size
+    cutoff2 = cutoff**2.0
+    natoms = atoms.size
     aclusters = np.empty(natoms, dtype=dtypes.acluster)
-    aclusters["x"] = defects["x"]
-    aclusters["y"] = defects["y"]
-    aclusters["z"] = defects["z"]
-    aclusters["type"] = defects["type"]
-
+    aclusters["x"] = atoms["x"]
+    aclusters["y"] = atoms["y"]
+    aclusters["z"] = atoms["z"]
+    aclusters["type"] = atoms["type"]
     # Each atom is its own cluster initially
     aclusters["cluster"] = np.arange(1, natoms + 1)
 
@@ -82,10 +81,10 @@ def clusterize_file(
     path_defects: Path,
     cutoff_sia: float,
     cutoff_vac: float,
-    path_aclusters: Path,
-    path_oclusters: Path,
+    path_aclusters: Path | None = None,
+    path_oclusters: Path | None = None,
 ) -> None:
-    """Finds defect clusters in the given file.
+    """Finds defect clusters in the given file. Type 0 are vacancies, others are interstitials.
 
     Parameters
     ----------
@@ -95,26 +94,29 @@ def clusterize_file(
         Cutoff distance for interstitials clustering.
     cutoff_vac : float
         Cutoff distance for vacancies clustering.
-    path_aclusters : Path
-        Where atomic clusters will be stored.
-    path_oclusters : Path
-        Where object clusters will be stored.
+    path_aclusters : Path | None (default=None)
+        Where atomic clusters will be stored if provided.
+    path_oclusters : Path | None (default=None)
+        Where object clusters will be stored if provided.
     """
     reader = LAMMPSReader(path_defects)
     nsim = 0
-    with (
-        LAMMPSWriter(path_aclusters) as awriter,
-        LAMMPSWriter(path_oclusters) as owriter,
-    ):
-        for data_defects in reader:
-            nsim += 1
-            cond = data_defects["atoms"]["type"] == 0
-            sia, vac = data_defects["atoms"][~cond], data_defects["atoms"][cond]
-            iaclusters, ioclusters = clusterize(sia, cutoff_sia)
-            vaclusters, voclusters = clusterize(vac, cutoff_vac)
-            aclusters = np.concatenate((iaclusters, vaclusters))
-            oclusters = np.concatenate((ioclusters, voclusters))
 
+    if path_aclusters:
+        awriter = LAMMPSWriter(path_aclusters)
+    if path_oclusters:
+        owriter = LAMMPSWriter(path_oclusters)
+
+    for data_defects in reader:
+        nsim += 1
+        cond = data_defects["atoms"]["type"] == 0
+        sia, vac = data_defects["atoms"][~cond], data_defects["atoms"][cond]
+        iaclusters, ioclusters = clusterize_atoms(sia, cutoff_sia)
+        vaclusters, voclusters = clusterize_atoms(vac, cutoff_vac)
+        aclusters = np.concatenate((iaclusters, vaclusters))
+        oclusters = np.concatenate((ioclusters, voclusters))
+
+        if path_aclusters:
             data_aclusters = defaultdict(None)
             data_aclusters["timestep"] = data_defects["timestep"]
             data_aclusters["time"] = data_defects["time"]
@@ -129,6 +131,7 @@ def clusterize_file(
             data_aclusters["atoms"] = aclusters
             awriter.write(data_aclusters)
 
+        if path_oclusters:
             data_oclusters = defaultdict(None)
             data_oclusters["timestep"] = data_defects["timestep"]
             data_oclusters["time"] = data_defects["time"]
@@ -142,6 +145,11 @@ def clusterize_file(
             data_oclusters["zhi"] = data_defects["zhi"]
             data_oclusters["atoms"] = oclusters
             owriter.write(data_oclusters)
+
+    if path_aclusters:
+        awriter.close()
+    if path_oclusters:
+        owriter.close()
 
 
 def atom_to_object(aclusters: dtypes.Acluster) -> dtypes.Ocluster:
@@ -169,600 +177,470 @@ def atom_to_object(aclusters: dtypes.Acluster) -> dtypes.Ocluster:
     return oclusters
 
 
-# endregion
-
-# region Histograms
+# region Clustering fraction
 
 
-def get_clusters_0d(
-    path_oclusters: Path,
-    path_db: Path,
-    scale: float = 1.0,
-) -> None:
-    """Perform a cluster size histogram for interstitials and vacancies.
-
-    This is useful for cluster analysis and cluster dynamics codes.
-
-    Parameters
-    ----------
-    path_oclusters : Path
-        Path to the input file containing object clusters.
-    path_db : Path
-        Path to the output SQLite database file.
-    scale : float, optional (default=1.0)
-        All bin counts are multiplied by this factor. Useful for normalization.
-    """
-
-    # Extract data
-    isizes, vsizes = np.array([], dtype=np.int64), np.array([], dtype=np.int64)
-    reader = LAMMPSReader(path_oclusters)
-    for data_oclusters in reader:
-        cond = data_oclusters["atoms"]["type"] == 0
-        vacancies = data_oclusters["atoms"][cond]
-        if vacancies.size > 0:
-            vsizes = np.concatenate((vsizes, vacancies["size"]))
-        interstitials = data_oclusters["atoms"][~cond]
-        if interstitials.size > 0:
-            isizes = np.concatenate((isizes, interstitials["size"]))
-
-    # Interstitials
-    # Histogram sizes
-    max_isize = isizes.max()
-    # [1:] because size 0 does not count; max_isize + 1 because np.bincount counts from 0
-    isize_histogram = np.bincount(isizes, minlength=max_isize + 1)[1:]
-
-    # Vacancies
-    # Histogram sizes
-    max_vsize = vsizes.max()
-    # [1:] because size 0 does not count; max_vsize + 1 because np.bincount counts from 0
-    vsize_histogram = np.bincount(vsizes, minlength=max_vsize + 1)[1:]
-
-    # Save to database
-    utils.sqlite.insert_array(
-        path_db,
-        "clusters_0D",
-        interstitials=isize_histogram * scale,
-        vacancies=vsize_histogram * scale,
-    )
-
-
-def get_clusters_1d(
-    path_oclusters: Path,
-    path_db: Path,
-    axis: str = "x",
-    depth_bins: int = 100,
-    depth_offset: float = 0.0,
-    min_depth: None | float = None,
-    max_depth: None | float = None,
-    scale: float = 1.0,
-) -> None:
-    """Perform a cluster size histogram as a function of depth along a specified axis.
-
-    This is useful for cluster analysis and cluster dynamics codes.
+def depth_clustering_fraction_hist(
+    analysisdb: AnalysisDB,
+    oclusters_path: Path,
+    axis: str,
+    min_size: int,
+    nbins: int = 100,
+) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    """Calculates the clustering fraction as a function of depth and stores it in the analysis
+    database.
 
     Parameters
     ----------
-    path_oclusters : Path
-        Path to the input file containing object clusters.
-    path_db : Path
-        Path to the output SQLite database file.
-    axis : str, optional (default="x")
-        Axis along which to measure depth. It can be `"x"`, `"y"`, or `"z"`.
-    depth_bins : int, optional (default=100)
+    analysisdb : AnalysisDB
+        Database for storing results.
+    oclusters_path : Path
+        Path to the object clusters file.
+    axis : str
+        Axis along which to compute depth ('x', 'y', or 'z').
+    min_size : int
+        Minimum cluster size to be considered clustered.
+    nbins : int (default=100)
         Number of bins for the depth histogram.
-    depth_offset : float, optional (default=0.0)
-        Offset to add to the depth values.
-    min_depth : float, optional (default=None)
-        Minimum depth to consider. If `None`, the minimum depth from the data is used.
-    max_depth : float, optional (default=None)
-        Maximum depth to consider. If `None`, the maximum depth from the data is used.
-    scale : float, optional (default=1.0)
-        All bin counts are multiplied by this factor. Useful for normalization.
-    """
-
-    # Extract data
-    isizes, vsizes = np.array([], dtype=np.int64), np.array([], dtype=np.int64)
-    idepths, vdepths = np.array([], dtype=np.float64), np.array([], dtype=np.float64)
-    reader = LAMMPSReader(path_oclusters)
-    for data_oclusters in reader:
-        cond = data_oclusters["atoms"]["type"] == 0
-        vacancies = data_oclusters["atoms"][cond]
-        if vacancies.size > 0:
-            vsizes = np.concatenate((vsizes, vacancies["size"]))
-            vdepths = np.concatenate((vdepths, vacancies[axis]))
-        interstitials = data_oclusters["atoms"][~cond]
-        if interstitials.size > 0:
-            isizes = np.concatenate((isizes, interstitials["size"]))
-            idepths = np.concatenate((idepths, interstitials[axis]))
-    vdepths += depth_offset
-    idepths += depth_offset
-
-    # Histogram depths
-    if min_depth is None:
-        min_depth = min(idepths.min(), vdepths.min())
-    if max_depth is None:
-        max_depth = max(idepths.max(), vdepths.max())
-    depth_edges = np.histogram_bin_edges(
-        idepths, bins=depth_bins, range=(min_depth, max_depth)
-    )
-
-    # Interstitials
-    # For each depth bin, count the number of each cluster size
-    max_isize = isizes.max()
-    isize_histogram = np.zeros((depth_bins, max_isize), dtype=np.float64)
-    for i in range(depth_bins):
-        cond = (idepths >= depth_edges[i]) & (idepths < depth_edges[i + 1])
-        # [1:] because size 0 does not count; max_isize + 1 because np.bincount counts from 0
-        isize_histogram[i, :] = np.bincount(isizes[cond], minlength=max_isize + 1)[1:]
-
-    # Vacancies
-    # For each depth bin, count the number of each cluster size
-    max_vsize = vsizes.max()
-    vsize_histogram = np.zeros((depth_bins, max_vsize), dtype=np.float64)
-    for i in range(depth_bins):
-        cond = (vdepths >= depth_edges[i]) & (vdepths < depth_edges[i + 1])
-        # [1:] because size 0 does not count; max_vsize + 1 because np.bincount counts from 0
-        vsize_histogram[i, :] = np.bincount(vsizes[cond], minlength=max_vsize + 1)[1:]
-
-    # Save to database
-    utils.sqlite.insert_array(
-        path_db,
-        f"clusters_1D_{axis}",
-        depth_edges=depth_edges,
-        interstitials=isize_histogram * scale,
-        vacancies=vsize_histogram * scale,
-    )
-
-
-def read_clusters_0d(path_db: Path) -> dict[str, npt.NDArray[np.float64]]:
-    """Read the 0D cluster size histogram from the database.
-
-    This is useful for cluster analysis and cluster dynamics codes.
-
-    Parameters
-    ----------
-    path_db : Path
-        Path to the SQLite database file.
 
     Returns
     -------
-    dict[str, npt.NDArray[np.float64]]
-        A dictionary containing:
-        - "interstitials": The histogram of interstitial sizes.
-        - "vacancies": The histogram of vacancy sizes.
+    tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]]
+        A tuple containing depth centers and clustering fractions for SIAs and vacancies.
     """
-    data = utils.sqlite.read_array(path_db, "clusters_0D")
-    return data
+    if min_size <= 1:
+        raise ValueError("min_size must be at least 2.")
+    isizes, vsizes = [], []
+    idepths, vdepths = [], []
+    reader = LAMMPSReader(oclusters_path)
+    for data in reader:
+        oclusters = data["atoms"]
+        cond = oclusters["type"] == 0
+        sia_clusters = oclusters[~cond]
+        vac_clusters = oclusters[cond]
+        isizes.append(sia_clusters["size"])
+        vsizes.append(vac_clusters["size"])
+        idepths.append(sia_clusters[axis])
+        vdepths.append(vac_clusters[axis])
+    isizes = np.concatenate(isizes)
+    vsizes = np.concatenate(vsizes)
+    idepths = np.concatenate(idepths)
+    vdepths = np.concatenate(vdepths)
+
+    depth_edges = np.histogram_bin_edges(np.concatenate((idepths, vdepths)), bins=nbins)
+    depth_centers = (depth_edges[1:] + depth_edges[:-1]) / 2.0
+
+    def fraction_by_depth(depths, sizes):
+        nbins = len(depth_edges) - 1
+        b = np.digitize(depths, depth_edges) - 1
+        valid = (b >= 0) & (b < nbins)
+        total = np.bincount(b[valid], weights=sizes[valid], minlength=nbins)
+        clustered = np.bincount(
+            b[valid & (sizes > min_size)],
+            weights=sizes[valid & (sizes > min_size)],
+            minlength=nbins,
+        )
+        return np.divide(clustered, total, out=np.full(nbins, np.nan), where=total > 0)
+
+    ifraction = fraction_by_depth(idepths, isizes)
+    vfraction = fraction_by_depth(vdepths, vsizes)
+    analysisdb.save_clustering_fraction_hist(
+        axis=axis,
+        min_size=min_size,
+        depth_centers=depth_centers,
+        ifraction=ifraction,
+        vfraction=vfraction,
+    )
+
+    return depth_centers, ifraction, vfraction
 
 
-def read_clusters_1d(
-    path_db: Path, axis: str = "x"
-) -> dict[str, npt.NDArray[np.float64]]:
-    """Read the 1D cluster size histogram from the database.
-
-    This is useful for cluster analysis and cluster dynamics codes.
+def depth_clustering_fraction_hist_plot(
+    analysisdb: AnalysisDB,
+    axis: str,
+    min_size: int,
+    plot_path: Path | None = None,
+    show: bool = False,
+) -> None:
+    """Plots the clustering fraction as a function of depth from the analysis database.
 
     Parameters
     ----------
-    path_db : Path
-        Path to the SQLite database file.
-    axis : str, optional (default="x")
-        Axis along which the histogram was computed. It can be `"x"`, `"y"`,or `"z"`.
-
-    Returns
-    -------
-    dict[str, npt.NDArray[np.float64]]
-        A dictionary containing:
-        - "depth_edges": The edges of the depth bins.
-        - "interstitials": The histogram of interstitial sizes for each depth bin.
-        - "vacancies": The histogram of vacancy sizes for each depth bin.
+    analysisdb : AnalysisDB
+        Database for storing results.
+    axis : str
+        Axis along which to compute depth ('x', 'y', or 'z').
+    min_size : int
+        Minimum cluster size to be considered clustered.
+    plot_path : Path, optional (default=None)
+        Output path for the plot.
+    show : bool, optional (default=False)
+        Whether to show the plot.
     """
-    data = utils.sqlite.read_array(path_db, f"clusters_1D_{axis}")
-    return data
+    depth_centers, ifraction, vfraction = analysisdb.load_clustering_fraction_hist(
+        axis=axis,
+        min_size=min_size,
+    )
+
+    fig = plt.figure()
+    gs = fig.add_gridspec()
+    ax = fig.add_subplot(gs[0, 0])
+    ax.scatter(depth_centers, ifraction, label="SIA", marker=".")
+    ax.scatter(depth_centers, vfraction, label="Vacancy", marker=".")
+    ax.set_xlabel(r"Depth ($\mathrm{\AA}$)")
+    ax.set_ylabel("Clustering fraction")
+    ax.legend()
+    fig.tight_layout()
+    if plot_path:
+        fig.savefig(plot_path)
+    if show:
+        plt.show()
+    plt.close()
 
 
 # endregion
 
-# region Plots
+# region Size depth
 
 
-def plot_size_1d(
-    db_path: Path,
-    path_sias: None | Path = None,
-    path_vacs: None | Path = None,
-    axis: str = "x",
-    depth_offset: float = 0.0,
-    transpose: bool = True,
+def depth_cluster_sizes_plot(
+    path_oclusters: Path,
+    axis: str,
+    global_min_counts: int,
+    depth_nbins: int = 100,
+    log: bool = True,
     dpi: int = 300,
-) -> None:
-    """Plot the depth-size 1D histogram for interstitials and vacancies.
-
-    Note
-    ----
-    The color bar's label shows "Mean counts", then it assumes that in
-    `irradiapy.analysis.clusters.get_clusters_1d` a proper `scale` parameter was used.
+    plot_sias_path: Path | None = None,
+    plot_vacs_path: Path | None = None,
+    show: bool = False,
+) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    """Plots the cluster size distribution as a function of depth.
 
     Parameters
     ----------
-    db_path : Path
-        Path to the SQLite database file containing the cluster data generated by
-        `irradiapy.analysis.clusters.get_clusters_1d`.
-    path_sias : Path, optional (default=None)
-        Path to save the interstitials plot. If `None`, the plot is shown instead of saved.
-    path_vacs : Path, optional (default=None)
-        Path to save the vacancies plot. If `None`, the plot is shown instead of saved.
-    axis : str, optional (default="x")
-        Axis along which the histogram was computed. It can be `"x"`, `"y"`, or `"z"`.
-    depth_offset : float, optional (default=0.0)
-        Offset to add to the depth values.
-    transpose : bool, optional (default=True)
-        If `True`, the depth is on the x-axis and size on the y-axis. If `False`, the
-        axes are swapped.
-    dpi : int, optional (default=300)
-        Dots per inch.
+    path_oclusters : Path
+        Path to the object clusters file.
+    axis : str
+        Axis along which to compute depth ('x', 'y', or 'z').
+    global_min_counts : int
+        Minimum cluster size counts to show a bin in the plot.
+    depth_nbins : int (default=100)
+        Number of bins for the depth histogram.
+    log : bool (default=True)
+        Whether to use a logarithmic scale for the color map.
+    dpi : int (default=300)
+        DPI for saving the plots.
+    plot_sias_path : Path | None (default=None)
+        Output path for the interstitials plot.
+    plot_vacs_path : Path | None (default=None)
+        Output path for the vacancies plot.
+    show : bool (default=False)
+        Whether to show the plots.
+
+    Returns
+    -------
+    tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]]
+        A tuple containing depth edges, interstitials histogram, and vacancies histogram. Rows
+        correspond to depth bins, columns to cluster sizes.
     """
+
+    def size_histogram_by_depth(depths, sizes, depth_edges):
+        if sizes.size == 0:
+            return np.zeros((depth_nbins, 0), dtype=np.float64)
+
+        bin_idx = np.searchsorted(depth_edges, depths, side="right") - 1
+        valid = (bin_idx >= 0) & (bin_idx < depth_nbins)
+        bin_idx = bin_idx[valid]
+        valid_sizes = sizes[valid] - 1
+
+        max_size = int(valid_sizes.max()) + 1
+        flat = bin_idx * max_size + valid_sizes  # unique id for (bin, size)
+        hist = np.bincount(flat, minlength=depth_nbins * max_size).reshape(
+            depth_nbins, max_size
+        )
+        return hist
 
     def plot(
         depth_edges: npt.NDArray[np.float64],
         histogram: npt.NDArray[np.float64],
         title: str,
-        path_plot: Path,
-        transpose: bool = True,
+        path_plot: Path | None,
     ) -> None:
+        fig = plt.figure(figsize=(8, 6))
+        gs = GridSpec(1, 2, width_ratios=[1, 0.05])
+        ax = fig.add_subplot(gs[0, 0])
+        cax = fig.add_subplot(gs[0, 1])
 
-        min_depth, max_depth = depth_edges[0], depth_edges[-1]
+        depth_min, depth_max = float(depth_edges[0]), float(depth_edges[-1])
         depth_centers = (depth_edges[:-1] + depth_edges[1:]) / 2.0
+
         min_size, max_size = 1, histogram.shape[1]
         size_centers = np.arange(min_size, max_size + 1)
 
-        if transpose:
-            fig = plt.figure(figsize=(8, 6))
-            gs = GridSpec(1, 2, width_ratios=[1, 0.05])
+        histogram = histogram / nevents
+        vmin = global_min_counts / nevents
+        histogram = np.ma.masked_less_equal(histogram, vmin)
+        vmax = histogram.max()
+        norm = LogNorm(vmin=vmin, vmax=vmax) if log else Normalize(vmin=vmin, vmax=vmax)
 
-            ax = fig.add_subplot(gs[0, 0])
-            ax.set_xlabel(r"Depth ($\mathrm{\AA}$)")
-            ax.set_ylabel("Cluster size")
-            ax.set_ylim(min_size, max_size)
-            ax.set_xlim(min_depth, max_depth)
-
-            im = NonUniformImage(
-                ax,
-                interpolation="nearest",
-                norm="log",
-                extent=(min_depth, max_depth, min_size, max_size),
-            )
-            im.set_data(depth_centers, size_centers, histogram.T)
-            ax.add_image(im)
-
-            cax = fig.add_subplot(gs[0, 1])
-            cbar = fig.colorbar(ax.images[0], cax=cax, orientation="vertical")
-            cbar.set_label("Counts per ion")
-            cbar.ax.yaxis.set_ticks_position("right")
-            cbar.ax.yaxis.set_label_position("right")
-
-        else:
-            fig = plt.figure(figsize=(8, 6))
-            gs = GridSpec(1, 2, width_ratios=[1, 0.05])
-
-            ax = fig.add_subplot(gs[0, 0])
-            ax.set_ylabel(r"Depth ($\mathrm{\AA}$)")
-            ax.set_xlabel("Cluster size")
-            ax.set_xlim(min_size, max_size)
-            ax.set_ylim(min_depth, max_depth)
-
-            im = NonUniformImage(
-                ax,
-                interpolation="nearest",
-                norm="log",
-                extent=(min_size, max_size, min_depth, max_depth),
-            )
-            im.set_data(size_centers, depth_centers, histogram)
-            ax.add_image(im)
-
-            cax = fig.add_subplot(gs[0, 1])
-            cbar = fig.colorbar(ax.images[0], cax=cax, orientation="vertical")
-            cbar.set_label("Counts per ion")
-            cbar.ax.yaxis.set_ticks_position("right")
-            cbar.ax.yaxis.set_label_position("right")
-
-        fig.suptitle(title)
-        fig.tight_layout()
-        if path_plot:
-            plt.savefig(path_plot, dpi=dpi)
-        else:
-            plt.show()
-        plt.close(fig)
-
-    data = read_clusters_1d(db_path, axis=axis)
-    depth_edges = data["depth_edges"] + depth_offset
-    interstitials = data["interstitials"]
-    vacancies = data["vacancies"]
-    plot(depth_edges, interstitials, "Interstitials", path_sias, transpose)
-    plot(depth_edges, vacancies, "Vacancies", path_vacs, transpose)
-
-
-def plot_clustering_fraction_1d(
-    db_path: Path,
-    path_plot: None | Path = None,
-    axis: str = "x",
-    depth_offset: float = 0.0,
-    dpi: int = 300,
-) -> None:
-    """Plot the clustering fraction as a function of depth.
-
-    Note
-    ----
-    The clustering fraction is defined as the ratio of the number of defects in clusters of size
-    greater than 1 to the number of unclustered defects.
-
-    Parameters
-    ----------
-    db_path : Path
-        Path to the SQLite database file containing the cluster data generated by
-        `irradiapy.analysis.clusters.get_clusters_1d`.
-    path_plot : Path, optional (default=None)
-        Path to save the clustering fraction plot. If `None`, the plot is shown instead of saved.
-    axis : str, optional (default="x")
-        Axis along which the histogram was computed. It can be `"x"`, `"y"`, or `"z"`.
-    depth_offset : float, optional (default=0.0)
-        Offset to add to the depth values.
-    dpi : int, optional (default=300)
-        Dots per inch.
-    """
-    data = read_clusters_1d(db_path, axis=axis)
-    depth_edges = data["depth_edges"] + depth_offset
-    interstitials = data["interstitials"]
-    vacancies = data["vacancies"]
-
-    min_depth, max_depth = depth_edges[0], depth_edges[-1]
-    depth_centers = (depth_edges[:-1] + depth_edges[1:]) / 2.0
-
-    min_size, max_size = 1, interstitials.shape[1]
-    size_centers = np.arange(min_size, max_size + 1)
-    interstitials *= size_centers
-    clustering_fraction_sia = np.sum(interstitials[:, 1:], axis=1) / interstitials[:, 0]
-
-    min_size, max_size = 1, vacancies.shape[1]
-    size_centers = np.arange(min_size, max_size + 1)
-    vacancies *= size_centers
-    clustering_fraction_vac = np.sum(vacancies[:, 1:], axis=1) / vacancies[:, 0]
-
-    fig = plt.figure(figsize=(8, 6))
-    gs = GridSpec(1, 1)
-    ax = fig.add_subplot(gs[0, 0])
-    ax.set_xlabel(r"Depth ($\mathrm{\AA}$)")
-    ax.set_ylabel("Clustering fraction")
-    ax.plot(
-        depth_centers,
-        clustering_fraction_sia,
-        marker="o",
-        linestyle="none",
-        label="Interstitials",
-    )
-    ax.plot(
-        depth_centers,
-        clustering_fraction_vac,
-        marker="o",
-        linestyle="none",
-        label="Vacancies",
-    )
-    ax.set_ylim(0, 1)
-    ax.set_xlim(min_depth, max_depth)
-    ax.legend()
-    fig.suptitle("Clustering fraction")
-    fig.tight_layout()
-    if path_plot:
-        plt.savefig(path_plot, dpi=dpi)
-    else:
-        plt.show()
-    plt.close(fig)
-
-
-def plot_mddb_cluster_size(
-    target_dir: Path,
-    sia_cutoff: float,
-    vac_cutoff: float,
-    rel: bool,
-    sia_bin_width: int = 10,
-    vac_bin_width: int = 10,
-    path_sias: None | Path = None,
-    path_vacs: None | Path = None,
-    max_sia: None | int = None,
-    max_vac: None | int = None,
-    vmin: float = 1e-5,
-    dpi: int = 300,
-) -> None:
-    """Plot the cluster size distribution from a molecular dynamics database.
-
-    Parameters
-    ----------
-    target_dir : Path
-        Directory containing the MD database.
-    sia_cutoff : float
-        Cutoff distance for interstitial cluster identification.
-    vac_cutoff : float
-        Cutoff distance for vacancy cluster identification.
-    rel : bool
-        If `True`, each size bin is the number of clusters of that size divided by the total number
-        of clusters for the given energy. If `False`, each size bin is the number of clusters of
-        that size divided by the total number of simulations of the corresponding energy.
-    sia_bin_width : int, optional (default=10)
-        Bin size for interstitial histogram.
-    vac_bin_width : int, optional (default=10)
-        Bin size for vacancy histogram.
-    path_sias : Path, optional (default=None)
-        Path to save the interstitials size distribution plot. If `None`, the plot is shown instead
-        of saved.
-    path_vacs : Path, optional (default=None)
-        Path to save the vacancies size distribution plot. If `None`, the plot is shown instead
-        of saved.
-    max_sia : int, optional (default=None)
-        Sets an upper limit for interstitial cluster sizes. It has to be greater than the maximum
-        interstitial cluster size in the data. If `None`, it is determined from the data. Useful to
-        compare multiple databases with different maximum sizes.
-    max_vac : int, optional (default=None)
-        Sets an upper limit for vacancy cluster sizes. It has to be greater than the maximum
-        vacancy cluster size in the data. If `None`, it is determined from the data. Useful to
-        compare multiple databases with different maximum sizes.
-    vmin : float, optional (default=1e-5)
-        Minimum value for the color scale if `rel` is `True`.
-    dpi : int, optional (default=300)
-        Dots per inch.
-    """
-
-    # Extract data from xyz files
-    sizes_all_raw = defaultdict(defaultdict)
-    nfiles = defaultdict(int)
-    for energy_dir in target_dir.glob("*"):
-        if not energy_dir.is_dir():
-            continue
-        energy = int(energy_dir.name)
-        sizes_all_raw[energy] = {
-            "vacs": np.empty(0, dtype=np.int64),
-            "sias": np.empty(0, dtype=np.int64),
-        }
-        for path_defects in energy_dir.glob("*.xyz"):
-            nfiles[energy] += 1
-            data_defects = utils.io.get_last_reader(LAMMPSReader(path_defects))
-
-            cond = data_defects["atoms"]["type"] == 0
-            vacs = data_defects["atoms"][cond]
-            sias = data_defects["atoms"][~cond]
-
-            _, vac_oclusters = clusterize(vacs, vac_cutoff)
-            _, sia_oclusters = clusterize(sias, sia_cutoff)
-
-            sizes_all_raw[energy]["vacs"] = np.append(
-                sizes_all_raw[energy]["vacs"],
-                vac_oclusters["size"],
-            )
-            sizes_all_raw[energy]["sias"] = np.append(
-                sizes_all_raw[energy]["sias"],
-                sia_oclusters["size"],
-            )
-
-    # Maximum cluster sizes
-    if max_sia is None or max_vac is None:
-        max_sia = max_vac = 0
-        for energy, siasvacs in sizes_all_raw.items():
-            max_sia = max(max_sia, siasvacs["sias"].max())
-            max_vac = max(max_vac, siasvacs["vacs"].max())
-
-    # Bincount sizes (exclude size 0)
-    sizes_all_bincount = defaultdict(defaultdict)
-    for energy, sizes in sizes_all_raw.items():
-        sizes_all_bincount[energy]["vacs"] = np.bincount(
-            sizes["vacs"], minlength=max_vac
-        )[1:]
-        sizes_all_bincount[energy]["sias"] = np.bincount(
-            sizes["sias"], minlength=max_sia
-        )[1:]
-
-    # Sort energies
-    epkas = np.array(
-        [int(path.name) for path in target_dir.glob("*") if path.is_dir()],
-        dtype=np.int64,
-    )
-    epkas.sort()
-    # Energy binning
-    nepka_bins = len(epkas)
-
-    # Round to closest highest multiple of bin_width starting from 10,
-    # where binning changes
-    # if bin_width = 10, then 83 > 90
-    # if bin_width = 10, then 57 > 60
-    max_sia = 10 + int(np.ceil((max_sia - 10) / sia_bin_width) * sia_bin_width)
-    max_vac = 10 + int(np.ceil((max_vac - 10) / vac_bin_width) * vac_bin_width)
-
-    # Histogram bin edges
-    sia_edges = np.concatenate(
-        (
-            np.arange(0.5, 10.5),
-            np.arange(10.5, max_sia + sia_bin_width + 0.5, sia_bin_width),
-        )
-    )
-    vac_edges = np.concatenate(
-        (
-            np.arange(0.5, 10.5),
-            np.arange(10.5, max_vac + vac_bin_width + 0.5, vac_bin_width),
-        )
-    )
-
-    # row: energy, column: size
-    ihist = np.empty((nepka_bins, len(sia_edges) - 1), dtype=np.float64)
-    vhist = np.empty((nepka_bins, len(vac_edges) - 1), dtype=np.float64)
-    for i, epka in enumerate(epkas):
-        siasvacs = sizes_all_raw[epka]
-        if rel:
-            hist, _ = np.histogram(siasvacs["sias"], bins=sia_edges, density=True)
-            ihist[i] = hist
-            hist, _ = np.histogram(siasvacs["vacs"], bins=vac_edges, density=True)
-            vhist[i] = hist
-        else:
-            hist, _ = np.histogram(siasvacs["sias"], bins=sia_edges, density=False)
-            ihist[i] = hist / nfiles[epka]
-            hist, _ = np.histogram(siasvacs["vacs"], bins=vac_edges, density=False)
-            vhist[i] = hist / nfiles[epka]
-
-    def plot(
-        hist: npt.NDArray[np.float64],
-        edges: npt.NDArray[np.float64],
-        max_size: int,
-        bin_width: int,
-        title: str,
-        path: None | Path = None,
-    ) -> None:
-
-        hist = np.ma.masked_where(hist == 0, hist, copy=False)
-
-        fig = plt.figure(figsize=(8, 8))
-        gs = GridSpec(1, 2, height_ratios=[1], width_ratios=[1, 0.05])
-        ax = fig.add_subplot(gs[0, 0])
-        ax.set_xlabel("Energy (keV)")
+        ax.set_xlabel(r"Depth ($\mathrm{\AA}$)")
         ax.set_ylabel("Cluster size")
+        ax.set_ylim(min_size, max_size)
+        ax.set_xlim(depth_min, depth_max)
 
-        if rel:
-            norm = mcolors.LogNorm(vmin=vmin, vmax=1.0)
-        else:
-            norm = mcolors.LogNorm(vmin=hist.min(), vmax=hist.max())
-        im = ax.imshow(
-            hist.T,
-            origin="lower",
-            aspect="auto",
+        im = NonUniformImage(
+            ax,
+            interpolation="nearest",
             norm=norm,
-            cmap="viridis",
-            extent=[0, nepka_bins, 0, hist.shape[1]],
+            extent=(depth_min, depth_max, min_size, max_size),
         )
+        im.set_data(depth_centers, size_centers, histogram.T)
+        ax.add_image(im)
 
-        xticks = np.arange(nepka_bins) + 0.5
-        xlabels = [f"{epka/1000.0:<.1f}" for epka in epkas]
-        ax.set_xticks(xticks)
-        ax.set_xticklabels(xlabels)
-
-        # Size labels: 1, 2, ..., 10, 11-20, ...
-        if bin_width == 1:
-            ylabels = [str(i) for i in range(1, max_size + 1)]
-        else:
-            ylabels = [str(i) for i in range(1, 11)] + [
-                f"{i}-{i+bin_width-1}" for i in range(11, max_size, bin_width)
-            ]
-        yticks = np.arange(len(edges) - 1) + 0.5
-        ax.set_yticks(yticks)
-        ax.set_yticklabels(ylabels)
-
-        cax = fig.add_subplot(gs[0, 1])
-        fig.colorbar(im, cax=cax, label="% of counts per energy")
+        cbar = fig.colorbar(ax.images[0], cax=cax, orientation="vertical")
+        cbar.set_label("Counts per event")
+        cbar.ax.yaxis.set_ticks_position("right")
+        cbar.ax.yaxis.set_label_position("right")
 
         fig.suptitle(title)
         fig.tight_layout()
-        if path:
-            plt.savefig(path, dpi=dpi)
-        else:
+        if path_plot is not None:
+            plt.savefig(path_plot, dpi=dpi)
+        if show:
             plt.show()
         plt.close(fig)
 
-    plot(ihist, sia_edges, max_sia, sia_bin_width, "Interstitials", path=path_sias)
-    plot(vhist, vac_edges, max_vac, vac_bin_width, "Vacancies", path=path_vacs)
+    isizes, vsizes = [], []
+    idepths, vdepths = [], []
+    nevents = 0
+    reader = LAMMPSReader(path_oclusters)
+    for data_oclusters in reader:
+        cond_v = data_oclusters["atoms"]["type"] == 0
+        vacancies = data_oclusters["atoms"][cond_v]
+        interstitials = data_oclusters["atoms"][~cond_v]
+        vsizes.append(vacancies["size"])
+        isizes.append(interstitials["size"])
+        vdepths.append(vacancies[axis])
+        idepths.append(interstitials[axis])
+        nevents += 1
+    isizes = np.concatenate(isizes)
+    vsizes = np.concatenate(vsizes)
+    idepths = np.concatenate(idepths)
+    vdepths = np.concatenate(vdepths)
+
+    depth_edges = np.histogram_bin_edges(
+        np.concatenate((idepths, vdepths)),
+        bins=depth_nbins,
+    )
+    ihist = size_histogram_by_depth(idepths, isizes, depth_edges)
+    vhist = size_histogram_by_depth(vdepths, vsizes, depth_edges)
+
+    plot(depth_edges, ihist, "Interstitials", plot_sias_path)
+    plot(depth_edges, vhist, "Vacancies", plot_vacs_path)
+
+    return depth_edges, ihist, vhist
+
+
+# endregions
+
+# region Size scaling law
+
+
+def cluster_size_scaling_law(
+    analysisdb: AnalysisDB,
+    oclusters_path: Path,
+    min_size: int,
+    nbins: int,
+) -> tuple[
+    tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]],
+    tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]],
+]:
+    """Calculates the cluster size distribution and fits power laws to small and large sizes.
+
+    Parameters
+    ----------
+    analysisdb : AnalysisDB
+        Database for storing results.
+    oclusters_path : Path
+        Path to the object clusters file.
+    min_size : int
+        Minimum cluster size to separate small and large sizes (inclusive). Bins above this size
+        are logarithmic. Recommended value is around 5.
+    nbins : int
+        Number of bins for the large sizes histogram. This is usually a low number, depending on the
+        data (< 10).
+
+    Returns
+    -------
+    tuple[
+        tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]],
+        tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]],
+        ]
+    """
+    reader = LAMMPSReader(oclusters_path)
+    nevents = 0
+    vac_sizes = []
+    sia_sizes = []
+    for data in reader:
+        oclusters = data["atoms"]
+        cond = oclusters["type"] == 0
+        vac_sizes.append(oclusters["size"][cond])
+        sia_sizes.append(oclusters["size"][~cond])
+        nevents += 1
+    vac_sizes = np.concatenate(vac_sizes)
+    sia_sizes = np.concatenate(sia_sizes)
+
+    def histogram_sizes(sizes: npt.NDArray[np.float64], vacancies: bool) -> None:
+        """Create histogram of cluster sizes with two regions: small sizes with bins of size 1,
+        and large sizes with logarithmic bins."""
+
+        # Separate sizes from [0, min_size] and (min_size, inf)
+        sizes_small = sizes[sizes <= min_size]
+        sizes_large = sizes[sizes > min_size]
+
+        # Small sizes histogram: bins of size 1
+        max_size_small = sizes_small.max() if sizes_small.size > 0 else min_size
+        size_edges_small = np.arange(1.0, max_size_small + 2) - 0.5
+        hist_small, _ = np.histogram(sizes_small, bins=size_edges_small)
+        size_centers_small = (size_edges_small[:-1] + size_edges_small[1:]) / 2.0
+
+        # Large sizes histogram: logarithmic bins
+        if sizes_large.size > 0:
+            size_min_large = size_edges_small[-1]
+            size_max_large = sizes_large.max()
+            size_edges_large = np.logspace(
+                np.log10(size_min_large),
+                np.log10(size_max_large),
+                nbins,
+            )
+            hist_large, _ = np.histogram(sizes_large, bins=size_edges_large)
+            size_centers_large = (size_edges_large[:-1] + size_edges_large[1:]) / 2.0
+        else:
+            raise ValueError("No cluster sizes found greater than min_size.")
+
+        # Normalize
+        hist_small = hist_small / nevents
+        hist_large = hist_large / nevents
+        hist_large = hist_large / np.diff(size_edges_large)  # non-uniform bins
+
+        size_centers = np.concatenate((size_centers_small, size_centers_large))
+        hist = np.concatenate((hist_small, hist_large))
+
+        analysisdb.save_cluster_size_hist(
+            vacancies=vacancies,
+            size_centers=size_centers,
+            hist=hist,
+        )
+
+        # Fit to power law
+        try:
+            small_params, small_err_params, _ = fit_power_law(
+                size_centers_small,
+                hist_small,
+            )
+            analysisdb.save_cluster_size_hist_fit_params(
+                vacancies,
+                True,
+                *small_params,
+            )
+            analysisdb.save_cluster_size_hist_fit_errors(
+                vacancies,
+                True,
+                *small_err_params,
+            )
+        except Exception as exc:  # pylint: disable=broad-except
+            raise RuntimeError(f"Fit failed: {exc}") from exc
+        try:
+            large_params, large_err_params, _ = fit_power_law(
+                size_centers_large,
+                hist_large,
+            )
+            analysisdb.save_cluster_size_hist_fit_params(
+                vacancies,
+                False,
+                *large_params,
+            )
+            analysisdb.save_cluster_size_hist_fit_errors(
+                vacancies,
+                False,
+                *large_err_params,
+            )
+        except Exception as exc:  # pylint: disable=broad-except
+            raise RuntimeError(f"Fit failed: {exc}") from exc
+
+        return size_centers, hist
+
+    vacs_size_centers, vacs_hist = histogram_sizes(vac_sizes, True)
+    sias_size_centers, sias_hist = histogram_sizes(sia_sizes, False)
+    return (vacs_size_centers, vacs_hist), (sias_size_centers, sias_hist)
+
+
+def cluster_size_scaling_law_plot(
+    analysisdb: AnalysisDB,
+    show: bool = False,
+    vacs_plot_path: Path | None = None,
+    sias_plot_path: Path | None = None,
+    dpi: int = 300,
+) -> None:
+    """Plots the cluster size distribution with power law fits for small and large sizes.
+
+    Parameters
+    ----------
+    analysisdb : AnalysisDB
+        Database for storing results.
+    show : bool, optional (default=False)
+        Whether to show the plots.
+    vacs_plot_path : Path, optional (default=None)
+        Output path for the vacancies plot.
+    sias_plot_path : Path, optional (default=None)
+        Output path for the interstitials plot.
+    dpi : int, optional (default=300)
+        Dots per inch for the plot.
+    """
+    for vacancies in [True, False]:
+        size_centers, hist = analysisdb.load_cluster_size_hist(vacancies)
+        small_fit = analysisdb.load_cluster_size_hist_fit_function(vacancies, True)
+        large_fit = analysisdb.load_cluster_size_hist_fit_function(vacancies, False)
+        # Determine the split point between small and large sizes:
+        # the small size edges are N.5 or N.0
+        size_centers_mod = size_centers % 0.5
+        split_idx = np.where(size_centers_mod == 0.0)[0][-1] + 1
+        size_centers_small = size_centers[:split_idx]
+        hist_small = hist[:split_idx]
+        size_centers_large = size_centers[split_idx:]
+        hist_large = hist[split_idx:]
+
+        fig = plt.figure()
+        ax = fig.add_subplot(1, 1, 1)
+        small_scatter = ax.scatter(
+            size_centers_small, hist_small, label="Small sizes", marker="."
+        )
+        large_scatter = ax.scatter(
+            size_centers_large, hist_large, label="Large sizes", marker="."
+        )
+        ax.plot(
+            size_centers_small,
+            small_fit(size_centers_small),
+            color=small_scatter.get_facecolor()[0],
+        )
+        ax.plot(
+            size_centers_large,
+            large_fit(size_centers_large),
+            color=large_scatter.get_facecolor()[0],
+        )
+        ax.set_xscale("log")
+        ax.set_yscale("log")
+        ax.set_xlabel("Cluster size")
+        ax.set_ylabel("Counts per event")
+        ax.legend()
+        plt.tight_layout()
+        if vacs_plot_path is not None and vacancies:
+            plt.savefig(vacs_plot_path, dpi=dpi)
+        if sias_plot_path is not None and not vacancies:
+            plt.savefig(sias_plot_path, dpi=dpi)
+        if show:
+            plt.show()
+        plt.close()
 
 
 # endregion
