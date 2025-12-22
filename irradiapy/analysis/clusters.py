@@ -376,6 +376,8 @@ def depth_cluster_sizes_plot(
 
         min_size, max_size = 1, histogram.shape[1]
         size_centers = np.arange(min_size, max_size + 1)
+        y0, y1 = min_size - 0.5, max_size + 0.5
+        x0, x1 = depth_min, depth_max
 
         histogram = histogram / nevents
         vmin = global_min_counts / nevents
@@ -385,14 +387,16 @@ def depth_cluster_sizes_plot(
 
         ax.set_xlabel(r"Depth ($\mathrm{\AA}$)")
         ax.set_ylabel("Cluster size")
-        ax.set_ylim(min_size, max_size)
-        ax.set_xlim(depth_min, depth_max)
+        ax.set_ylim(y0, y1)
+        ax.set_xlim(x0, x1)
+        # If not added, the top bins overlap with the plot frame. This seems to be a matplotlib bug.
+        ax.spines["top"].set_position(("outward", 1))
 
         im = NonUniformImage(
             ax,
             interpolation="nearest",
             norm=norm,
-            extent=(depth_min, depth_max, min_size, max_size),
+            extent=(x0, x1, y0, y1),
         )
         im.set_data(depth_centers, size_centers, histogram.T)
         ax.add_image(im)
