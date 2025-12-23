@@ -1,14 +1,8 @@
 """This module contains the `Ioniz` class."""
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Generator
-
-import numpy as np
 
 from irradiapy.srim.srimfile import SRIMFile
-
-if TYPE_CHECKING:
-    from irradiapy.srim.srimdb import SRIMDB
 
 
 class Ioniz(SRIMFile):
@@ -46,58 +40,5 @@ class Ioniz(SRIMFile):
                     ),
                     [depth, ioniz_ions, ioniz_recoils],
                 )
-        cur.close()
-        self.srim.commit()
-
-    def read(
-        self, what: str = "*", condition: str = ""
-    ) -> Generator[tuple, None, None]:
-        """Reads ioniz data from the database as a generator.
-
-        Parameters
-        ----------
-        what : str
-            Columns to select.
-        condition : str
-            Condition to filter data.
-
-        Yields
-        ------
-        Generator[tuple, None, None]
-            Data from the database.
-        """
-        cur = self.cursor()
-        cur.execute(f"SELECT {what} FROM ioniz {condition}")
-        while True:
-            data = cur.fetchone()
-            if data:
-                yield data
-            else:
-                break
-        cur.close()
-
-    def merge(self, srimdb2: "SRIMDB") -> None:
-        """Merges the ioniz table with another database.
-
-        Parameters
-        ----------
-        srimdb2 : SRIMDB
-            SRIM database to merge.
-        """
-        nions1 = self.srim.nions
-        nions2 = srimdb2.nions
-        nions = nions1 + nions2
-        ioniz1 = np.array(list(self.read()))
-        ioniz2 = np.array(list(srimdb2.ioniz.read()))
-        ioniz1[:, 1:] *= nions1
-        ioniz2[:, 1:] *= nions2
-        ioniz1[:, 1:] += ioniz2[:, 1:]
-        ioniz1[:, 1:] /= nions
-        cur = self.cursor()
-        cur.execute("DELETE FROM ioniz")
-        cur.executemany(
-            "INSERT INTO ioniz(depth, ioniz_ions, ioniz_recoils) VALUES(?, ?, ?)",
-            ioniz1,
-        )
         cur.close()
         self.srim.commit()

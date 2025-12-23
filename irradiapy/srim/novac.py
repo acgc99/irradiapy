@@ -1,14 +1,8 @@
 """This module contains the `Novac` class."""
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Generator
-
-import numpy as np
 
 from irradiapy.srim.srimfile import SRIMFile
-
-if TYPE_CHECKING:
-    from irradiapy.srim.srimdb import SRIMDB
 
 
 class Novac(SRIMFile):
@@ -38,54 +32,5 @@ class Novac(SRIMFile):
                     "INSERT INTO novac(depth, number) VALUES(?, ?)",
                     [depth, energy_ions],
                 )
-        cur.close()
-        self.commit()
-
-    def read(
-        self, what: str = "*", condition: str = ""
-    ) -> Generator[tuple, None, None]:
-        """Reads the novac table.
-
-        Parameters
-        ----------
-        what : str
-            Columns to read.
-        condition : str
-            Condition to filter the data.
-
-        Yields
-        ------
-        tuple
-            Data from the novac table.
-        """
-        cur = self.cursor()
-        cur.execute(f"SELECT {what} FROM novac {condition}")
-        while True:
-            data = cur.fetchone()
-            if data:
-                yield data
-            else:
-                break
-        cur.close()
-
-    def merge(self, srimdb2: "SRIMDB") -> None:
-        """Merges the novac table with another database.
-
-        Parameters
-        ----------
-        srimdb2 : SRIMDB
-            SRIM database to merge.
-        """
-        nions1 = self.srim.nions
-        nions2 = srimdb2.nions
-        novac1 = np.array(list(self.read()))
-        novac2 = np.array(list(srimdb2.novac.read()))
-        novac1[:, 1:] *= nions1
-        novac2[:, 1:] *= nions2
-        novac1[:, 1:] = novac1[:, 1:] + novac2[:, 1:]
-        novac1[:, 1:] /= nions1 + nions2
-        cur = self.cursor()
-        cur.execute("DELETE FROM novac")
-        cur.executemany("INSERT INTO novac(depth, number) VALUES(?, ?)", novac1)
         cur.close()
         self.commit()

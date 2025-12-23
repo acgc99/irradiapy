@@ -110,7 +110,7 @@ def __spectra2srim_generate_debris(
         recoils = recoilsdb.read(
             "recoils",
             what="atom_numb, recoil_energy, x, y, z, cosx, cosy, cosz",
-            condition=f"WHERE event={event}",
+            conditions=f"WHERE event={event}",
         )
         for atom_numb, recoil_energy, x, y, z, cosx, cosy, cosz in recoils:
             damagedb = DamageDB(
@@ -185,7 +185,7 @@ def __py2srim_generate_debris(
         recoils = recoilsdb.read(
             "recoils",
             what="atom_numb, recoil_energy, x, y, z, cosx, cosy, cosz",
-            condition=f"WHERE event = {event}",
+            conditions=f"WHERE event = {event}",
         )
         for atom_numb, recoil_energy, x, y, z, cosx, cosy, cosz in recoils:
             # Determine layer and select target material
@@ -256,7 +256,7 @@ def __place_ions_vacs(
     ions_vacs = recoilsdb.read(
         "ions_vacs",
         what="atom_numb, x, y, z",
-        condition=f"WHERE event={event}",
+        conditions=f"WHERE event={event}",
     )
     count = 0
     past_atom_numb = 0

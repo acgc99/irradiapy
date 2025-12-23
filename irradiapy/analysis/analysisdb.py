@@ -1,128 +1,18 @@
 """This module contains the `AnalysisDB` class."""
 
-import sqlite3
 from dataclasses import dataclass
-from pathlib import Path
-from types import TracebackType
-from typing import Callable, Generator
+from typing import Callable
 
 import numpy as np
 import numpy.typing as npt
 
+from irradiapy.database import Database
 from irradiapy.utils.math import gaussian, lorentzian, power_law
 
 
 @dataclass
-class AnalysisDB(sqlite3.Connection):
-    """SQLite database for storing analysis results.
-
-    Parameters
-    ----------
-    path : Path
-        Path to the SQLite database file.
-    """
-
-    path: Path
-
-    def __post_init__(self) -> None:
-        super().__init__(self.path)
-
-    def __exit__(
-        self,
-        exc_type: None | type[BaseException] = None,
-        exc_value: None | BaseException = None,
-        exc_traceback: None | TracebackType = None,
-    ) -> bool:
-        """Exit the runtime context related to this object."""
-        self.close()
-        return False
-
-    def optimize(self) -> None:
-        """Optimize the SQLite database.
-
-        This method performs two operations to optimize the database:
-        1. Executes the "PRAGMA optimize" command to analyze and optimize the database.
-        2. Executes the "VACUUM" command to rebuild the database file,
-        repacking it into a minimal amount of disk space.
-        """
-        cur = self.cursor()
-        cur.execute("PRAGMA optimize")
-        cur.execute("VACUUM")
-        cur.close()
-
-    def table_exists(self, table_name: str) -> bool:
-        """Checks if the given table exists in the database.
-
-        Parameters
-        ----------
-        table_name : str
-            Table's name to check.
-
-        Returns
-        -------
-        bool
-            Whether the table already exists or not.
-        """
-        cur = self.cursor()
-        cur.execute(
-            (
-                "SELECT COUNT(*) FROM sqlite_master WHERE type='table'"
-                f"AND name='{table_name}'"
-            )
-        )
-        result = cur.fetchone()[0]
-        cur.close()
-        return bool(result)
-
-    def table_has_column(self, table_name: str, column_name: str) -> bool:
-        """Checks if the given table has the specified column.
-
-        Parameters
-        ----------
-        table_name : str
-            Table's name to check.
-        column_name : str
-            Column's name to check.
-
-        Returns
-        -------
-        bool
-            Whether the column exists in the table or not.
-        """
-        cur = self.cursor()
-        cur.execute(f"PRAGMA table_info({table_name})")
-        columns = [info[1] for info in cur.fetchall()]
-        cur.close()
-        return column_name in columns
-
-    def read(
-        self, table: str, what: str = "*", condition: str = ""
-    ) -> Generator[tuple, None, None]:
-        """Reads table data from the database as a generator.
-
-        Parameters
-        ----------
-        table : str
-            Table to read from.
-        what : str
-            Columns to select.
-        condition : str
-            Condition to filter data.
-
-        Yields
-        ------
-        Generator[tuple, None, None]
-            Data from the database.
-        """
-        cur = self.cursor()
-        cur.execute(f"SELECT {what} FROM {table} {condition}")
-        while True:
-            data = cur.fetchone()
-            if data:
-                yield data
-            else:
-                break
-        cur.close()
+class AnalysisDB(Database):
+    """SQLite database for storing analysis results."""
 
     # region Recoils
 
@@ -141,7 +31,7 @@ class AnalysisDB(sqlite3.Connection):
         table_name = "recoil_energies"
         cur = self.cursor()
         cur.execute(
-            f"CREATE TABLE IF NOT EXISTS {table_name} (energy_centers, counts REAL)"
+            f"CREATE TABLE IF NOT EXISTS {table_name} (energy_centers REAL, counts REAL)"
         )
         cur.executemany(
             f"INSERT INTO {table_name} (energy_centers, counts) VALUES (?, ?)",
@@ -198,10 +88,8 @@ class AnalysisDB(sqlite3.Connection):
         tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]
             A tuple containing energy centers and histogram values.
         """
-        data = list(self.read(table="recoil_energies", what="energy_centers, counts"))
-        energy_centers = np.array([row[0] for row in data])
-        hist = np.array([row[1] for row in data])
-        return energy_centers, hist
+        data = self.read_numpy(table="recoil_energies", what="energy_centers, counts")
+        return data["energy_centers"], data["counts"]
 
     def load_recoil_energies_hist_fit_parameters(self) -> tuple[float, float]:
         """Load recoil energies histogram fit parameters from the database.
@@ -371,10 +259,8 @@ class AnalysisDB(sqlite3.Connection):
             A tuple containing depth centers and histogram values.
         """
         table_name = f"depth_ions_{axis}"
-        data = list(self.read(table=table_name, what="depth_centers, counts"))
-        depth_centers = np.array([row[0] for row in data])
-        hist = np.array([row[1] for row in data])
-        return depth_centers, hist
+        data = self.read_numpy(table=table_name, what="depth_centers, counts")
+        return data["depth_centers"], data["counts"]
 
     def load_depth_ions_hist_fit_parameters(
         self, axis: str
@@ -463,7 +349,7 @@ class AnalysisDB(sqlite3.Connection):
         table_name = f"depth_dpa_{axis}"
         cur = self.cursor()
         # Create table with only depth_centers column
-        cur.execute(f"CREATE TABLE IF NOT EXISTS {table_name} (depth_centers)")
+        cur.execute(f"CREATE TABLE IF NOT EXISTS {table_name} (depth_centers REAL)")
         # If depth_centers is empty, insert them
         cur.execute(f"SELECT COUNT(*) FROM {table_name}")
         if cur.fetchone()[0] == 0:
@@ -613,10 +499,8 @@ class AnalysisDB(sqlite3.Connection):
             A tuple containing depth centers and dpa histogram for the specified model.
         """
         table_name = f"depth_dpa_{axis}"
-        data = list(self.read(table=table_name, what="depth_centers, " + model))
-        depth_centers = np.array([row[0] for row in data])
-        hist = np.array([row[1] for row in data])
-        return depth_centers, hist
+        data = self.read_numpy(table=table_name, what="depth_centers, " + model)
+        return data["depth_centers"], data[model]
 
     def load_depth_dpa_hist_fit_parameters(
         self, axis: str, model: str
@@ -640,7 +524,7 @@ class AnalysisDB(sqlite3.Connection):
         params = self.read(
             table=f"depth_dpa_params_{axis}",
             what="x0, sigma, amplitude, asymmetry",
-            condition=f"WHERE model='{model}'",
+            conditions=f"WHERE model='{model}'",
         )
         return next(params)
 
@@ -668,7 +552,7 @@ class AnalysisDB(sqlite3.Connection):
         errors = self.read(
             table=f"depth_dpa_errors_{axis}",
             what="x0, sigma, amplitude, asymmetry",
-            condition=f"WHERE model='{model}'",
+            conditions=f"WHERE model='{model}'",
         )
         return next(errors)
 
@@ -706,7 +590,7 @@ class AnalysisDB(sqlite3.Connection):
             Dpa value.
         """
         value = self.read(
-            table="dpa", what="model, dpa", condition=f"WHERE model='{model}'"
+            table="dpa", what="model, dpa", conditions=f"WHERE model='{model}'"
         )
         return next(value)[1]
 
@@ -772,13 +656,10 @@ class AnalysisDB(sqlite3.Connection):
             A tuple containing depth centers and clustering fractions for SIAs and vacancies.
         """
         table_name = f"clustering_fraction_{axis}_{min_size}"
-        data = list(
-            self.read(table=table_name, what="depth_centers, ifraction, vfraction")
+        data = self.read_numpy(
+            table=table_name, what="depth_centers, ifraction, vfraction"
         )
-        depth_centers = np.array([row[0] for row in data])
-        ifraction = np.array([row[1] for row in data])
-        vfraction = np.array([row[2] for row in data])
-        return depth_centers, ifraction, vfraction
+        return data["depth_centers"], data["ifraction"], data["vfraction"]
 
     # endregion
 
@@ -906,10 +787,8 @@ class AnalysisDB(sqlite3.Connection):
             A tuple containing size centers and histogram values.
         """
         table_name = "cluster_size_vacs" if vacancies else "cluster_size_sias"
-        data = list(self.read(table=table_name, what="size_centers, counts"))
-        size_centers = np.array([row[0] for row in data])
-        hist = np.array([row[1] for row in data])
-        return size_centers, hist
+        data = self.read_numpy(table=table_name, what="size_centers, counts")
+        return data["size_centers"], data["counts"]
 
     def load_cluster_size_hist_fit_parameters(
         self,
@@ -939,7 +818,7 @@ class AnalysisDB(sqlite3.Connection):
         params = self.read(
             table=table_name,
             what="a, k",
-            condition=f"WHERE size_range='{size_range}'",
+            conditions=f"WHERE size_range='{size_range}'",
         )
         return next(params)
 
@@ -971,7 +850,7 @@ class AnalysisDB(sqlite3.Connection):
         errors = self.read(
             table=table_name,
             what="a, k",
-            condition=f"WHERE size_range='{size_range}'",
+            conditions=f"WHERE size_range='{size_range}'",
         )
         return next(errors)
 

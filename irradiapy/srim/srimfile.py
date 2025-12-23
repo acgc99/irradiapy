@@ -14,6 +14,10 @@ class SRIMFile:
 
     srim: "SRIMDB"
 
+    def __post_init__(self) -> None:
+        # Required for Collision, Vacancy, Range, and E2Recoil classes
+        pass
+
     def cursor(self) -> sqlite3.Cursor:
         """Returns a cursor object using the current SRIM database connection.
 

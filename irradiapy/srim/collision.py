@@ -5,12 +5,8 @@ from __future__ import annotations
 import warnings
 from math import sqrt
 from pathlib import Path
-from typing import TYPE_CHECKING, Generator
 
 from irradiapy.srim.srimfile import SRIMFile
-
-if TYPE_CHECKING:
-    from irradiapy.srim.srimdb import SRIMDB
 
 warnings.filterwarnings(
     "once",
@@ -31,21 +27,12 @@ class Collision(SRIMFile):
     post-processing pass that updates every collision row.
     """
 
-    def __init__(self, srimdb: "SRIMDB") -> None:
-        """Initializes the `Collision` object.
-
-        Parameters
-        ----------
-        srimdb : SRIMDB
-            `SRIMDB` object.
-        """
-        super().__init__(srimdb)
+    def __post_init__(self) -> None:
+        super().__post_init__()
         if self.srim.calculation == "quick":
             self.process_file = self.__process_file_qc
-            self.merge = self.__merge_qc
         else:
             self.process_file = self.__process_file_fc
-            self.merge = self.__merge_fc
 
     @staticmethod
     def __dir_from_positions(
@@ -93,7 +80,10 @@ class Collision(SRIMFile):
         )
 
         current_ion: int | None = None
-        trimdat_reader = self.srim.trimdat.read(what="depth, y, z, cosx, cosy, cosz")
+        trimdat_reader = self.srim.read(
+            table="trimdat",
+            what="depth, y, z, cosx, cosy, cosz",
+        )
         with open(collision_path, "r", encoding="latin1") as file:
             # Skip header block
             for line in file:
@@ -177,7 +167,10 @@ class Collision(SRIMFile):
         )
 
         current_ion: int | None = None
-        trimdat_reader = self.srim.trimdat.read(what="depth, y, z, cosx, cosy, cosz")
+        trimdat_reader = self.srim.read(
+            table="trimdat",
+            what="depth, y, z, cosx, cosy, cosz",
+        )
         with open(collision_path, "r", encoding="latin1") as file:
             for line in file:
                 if not line or line[0] != "³":
@@ -239,60 +232,4 @@ class Collision(SRIMFile):
                     ],
                 )
 
-        cur.close()
-
-    def __merge_qc(self, srimdb2: "SRIMDB") -> None:
-        """Merges the collision table with another database for Quick-Calculation mode."""
-        nions = self.srim.nions
-        cur = self.cursor()
-        cur.execute(f"ATTACH DATABASE '{srimdb2.db_path}' AS srimdb2")
-        cur.execute(
-            (
-                "INSERT INTO collision("
-                "ion_numb, energy, depth, y, z, cosx, cosy, cosz, "
-                "se, atom_hit, recoil_energy, target_disp)"
-                " SELECT ion_numb + ?, energy, depth, y, z, cosx, cosy, cosz, "
-                "se, atom_hit, recoil_energy, target_disp "
-                "FROM srimdb2.collision"
-            ),
-            (nions,),
-        )
-        self.srim.commit()
-        cur.execute("DETACH DATABASE srimdb2")
-        cur.close()
-
-    def __merge_fc(self, srimdb2: "SRIMDB") -> None:
-        """Merges the collision table with another database for Full-Calculation mode."""
-        nions = self.srim.nions
-        cur = self.cursor()
-        cur.execute(f"ATTACH DATABASE '{srimdb2.db_path}' AS srimdb2")
-        cur.execute(
-            (
-                "INSERT INTO collision("
-                "ion_numb, energy, depth, y, z, cosx, cosy, cosz, "
-                "se, atom_hit, recoil_energy, target_disp, target_vac, "
-                "target_replac, target_inter)"
-                " SELECT ion_numb + ?, energy, depth, y, z, cosx, cosy, cosz, "
-                "se, atom_hit, recoil_energy, target_disp, target_vac, "
-                "target_replac, target_inter "
-                "FROM srimdb2.collision"
-            ),
-            (nions,),
-        )
-        self.srim.commit()
-        cur.execute("DETACH DATABASE srimdb2")
-        cur.close()
-
-    def read(
-        self, what: str = "*", condition: str = ""
-    ) -> Generator[tuple, None, None]:
-        """Reads data from the collision table."""
-        cur = self.cursor()
-        cur.execute(f"SELECT {what} FROM collision {condition}")
-        while True:
-            data = cur.fetchone()
-            if data:
-                yield data
-            else:
-                break
         cur.close()

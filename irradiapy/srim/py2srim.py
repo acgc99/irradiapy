@@ -322,9 +322,9 @@ class Py2SRIM:
 
     def __check_transmit(self, srimdb: SRIMDB) -> None:
         """Checks if there are transmitted ions in the database."""
-        transmit_rows = list(srimdb.transmit.read())
+        transmit_rows = list(srimdb.read("transmit", "atom_numb, energy"))
         if transmit_rows:
-            msg = ", ".join(f"({row[1]}, {row[2]:.2g})" for row in transmit_rows)
+            msg = ", ".join(f"({row[0]}, {row[1]:.2g})" for row in transmit_rows)
             raise RuntimeError(
                 "SRIM ions ended up transmitted. Consider increasing the "
                 "effective target width. (Z, E (eV)) = " + msg
@@ -332,9 +332,9 @@ class Py2SRIM:
 
     def __check_backscat(self, srimdb: SRIMDB) -> None:
         """Checks if there are backscattered ions in the database."""
-        backscat_rows = list(srimdb.backscat.read())
+        backscat_rows = list(srimdb.read("backscat", "atom_numb, energy"))
         if backscat_rows:
-            msg = ", ".join(f"({row[1]}, {row[2]:.2g})" for row in backscat_rows)
+            msg = ", ".join(f"({row[0]}, {row[1]:.2g})" for row in backscat_rows)
             raise RuntimeError(
                 "SRIM ions ended up backscattered. Consider increasing the "
                 "effective target width. (Z, E (eV)) = " + msg
@@ -674,9 +674,10 @@ class Py2SRIM:
                 calculation=None,
             )
             collisions = list(
-                srimdb_branch.collision.read(
+                srimdb_branch.read(
+                    table="collision",
                     what="depth, y, z, cosx, cosy, cosz, recoil_energy, atom_hit",
-                    condition=f"WHERE ion_numb={ion_numb}",
+                    conditions=f"WHERE ion_numb={ion_numb}",
                 )
             )
             srimdb_branch.close()
@@ -857,23 +858,26 @@ class Py2SRIM:
 
             # Initial ion positions and atomic number for this ion_numb
             trimdat_rows = list(
-                srimdb_branch.trimdat.read(
+                srimdb_branch.read(
+                    table="trimdat",
                     what="depth, y, z, atom_numb",
-                    condition=f"WHERE ion_numb={ion_numb}",
+                    conditions=f"WHERE ion_numb={ion_numb}",
                 )
             )
             # Final ion positions (vacancies) for this ion_numb
             range3d_rows = list(
-                srimdb_branch.range3d.read(
+                srimdb_branch.read(
+                    table="range3d",
                     what="depth, y, z",
-                    condition=f"WHERE ion_numb={ion_numb}",
+                    conditions=f"WHERE ion_numb={ion_numb}",
                 )
             )
             # Recoils for this ion_numb to decide further SRIM levels
             collision_rows = list(
-                srimdb_branch.collision.read(
+                srimdb_branch.read(
+                    table="collision",
                     what="recoil_energy, atom_hit",
-                    condition=f"WHERE ion_numb={ion_numb}",
+                    conditions=f"WHERE ion_numb={ion_numb}",
                 )
             )
             srimdb_branch.close()
@@ -1084,9 +1088,10 @@ class Py2SRIM:
                 calculation=None,
             )
             collisions = list(
-                srimdb_branch.collision.read(
+                srimdb_branch.read(
+                    table="collision",
                     what="depth, y, z, cosx, cosy, cosz, recoil_energy, atom_hit",
-                    condition="ORDER BY ion_numb",
+                    conditions="ORDER BY ion_numb",
                 )
             )
             srimdb_branch.close()

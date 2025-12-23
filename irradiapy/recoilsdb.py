@@ -1,81 +1,25 @@
 """This module contains the `RecoilsDB` class."""
 
-import sqlite3
 from dataclasses import dataclass, field
 from pathlib import Path
-from types import TracebackType
-from typing import Generator
 
+from irradiapy.database import Database
 from irradiapy.enums import Phases
 from irradiapy.materials.component import Component
 from irradiapy.materials.element import Element
 
 
 @dataclass
-class RecoilsDB(sqlite3.Connection):
-    """SQLite3 database for SPECTRA-PKA to SRIM events, recoils and ions/vacancies.
+class RecoilsDB(Database):
+    """SQLite3 database for SPECTRA-PKA to SRIM events, recoils and ions/vacancies."""
 
-    Parameters
-    ----------
-    path : Path
-        Path to the recoils database.
-    """
-
-    path: Path
     target: list[Component] = field(init=False)
 
     def __post_init__(self) -> None:
-        super().__init__(self.path)
+        super().__post_init__()
         self.create_tables()
         if self.table_exists("components") and self.table_exists("elements"):
             self.load_target()
-
-    def __exit__(
-        self,
-        exc_type: None | type[BaseException] = None,
-        exc_value: None | BaseException = None,
-        exc_traceback: None | TracebackType = None,
-    ) -> bool:
-        """Exit the runtime context related to this object."""
-        self.close()
-        return False
-
-    def optimize(self) -> None:
-        """Optimize the SQLite database.
-
-        This method performs two operations to optimize the database:
-        1. Executes the "PRAGMA optimize" command to analyze and optimize the database.
-        2. Executes the "VACUUM" command to rebuild the database file,
-        repacking it into a minimal amount of disk space.
-        """
-        cur = self.cursor()
-        cur.execute("PRAGMA optimize")
-        cur.execute("VACUUM")
-        cur.close()
-
-    def table_exists(self, table_name: str) -> bool:
-        """Checks if the given table exists in the database.
-
-        Parameters
-        ----------
-        table_name : str
-            Table's name to check.
-
-        Returns
-        -------
-        bool
-            Whether the table already exists or not.
-        """
-        cur = self.cursor()
-        cur.execute(
-            (
-                "SELECT COUNT(*) FROM sqlite_master WHERE type='table'"
-                f"AND name='{table_name}'"
-            )
-        )
-        result = cur.fetchone()[0]
-        cur.close()
-        return bool(result)
 
     def process_config_events(
         self, path_spectrapka_events: Path, exclude_recoils: list[str] | None = None
@@ -244,35 +188,6 @@ class RecoilsDB(sqlite3.Connection):
             ),
             (event, atom_numb, x, y, z),
         )
-        cur.close()
-
-    def read(
-        self, table: str, what: str = "*", condition: str = ""
-    ) -> Generator[tuple, None, None]:
-        """Reads table data from the database as a generator.
-
-        Parameters
-        ----------
-        table : str
-            Table to read from.
-        what : str
-            Columns to select.
-        condition : str
-            Condition to filter data.
-
-        Yields
-        ------
-        Generator[tuple, None, None]
-            Data from the database.
-        """
-        cur = self.cursor()
-        cur.execute(f"SELECT {what} FROM {table} {condition}")
-        while True:
-            data = cur.fetchone()
-            if data:
-                yield data
-            else:
-                break
         cur.close()
 
     def __save_component(self, component: Component) -> None:

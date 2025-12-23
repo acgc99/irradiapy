@@ -100,13 +100,13 @@ class Spectra2SRIM:
     reminders: int = field(default=0, init=False)
     bragg: int = field(default=1, init=False)
 
-    def __read_spectrapka_events_for_srim(self, condition: str = "") -> tuple:
+    def __read_spectrapka_events_for_srim(self, conditions: str = "") -> tuple:
         """Read data from the SPECTRA-PKA database for SRIM calculations.
 
         Parameters
         ----------
-        condition : str
-            Condition to filter data.
+        conditions : str
+            Conditions to filter data.
 
         Returns
         -------
@@ -118,7 +118,7 @@ class Spectra2SRIM:
             self.recoilsdb.read(
                 table="spectrapkas",
                 what="x, y, z, vx, vy, vz, element, recoil_energy, time, event",
-                condition=condition,
+                conditions=conditions,
             )
         )
         nions = len(data)

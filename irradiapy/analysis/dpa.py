@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sqlite3
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -247,9 +248,12 @@ def depth_dpa_hist_plot(
     for model in models:
         scatter = ax.scatter(depth_centers, hists[model], label=model, marker=".")
         if fits is not False:
-            ax.plot(
-                depth_centers, fits[model](depth_centers), c=scatter.get_facecolor()
-            )
+            try:
+                ax.plot(
+                    depth_centers, fits[model](depth_centers), c=scatter.get_facecolor()
+                )
+            except sqlite3.OperationalError as exc:
+                print(f"Could not plot fit function for model {model}: {exc}")
 
     ax.legend()
     fig.tight_layout()

@@ -1,5 +1,6 @@
 """Module for analyzing recoils and final ion positions."""
 
+import sqlite3
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -17,7 +18,7 @@ def recoil_energies_hist(
     recoilsdb: RecoilsDB,
     analysisdb: AnalysisDB,
     nbins: int = 100,
-    condition: str = "",
+    conditions: str = "",
 ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
     """Calculate and store the recoil energy histogram and tries to fit it.
 
@@ -31,8 +32,8 @@ def recoil_energies_hist(
         Database for storing results.
     nbins : int, optional (default=100)
         Number of recoil energy nbins.
-    condition : str, optional (default="")
-        Condition to filter recoils.
+    conditions : str, optional (default="")
+        Conditions to filter recoils.
 
     Returns
     -------
@@ -40,16 +41,11 @@ def recoil_energies_hist(
         (energy_centers, hist)
     """
     nevents = recoilsdb.get_nevents()
-    energies = np.array(
-        [
-            recoil[0]
-            for recoil in recoilsdb.read(
-                table="recoils",
-                what="recoil_energy",
-                condition=condition,
-            )
-        ]
-    )
+    energies = recoilsdb.read_numpy(
+        table="recoils",
+        what="recoil_energy",
+        conditions=conditions,
+    )["recoil_energy"]
     hist, energy_edges = np.histogram(energies, bins=nbins)
     energy_centers = (energy_edges[1:] + energy_edges[:-1]) / 2.0
     hist = hist / nevents
@@ -61,7 +57,7 @@ def recoil_energies_hist(
         analysisdb.save_recoil_energies_hist_fit_params(*params)
         analysisdb.save_recoil_energies_hist_fit_errors(*err_params)
     except Exception as exc:  # pylint: disable=broad-except
-        raise RuntimeError(f"Fit failed: {exc}") from exc
+        print(f"Fit failed: {exc}")
 
     return energy_centers, hist
 
@@ -101,12 +97,15 @@ def recoil_energies_hist_plot(
     ax.scatter(energy_centers, hist, marker=".")
 
     if fit:
-        fit_function = analysisdb.load_recoil_energies_hist_fit_function()
-        ax.plot(
-            energy_centers,
-            fit_function(energy_centers),
-            color=plt.rcParams["axes.prop_cycle"].by_key()["color"][0],
-        )
+        try:
+            fit_function = analysisdb.load_recoil_energies_hist_fit_function()
+            ax.plot(
+                energy_centers,
+                fit_function(energy_centers),
+                color=plt.rcParams["axes.prop_cycle"].by_key()["color"][0],
+            )
+        except sqlite3.OperationalError as exc:
+            print(f"Could not plot fit function: {exc}")
 
     fig.tight_layout()
     if plot_path:
@@ -163,29 +162,33 @@ def recoils_distances_hist_plot(
         columns to sum of recoil energy nbins.
     """
     nevents = recoilsdb.get_nevents()
+    data = recoilsdb.read_numpy(
+        table="recoils",
+        what="event, x, y, z, recoil_energy",
+        conditions=f"WHERE recoil_energy >= {min_recoil_energy} ORDER BY event",
+    )
+    events = data["event"]
+    positions = np.column_stack((data["x"], data["y"], data["z"]))
+    recoil_energies = data["recoil_energy"]
+
+    # Indices where event changes
+    cuts = np.flatnonzero(events[1:] != events[:-1]) + 1
+    starts = np.r_[0, cuts]
+    ends = np.r_[cuts, events.size]
+
     distances = []
     energies = []
-    # Get pairwise distances and energies for each ion
-    for nevent in range(1, nevents + 1):
-        data = np.array(
-            list(
-                recoilsdb.read(
-                    table="recoils",
-                    what="x, y, z, recoil_energy",
-                    condition=f"WHERE event = {nevent} AND recoil_energy >= {min_recoil_energy}",
-                )
-            )
+    for start, end in zip(starts, ends):
+        nrecoils = end - start
+        if nrecoils < 2:
+            continue
+        event_positions = positions[start:end]
+        event_recoil_energies = recoil_energies[start:end]
+        ii, jj = np.triu_indices(nrecoils, k=1)
+        distances.append(
+            np.linalg.norm(event_positions[ii] - event_positions[jj], axis=1)
         )
-        if len(data):
-            pos = data[:, :3]
-            recoil_energy = data[:, 3]
-            nrecoils = pos.shape[0]
-            if nrecoils >= 2:
-                ii, jj = np.triu_indices(nrecoils, k=1)
-                distance = np.linalg.norm(pos[ii] - pos[jj], axis=1)
-                energy = recoil_energy[ii] + recoil_energy[jj]
-                distances.append(distance)
-                energies.append(energy)
+        energies.append(event_recoil_energies[ii] + event_recoil_energies[jj])
 
     distances = np.concatenate(distances)
     energies = np.concatenate(energies) / 1e3
@@ -280,20 +283,18 @@ def depth_recoil_energy_hist_plot(
         raise ValueError("Axis must be 'x', 'y', or 'z'.")
 
     nevents = recoilsdb.get_nevents()
-    data = np.array(
-        list(
-            recoilsdb.read(
-                table="recoils",
-                what=f"{axis}, recoil_energy",
-                condition=(
-                    f"WHERE recoil_energy <= {max_recoil_energy}"
-                    if max_recoil_energy is not None
-                    else ""
-                ),
-            )
-        ),
+    conditions = (
+        f"WHERE recoil_energy <= {max_recoil_energy}"
+        if max_recoil_energy is not None
+        else ""
     )
-    depths, energies = data[:, 0], data[:, 1]
+    data = recoilsdb.read_numpy(
+        table="recoils",
+        what=f"{axis}, recoil_energy",
+        conditions=conditions,
+    )
+    depths = data[axis]
+    energies = data["recoil_energy"]
     if kev:
         energies /= 1e3
 
@@ -382,16 +383,16 @@ def depth_injected_ions_hist(
     nevents = recoilsdb.get_nevents()
     depths = np.empty(nevents)
     for event in range(1, nevents + 1):
-        ions_vacs = list(
+        ions_vacs = next(
             recoilsdb.read(
                 table="ions_vacs",
                 what=axis,
-                condition=f"WHERE event = {event}",
+                conditions=f"WHERE event = {event} LIMIT 1 OFFSET 1",
             )
         )
         # This takes the second row, which is the rest position of
         # the primary recoil atom after all recoils
-        depths[event - 1] = ions_vacs[1][0]
+        depths[event - 1] = ions_vacs[0]
 
     hist, depth_edges = np.histogram(depths, bins=nbins)
     hist = hist / nevents
@@ -443,12 +444,15 @@ def depth_injected_ions_hist_plot(
     ax.set_ylabel("Counts per event")
     ax.scatter(depth_centers, hist, marker=".")
     if fit:
-        fit_function = analysisdb.load_depth_ions_hist_fit_function(axis)
-        ax.plot(
-            depth_centers,
-            fit_function(depth_centers),
-            color=plt.rcParams["axes.prop_cycle"].by_key()["color"][0],
-        )
+        try:
+            fit_function = analysisdb.load_depth_ions_hist_fit_function(axis)
+            ax.plot(
+                depth_centers,
+                fit_function(depth_centers),
+                color=plt.rcParams["axes.prop_cycle"].by_key()["color"][0],
+            )
+        except sqlite3.OperationalError as exc:
+            print(f"Could not plot fit function: {exc}")
 
     fig.tight_layout()
     if plot_path:

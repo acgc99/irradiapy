@@ -1,11 +1,10 @@
 """This module contains the `SRIMDB` class."""
 
-import sqlite3
 from dataclasses import dataclass, field
 from pathlib import Path
-from types import TracebackType
 
 from irradiapy import config
+from irradiapy.database import Database
 from irradiapy.enums import Phases
 from irradiapy.materials.component import Component
 from irradiapy.materials.element import Element
@@ -25,7 +24,7 @@ from irradiapy.srim.vacancy import Vacancy
 
 
 @dataclass(kw_only=True)
-class SRIMDB(sqlite3.Connection):
+class SRIMDB(Database):
     """Base class for storing SRIM output data in a SQLite database.
 
     Attributes
@@ -72,7 +71,6 @@ class SRIMDB(sqlite3.Connection):
         Class storing `VACANCY.txt` data.
     """
 
-    path: Path
     target: None | list[Component] = None
     calculation: None | str = None
 
@@ -113,14 +111,12 @@ class SRIMDB(sqlite3.Connection):
 
         Parameters
         ----------
-        path : Path
-            Output database path.
         target : Target, optional (default=None)
             SRIM target. Do not provide this argument for read only.
         calculation : Calculation, optional (default=None)
             SRIM calculation. Do not provide this argument for read only.
         """
-        super().__init__(self.path)
+        super().__post_init__()
         self.backscat = Backscat(self)
         self.e2recoil = E2Recoil(self)
         self.ioniz = Ioniz(self)
@@ -155,16 +151,6 @@ class SRIMDB(sqlite3.Connection):
 
         if self.calculation != "quick":
             self.novac = Novac(self)
-
-    def __exit__(
-        self,
-        exc_type: None | type[BaseException] = None,
-        exc_value: None | BaseException = None,
-        exc_traceback: None | TracebackType = None,
-    ) -> bool:
-        """Exit the runtime context related to this object."""
-        self.close()
-        return False
 
     def __save_component(self, component: Component) -> None:
         """Save component into the recoils database."""
@@ -398,43 +384,6 @@ class SRIMDB(sqlite3.Connection):
         cur.close()
         return target
 
-    def optimize(self) -> None:
-        """Optimize the SQLite database.
-
-        This method performs two operations to optimize the database:
-        1. Executes the "PRAGMA optimize" command to analyze and optimize the database.
-        2. Executes the "VACUUM" command to rebuild the database file,
-        repacking it into a minimal amount of disk space.
-        """
-        cur = self.cursor()
-        cur.execute("PRAGMA optimize")
-        cur.execute("VACUUM")
-        cur.close()
-
-    def table_exists(self, table_name: str) -> bool:
-        """Checks if the given table exists in the database.
-
-        Parameters
-        ----------
-        table_name : str
-            Table's name to check.
-
-        Returns
-        -------
-        bool
-            Whether the table already exists or not.
-        """
-        cur = self.cursor()
-        cur.execute(
-            (
-                "SELECT COUNT(*) FROM sqlite_master WHERE type='table'"
-                f"AND name='{table_name}'"
-            )
-        )
-        result = cur.fetchone()[0]
-        cur.close()
-        return bool(result)
-
     def get_nions(self) -> int:
         """Gets the number of ions in the simulation based on trimdat table."""
         if self.table_exists("trimdat"):
@@ -444,84 +393,6 @@ class SRIMDB(sqlite3.Connection):
             cur.close()
             return nions
         return 0
-
-    def merge(
-        self,
-        srimdb: "SRIMDB",
-        backscat: bool = True,
-        e2recoil: bool = True,
-        ioniz: bool = True,
-        lateral: bool = True,
-        phonon: bool = True,
-        range3d: bool = True,
-        range_: bool = True,
-        sputter: bool = True,
-        transmit: bool = True,
-        vacancy: bool = True,
-        collision: bool = True,
-        trimdat: bool = True,
-        novac: bool = True,
-    ) -> None:
-        """Merges two databases.
-
-        Parameters
-        ----------
-        srimdb : SRIMDB
-            SRIM database to merge.
-        backscat : bool, optional
-            Merge backscattering data.
-        e2recoil : bool, optional
-            Merge energy to recoil data.
-        ioniz : bool, optional
-            Merge ionization data.
-        lateral : bool, optional
-            Merge lateral data.
-        phonon : bool, optional
-            Merge phonon data.
-        range3d : bool, optional
-            Merge 3D range data.
-        range_ : bool, optional
-            Merge range data.
-        sputter : bool, optional
-            Merge sputtering data.
-        transmit : bool, optional
-            Merge transmission data.
-        vacancy : bool, optional
-            Merge vacancy data.
-        collision : bool, optional
-            Merge collision data.
-        trimdat : bool, optional
-            Merge TRIMDAT data.
-        novac : bool, optional
-            Merge NOVAC data.
-        """
-        if backscat:
-            self.backscat.merge(srimdb)
-        if e2recoil:
-            self.e2recoil.merge(srimdb)
-        if ioniz:
-            self.ioniz.merge(srimdb)
-        if lateral:
-            self.lateral.merge(srimdb)
-        if phonon:
-            self.phonon.merge(srimdb)
-        if range3d:
-            self.range3d.merge(srimdb)
-        if range_:
-            self.range.merge(srimdb)
-        if sputter:
-            self.sputter.merge(srimdb)
-        if transmit:
-            self.transmit.merge(srimdb)
-        if vacancy:
-            self.vacancy.merge(srimdb)
-        if collision:
-            self.collision.merge(srimdb)
-        if self.calculation in ["full", "mono"] and novac:
-            self.novac.merge(srimdb)
-        if trimdat:
-            self.trimdat.merge(srimdb)
-        self.optimize()
 
     def append_output(self) -> None:
         """Appends SRIM output files into the database."""
