@@ -9,7 +9,8 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from irradiapy import dtypes, materials
-from irradiapy.damagedb import DamageDB
+from irradiapy.analysis.debrismanager import DebrisManager
+from irradiapy.enums import DamageEnergyMode, DisplacementMode
 from irradiapy.io.lammpswriter import LAMMPSWriter
 from irradiapy.utils.math import apply_boundary_conditions
 
@@ -22,9 +23,9 @@ def generate_debris(
     mddb_dir: Path,
     compute_damage_energy: bool,
     debris_path: Path,
-    damage_energy_mode: materials.DamageEnergyMode,
-    displacement_mode: materials.DisplacementMode,
-    dist_fp: float,
+    damage_energy_mode: DamageEnergyMode,
+    displacement_mode: DisplacementMode,
+    fp_dist: float,
     energy_tolerance: float = 0.1,
     exclude_from_ions: list[int] | None = None,
     exclude_from_vacs: list[int] | None = None,
@@ -47,7 +48,7 @@ def generate_debris(
             debris_path=debris_path,
             damage_energy_mode=damage_energy_mode,
             displacement_mode=displacement_mode,
-            dist_fp=dist_fp,
+            fp_dist=fp_dist,
             energy_tolerance=energy_tolerance,
             exclude_from_ions=exclude_from_ions,
             exclude_from_vacs=exclude_from_vacs,
@@ -61,7 +62,7 @@ def generate_debris(
             debris_path=debris_path,
             damage_energy_mode=damage_energy_mode,
             displacement_mode=displacement_mode,
-            dist_fp=dist_fp,
+            fp_dist=fp_dist,
             energy_tolerance=energy_tolerance,
             exclude_from_ions=exclude_from_ions,
             exclude_from_vacs=exclude_from_vacs,
@@ -78,9 +79,9 @@ def __spectra2srim_generate_debris(
     mddb_dir: Path,
     compute_damage_energy: bool,
     debris_path: Path,
-    damage_energy_mode: materials.DamageEnergyMode,
-    displacement_mode: materials.DisplacementMode,
-    dist_fp: float,
+    damage_energy_mode: DamageEnergyMode,
+    displacement_mode: DisplacementMode,
+    fp_dist: float,
     energy_tolerance: float,
     exclude_from_ions: list[int],
     exclude_from_vacs: list[int],
@@ -113,19 +114,21 @@ def __spectra2srim_generate_debris(
             conditions=f"WHERE event={event}",
         )
         for atom_numb, recoil_energy, x, y, z, cosx, cosy, cosz in recoils:
-            damagedb = DamageDB(
+            debris_manager = DebrisManager(
                 mddb_dir=mddb_dir,
-                compute_damage_energy=compute_damage_energy,
                 recoil=materials.ELEMENT_BY_ATOMIC_NUMBER[atom_numb],
                 component=component,
-                displacement_mode=displacement_mode,
+                compute_damage_energy=compute_damage_energy,
                 damage_energy_mode=damage_energy_mode,
-                dist_fp=dist_fp,
+                displacement_mode=displacement_mode,
+                fp_dist=fp_dist,
                 energy_tolerance=energy_tolerance,
                 seed=seed + event,
             )
-            defects_ = damagedb.get_pka_debris(
-                recoil_energy, np.array([x, y, z]), np.array([cosx, cosy, cosz])
+            defects_ = debris_manager.get_recoil_debris(
+                recoil_energy,
+                np.array([x, y, z]),
+                np.array([cosx, cosy, cosz]),
             )
             defects = np.concatenate((defects, defects_))
 
@@ -149,9 +152,9 @@ def __py2srim_generate_debris(
     mddb_dir: Path,
     compute_damage_energy: bool,
     debris_path: Path,
-    damage_energy_mode: materials.DamageEnergyMode,
-    displacement_mode: materials.DisplacementMode,
-    dist_fp: float,
+    damage_energy_mode: DamageEnergyMode,
+    displacement_mode: DisplacementMode,
+    fp_dist: float,
     energy_tolerance: float,
     exclude_from_ions: list[int],
     exclude_from_vacs: list[int],
@@ -191,19 +194,21 @@ def __py2srim_generate_debris(
             # Determine layer and select target material
             component_idx = np.searchsorted(component_edges, x, side="right") - 1
 
-            damagedb = DamageDB(
+            debris_manager = DebrisManager(
                 mddb_dir=mddb_dir,
-                compute_damage_energy=compute_damage_energy,
                 recoil=materials.ELEMENT_BY_ATOMIC_NUMBER[atom_numb],
                 component=target[component_idx],
-                displacement_mode=displacement_mode,
+                compute_damage_energy=compute_damage_energy,
                 damage_energy_mode=damage_energy_mode,
-                dist_fp=dist_fp,
+                displacement_mode=displacement_mode,
+                fp_dist=fp_dist,
                 energy_tolerance=energy_tolerance,
                 seed=seed + event,
             )
-            defects_ = damagedb.get_pka_debris(
-                recoil_energy, np.array([x, y, z]), np.array([cosx, cosy, cosz])
+            defects_ = debris_manager.get_recoil_debris(
+                recoil_energy,
+                np.array([x, y, z]),
+                np.array([cosx, cosy, cosz]),
             )
             defects = np.concatenate((defects, defects_))
 

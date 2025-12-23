@@ -1,4 +1,4 @@
-"""This module contains the `DamageDB` class."""
+"""This module contains the `DebrisManager` class."""
 
 import warnings
 from collections.abc import Callable
@@ -18,26 +18,29 @@ from irradiapy.materials import Component, Element
 
 
 @dataclass
-class DamageDB:
-    """Class used to reconstruct the damage produced by a PKA from a database of MD debris.
+class DebrisManager:
+    """Class used to reconstruct the damage produced by recoils from a database of MD debris.
 
     Attributes
     ----------
     mddb_dir : Path
         Directory of the MD debris database.
-    compute_damage_energy : bool
-        Whether to apply Lindhard's formula to the recoil energy. It should be `True` for
-        MD simulations without electronic stopping.
     recoil: Element
-        PKA material.
+        Recoil element.
     component: Component
         Target material.
-    displacement_mode : materials.Material.DisplacementMode
-        Mode for displaced atoms calculation.
+    compute_damage_energy : bool
+        If MD simulations do not include electronic stopping, this should be set to `True`. The
+        conversion from recoil energy to damage energy will be performed according to the selected
+        `damage_energy_mode`.
     damage_energy_mode : materials.Material.DamageEnergyMode
-        Mode for PKA to damage energy calculation.
+        Mode for recoil to damage energy calculation.
+    displacement_mode : materials.Material.DisplacementMode
+        Mode for calculation of number of displacement atoms.
+    fp_dist : float
+        Distance between the vacancy and the interstitial of a Frenkel pair, in angstroms.
     energy_tolerance : float (default=0.1)
-        Tolerance for energy decomposition. For example, if this value if ``0.1``, the PKA energy
+        Tolerance for energy decomposition. For example, if this value if ``0.1``, the recoil energy
         is 194 keV and the database contains an energy of 200 keV, then 194 will be in the range
         200 +/- 20 keV, therefore a cascade of 200 keV will be used, instead of decomposing 194 keV
         into, for example, 100x1 + 50x1 + 20x2 + 3x1 + 1xFP (Frenkel pairs). This fixes biases
@@ -48,12 +51,12 @@ class DamageDB:
     """
 
     mddb_dir: Path
-    compute_damage_energy: bool
     recoil: Element
     component: Component
-    displacement_mode: DisplacementMode
+    compute_damage_energy: bool
     damage_energy_mode: DamageEnergyMode
-    dist_fp: float
+    displacement_mode: DisplacementMode
+    fp_dist: float
     energy_tolerance: float = 0.1
     seed: int = 0
     __rng: np.random.Generator = field(init=False)
@@ -72,7 +75,7 @@ class DamageDB:
         }
         self.__energies = np.array(sorted(self.__files.keys(), reverse=True))
         self.__nenergies = len(self.__energies)
-        # PKA energy to damage energy conversion
+        # Recoil to damage energy conversion
         self.__compute_damage_energy = (
             lambda recoil_energy: self.component.recoil_energy_to_damage_energy(
                 recoil_energy=recoil_energy,
@@ -111,32 +114,34 @@ class DamageDB:
         types = atomic_numbers[idx]
         return types
 
-    def __get_files(self, pka_e: float) -> tuple[dict[float, list[Path]], int]:
-        """Get cascade files and number of residual FP for a given PKA energy.
+    def __get_files(self, recoil_energy: float) -> tuple[dict[float, list[Path]], int]:
+        """Get cascade files and number of residual FP for a given recoil energy.
 
         Parameters
         ----------
-        pka_e : float
-            PKA energy.
+        recoil_energy : float
+            Recoil energy.
 
         Returns
         -------
         tuple[dict[float, list[Path]], int]
             Dictionary of selected paths and number of residual FP.
         """
-        # Decompose the PKA energy into cascades and residual energy
+        # Decompose the recoil energy into cascades and residual energy
 
-        # Rounding: if the PKA energy is closer than 10% to any energy of the database, use the
+        # Rounding: if the recoil energy is closer than 10% to any energy of the database, use the
         # closest energy within that tolerance. This avoids:
         # Decomposition biasing towards smaller clusters (190 keV = 100 + 50 + 2x20 keV)
         # Residual FP causing artificial clustering (ignore them)
-        diff = np.abs(self.__energies - pka_e)
+        diff = np.abs(self.__energies - recoil_energy)
         mask = diff <= self.energy_tolerance * self.__energies
         if np.any(mask):
-            pka_e = self.__energies[mask][np.argmin(diff[mask])]
+            recoil_energy = self.__energies[mask][np.argmin(diff[mask])]
 
         residual_energy = (
-            self.__compute_damage_energy(pka_e) if self.compute_damage_energy else pka_e
+            self.__compute_damage_energy(recoil_energy)
+            if self.compute_damage_energy
+            else recoil_energy
         )
         cascade_counts = np.zeros(self.__nenergies, dtype=np.int64)
         for i, energy in enumerate(self.__energies):
@@ -153,31 +158,30 @@ class DamageDB:
         nfp = np.round(self.__calc_nd(residual_energy)).astype(np.int64)
         return debris_files, nfp
 
-    def get_pka_debris(
+    def get_recoil_debris(
         self,
-        pka_e: float,
-        pka_pos: npt.NDArray[np.float64],
-        pka_dir: npt.NDArray[np.float64],
+        recoil_energy: float,
+        recoil_pos: npt.NDArray[np.float64],
+        recoil_dir: npt.NDArray[np.float64],
     ) -> dtypes.Defect:
-        """Get PKA debris from its energy position, and direction.
+        """Get recoil debris from its energy position, and direction.
 
         Parameters
         ----------
-        pka_e : float
-            PKA energy.
-        pka_pos : npt.NDArray[np.float64]
-            PKA position.
-        pka_dir : npt.NDArray[np.float64]
-            PKA direction.
-
+        recoil_energy : float
+            Recoil energy.
+        recoil_pos : npt.NDArray[np.float64]
+            Recoil position.
+        recoil_dir : npt.NDArray[np.float64]
+            Recoil direction.
         Returns
         -------
 
         dtypes.Defect
             Defects after the cascades.
         """
-        files, nfp = self.__get_files(pka_e)
-        # Get the maximum energy available in the database for the given PKA.
+        files, nfp = self.__get_files(recoil_energy)
+        # Get the maximum energy available in the database for the given recoil.
         # If no energy is available, return zero to place only FP.
         db_emax = next(
             (energy for energy in self.__energies if len(files[energy])), 0.0
@@ -185,7 +189,10 @@ class DamageDB:
         # Possible to get cascades from the database
         if db_emax > 0.0:
             defects = self.__process_highest_energy_cascade(
-                files, db_emax, pka_pos, pka_dir
+                files,
+                db_emax,
+                recoil_pos,
+                recoil_dir,
             )
             parallelepiped = self.__get_parallelepiped(defects)
             defects = self.__place_other_debris(files, defects, parallelepiped)
@@ -196,7 +203,7 @@ class DamageDB:
             return defects
         # If no energy is available, generate FP only
         if nfp:
-            defects = self.__place_fps_in_sphere(nfp, pka_pos, pka_dir)
+            defects = self.__place_fps_in_sphere(nfp, recoil_pos, recoil_dir)
             return defects
         defects = np.empty(0, dtype=dtypes.defect)
         return defects
@@ -205,8 +212,8 @@ class DamageDB:
         self,
         files: dict,
         db_emax: float,
-        pka_pos: npt.NDArray[np.float64],
-        pka_dir: npt.NDArray[np.float64],
+        recoil_pos: npt.NDArray[np.float64],
+        recoil_dir: npt.NDArray[np.float64],
     ) -> dtypes.Defect:
         """Process the highest energy cascade.
 
@@ -216,10 +223,10 @@ class DamageDB:
             Dictionary of files for each energy.
         db_emax : float
             Energy of the highest energy cascade.
-        pka_pos : npt.NDArray[np.float64]
-            PKA position.
-        pka_dir : npt.NDArray[np.float64]
-            PKA direction.
+        recoil_pos : npt.NDArray[np.float64]
+            Recoil position.
+        recoil_dir : npt.NDArray[np.float64]
+            Recoil direction.
 
         Returns
         -------
@@ -232,10 +239,10 @@ class DamageDB:
         xaxis = np.array([1.0, 0.0, 0.0])
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", category=UserWarning)
-            transform = Rotation.align_vectors([pka_dir], [xaxis])[0]
+            transform = Rotation.align_vectors([recoil_dir], [xaxis])[0]
 
         pos = str2unstr(defects[["x", "y", "z"]], dtype=np.float64, copy=False)
-        pos = transform.apply(pos) + pka_pos
+        pos = transform.apply(pos) + recoil_pos
         defects["x"] = pos[:, 0]
         defects["y"] = pos[:, 1]
         defects["z"] = pos[:, 2]
@@ -303,7 +310,7 @@ class DamageDB:
         """
         defects_ = np.zeros(2 * nfp, dtype=dtypes.defect)
         defects_["type"][:nfp] = self.__get_fp_types(nfp)
-        defects_["x"][:nfp] = self.dist_fp / 2.0
+        defects_["x"][:nfp] = self.fp_dist / 2.0
         pos = str2unstr(defects_[["x", "y", "z"]], dtype=np.float64, copy=False)
         pos[:nfp] = Rotation.random(nfp, rng=self.__rng).apply(pos[:nfp])
         pos[nfp:] = -pos[:nfp]
@@ -319,8 +326,8 @@ class DamageDB:
     def __place_fps_in_sphere(
         self,
         nfp: int,
-        pka_pos: npt.NDArray[np.float64],
-        pka_dir: npt.NDArray[np.float64],
+        recoil_pos: npt.NDArray[np.float64],
+        recoil_dir: npt.NDArray[np.float64],
     ) -> dtypes.Defect:
         """Generate FPs in a sphere.
 
@@ -328,11 +335,10 @@ class DamageDB:
         ----------
         nfp : int
             Number of FPs.
-        pka_pos : npt.NDArray[np.float64]
-            PKA position.
-        pka_dir : npt.NDArray[np.float64]
-            PKA direction.
-
+        recoil_pos : npt.NDArray[np.float64]
+            Recoil position.
+        recoil_dir : npt.NDArray[np.float64]
+            Recoil direction.
         Returns
         -------
         dtypes.Defect
@@ -340,7 +346,7 @@ class DamageDB:
         """
         defects_ = np.zeros(2 * nfp, dtype=dtypes.defect)
         defects_["type"][:nfp] = self.__get_fp_types(nfp)
-        defects_["x"][:nfp] = self.dist_fp / 2.0
+        defects_["x"][:nfp] = self.fp_dist / 2.0
         pos = str2unstr(defects_[["x", "y", "z"]], dtype=np.float64, copy=False)
         pos[:nfp] = Rotation.random(nfp, rng=self.__rng).apply(pos[:nfp])
         pos[nfp:] = -pos[:nfp]
@@ -348,7 +354,7 @@ class DamageDB:
         random = self.__rng.random((nfp, 3))
         theta = np.arccos(2.0 * random[:, 0] - 1.0)
         phi = 2.0 * np.pi * random[:, 1]
-        radius = nfp * self.dist_fp / 2.0
+        radius = nfp * self.fp_dist / 2.0
         r = radius * np.cbrt(random[:, 2])
         points = np.empty((nfp, 3))
         points[:, 0] = r * np.sin(theta) * np.cos(phi)
@@ -357,7 +363,7 @@ class DamageDB:
 
         pos[:nfp] += points
         pos[nfp:] += points
-        pos += pka_pos + pka_dir * radius
+        pos += recoil_pos + recoil_dir * radius
         defects_["x"] = pos[:, 0]
         defects_["y"] = pos[:, 1]
         defects_["z"] = pos[:, 2]
