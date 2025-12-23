@@ -856,22 +856,40 @@ class Py2SRIM:
                 calculation=None,
             )
 
-            # Initial ion positions and atomic number for this ion_numb
-            trimdat_rows = list(
+            # Initial ion position: potential vacancy at the initial position
+            # Indicate with negative atomic number to distinguish from ion
+            trimdat = list(
                 srimdb_branch.read(
                     table="trimdat",
                     what="depth, y, z, atom_numb",
                     conditions=f"WHERE ion_numb={ion_numb}",
                 )
             )
-            # Final ion positions (vacancies) for this ion_numb
-            range3d_rows = list(
+            self.recoilsdb.insert_ion_vac(
+                event=event,
+                atom_numb=-int(trimdat[0][3]),
+                x=trimdat[0][0],
+                y=trimdat[0][1],
+                z=trimdat[0][2],
+            )
+            # Final ion position is saved if not transmitted/backscattered
+            range3d = list(
                 srimdb_branch.read(
                     table="range3d",
                     what="depth, y, z",
                     conditions=f"WHERE ion_numb={ion_numb}",
                 )
             )
+            if range3d:
+                # If not empty, ion stopped inside target
+                self.recoilsdb.insert_ion_vac(
+                    event=event,
+                    atom_numb=int(trimdat[0][3]),
+                    x=range3d[0][0],
+                    y=range3d[0][1],
+                    z=range3d[0][2],
+                )
+
             # Recoils for this ion_numb to decide further SRIM levels
             collision_rows = list(
                 srimdb_branch.read(
@@ -881,26 +899,6 @@ class Py2SRIM:
                 )
             )
             srimdb_branch.close()
-
-            # Ions: atom_numb != 0, from TRIMDAT initial positions
-            for depth, y, z, atom_numb in trimdat_rows:
-                self.recoilsdb.insert_ion_vac(
-                    event=event,
-                    atom_numb=int(atom_numb),
-                    x=depth,
-                    y=y,
-                    z=z,
-                )
-
-            # Vacancies: atom_numb = 0, from RANGE_3D final positions
-            for depth, y, z in range3d_rows:
-                self.recoilsdb.insert_ion_vac(
-                    event=event,
-                    atom_numb=0,
-                    x=depth,
-                    y=y,
-                    z=z,
-                )
 
             # Recurse on high-energy recoils
             for recoil_energy, atom_hit in collision_rows:
