@@ -78,34 +78,34 @@ def clusterize_atoms(
 
 
 def clusterize_file(
-    path_defects: Path,
+    defects_path: Path,
     cutoff_sia: float,
     cutoff_vac: float,
-    path_aclusters: Path | None = None,
-    path_oclusters: Path | None = None,
+    aclusters_path: Path | None = None,
+    oclusters_path: Path | None = None,
 ) -> None:
     """Finds defect clusters in the given file. Type 0 are vacancies, others are interstitials.
 
     Parameters
     ----------
-    path_defects : Path
+    defects_path : Path
         Path of the file where defects are.
     cutoff_sia : float
         Cutoff distance for interstitials clustering.
     cutoff_vac : float
         Cutoff distance for vacancies clustering.
-    path_aclusters : Path | None (default=None)
+    aclusters_path : Path | None (default=None)
         Where atomic clusters will be stored if provided.
-    path_oclusters : Path | None (default=None)
+    oclusters_path : Path | None (default=None)
         Where object clusters will be stored if provided.
     """
-    reader = LAMMPSReader(path_defects)
+    reader = LAMMPSReader(defects_path)
     nsim = 0
 
-    if path_aclusters:
-        awriter = LAMMPSWriter(path_aclusters)
-    if path_oclusters:
-        owriter = LAMMPSWriter(path_oclusters)
+    if aclusters_path:
+        awriter = LAMMPSWriter(aclusters_path)
+    if oclusters_path:
+        owriter = LAMMPSWriter(oclusters_path)
 
     for data_defects in reader:
         nsim += 1
@@ -116,7 +116,7 @@ def clusterize_file(
         aclusters = np.concatenate((iaclusters, vaclusters))
         oclusters = np.concatenate((ioclusters, voclusters))
 
-        if path_aclusters:
+        if aclusters_path:
             data_aclusters = defaultdict(None)
             data_aclusters["timestep"] = data_defects["timestep"]
             data_aclusters["time"] = data_defects["time"]
@@ -131,7 +131,7 @@ def clusterize_file(
             data_aclusters["atoms"] = aclusters
             awriter.write(data_aclusters)
 
-        if path_oclusters:
+        if oclusters_path:
             data_oclusters = defaultdict(None)
             data_oclusters["timestep"] = data_defects["timestep"]
             data_oclusters["time"] = data_defects["time"]
@@ -146,9 +146,9 @@ def clusterize_file(
             data_oclusters["atoms"] = oclusters
             owriter.write(data_oclusters)
 
-    if path_aclusters:
+    if aclusters_path:
         awriter.close()
-    if path_oclusters:
+    if oclusters_path:
         owriter.close()
 
 
@@ -304,7 +304,7 @@ def depth_clustering_fraction_hist_plot(
 
 
 def depth_cluster_sizes_plot(
-    path_oclusters: Path,
+    oclusters_path: Path,
     axis: str,
     global_min_counts: int,
     depth_nbins: int = 100,
@@ -318,7 +318,7 @@ def depth_cluster_sizes_plot(
 
     Parameters
     ----------
-    path_oclusters : Path
+    oclusters_path : Path
         Path to the object clusters file.
     axis : str
         Axis along which to compute depth ('x', 'y', or 'z').
@@ -364,7 +364,7 @@ def depth_cluster_sizes_plot(
         depth_edges: npt.NDArray[np.float64],
         histogram: npt.NDArray[np.float64],
         title: str,
-        path_plot: Path | None,
+        plot_path: Path | None,
     ) -> None:
         fig = plt.figure(figsize=(8, 6))
         gs = GridSpec(1, 2, width_ratios=[1, 0.05])
@@ -408,8 +408,8 @@ def depth_cluster_sizes_plot(
 
         fig.suptitle(title)
         fig.tight_layout()
-        if path_plot is not None:
-            plt.savefig(path_plot, dpi=dpi)
+        if plot_path is not None:
+            plt.savefig(plot_path, dpi=dpi)
         if show:
             plt.show()
         plt.close(fig)
@@ -417,7 +417,7 @@ def depth_cluster_sizes_plot(
     isizes, vsizes = [], []
     idepths, vdepths = [], []
     nevents = 0
-    reader = LAMMPSReader(path_oclusters)
+    reader = LAMMPSReader(oclusters_path)
     for data_oclusters in reader:
         cond_v = data_oclusters["atoms"]["type"] == 0
         vacancies = data_oclusters["atoms"][cond_v]

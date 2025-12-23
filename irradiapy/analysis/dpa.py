@@ -27,7 +27,7 @@ def depth_dpa_hist(
     axis: str,
     damage_energy_mode: DamageEnergyMode,
     fluence: float,
-    path_debris: Path | None = None,
+    debris_path: Path | None = None,
     nbins: int = 100,
     p0: None | float = None,
     asymmetry: float = 1.0,
@@ -50,7 +50,7 @@ def depth_dpa_hist(
         Damage energy calculation mode.
     fluence : float
         Fluence in ions/Å².
-    path_debris : Path | None, optional (default=None)
+    debris_path : Path | None, optional (default=None)
         Path to the debris LAMMPS file to compute the debris dpa.
     nbins : int, optional (default=100)
         Number of bins for the depth histogram.
@@ -147,9 +147,9 @@ def depth_dpa_hist(
     }
 
     hist_debris = None
-    if path_debris is not None:
+    if debris_path is not None:
         depths = []
-        reader = LAMMPSReader(path_debris)
+        reader = LAMMPSReader(debris_path)
         for defects in reader:
             depths.extend(defects["atoms"][axis][defects["atoms"]["type"] == 0])
         depths = np.array(depths)

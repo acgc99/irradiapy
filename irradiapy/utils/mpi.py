@@ -32,11 +32,11 @@ def broadcast_variables(root: int, comm: MPI.Comm, *variables) -> list:
     return [comm.bcast(var, root=root) for var in variables]
 
 
-def rm_file(path_file: Path, comm: MPI.Comm) -> None:
+def rm_file(path: Path, comm: MPI.Comm) -> None:
     """Remove a file."""
     rank = comm.Get_rank()
     if rank == 0:
-        path_file.unlink(missing_ok=True)
+        path.unlink(missing_ok=True)
     comm.Barrier()
 
 

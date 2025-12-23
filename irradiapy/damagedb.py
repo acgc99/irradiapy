@@ -23,7 +23,7 @@ class DamageDB:
 
     Attributes
     ----------
-    dir_mddb : Path
+    mddb_dir : Path
         Directory of the MD debris database.
     compute_damage_energy : bool
         Whether to apply Lindhard's formula to the recoil energy. It should be `True` for
@@ -47,7 +47,7 @@ class DamageDB:
         Random seed for random number generator.
     """
 
-    dir_mddb: Path
+    mddb_dir: Path
     compute_damage_energy: bool
     recoil: Element
     component: Component
@@ -67,7 +67,7 @@ class DamageDB:
         # Scan the database
         self.__files = {
             float(folder.name): list(folder.iterdir())
-            for folder in self.dir_mddb.iterdir()
+            for folder in self.mddb_dir.iterdir()
             if folder.is_dir()
         }
         self.__energies = np.array(sorted(self.__files.keys(), reverse=True))

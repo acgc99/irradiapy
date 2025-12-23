@@ -19,9 +19,9 @@ if TYPE_CHECKING:
 
 def generate_debris(
     recoilsdb: RecoilsDB,
-    dir_mddb: Path,
+    mddb_dir: Path,
     compute_damage_energy: bool,
-    path_debris: Path,
+    debris_path: Path,
     damage_energy_mode: materials.DamageEnergyMode,
     displacement_mode: materials.DisplacementMode,
     dist_fp: float,
@@ -42,9 +42,9 @@ def generate_debris(
     if recoilsdb.table_exists("spectrapkas"):
         __spectra2srim_generate_debris(
             recoilsdb=recoilsdb,
-            dir_mddb=dir_mddb,
+            mddb_dir=mddb_dir,
             compute_damage_energy=compute_damage_energy,
-            path_debris=path_debris,
+            debris_path=debris_path,
             damage_energy_mode=damage_energy_mode,
             displacement_mode=displacement_mode,
             dist_fp=dist_fp,
@@ -56,9 +56,9 @@ def generate_debris(
     else:
         __py2srim_generate_debris(
             recoilsdb=recoilsdb,
-            dir_mddb=dir_mddb,
+            mddb_dir=mddb_dir,
             compute_damage_energy=compute_damage_energy,
-            path_debris=path_debris,
+            debris_path=debris_path,
             damage_energy_mode=damage_energy_mode,
             displacement_mode=displacement_mode,
             dist_fp=dist_fp,
@@ -75,9 +75,9 @@ def generate_debris(
 
 def __spectra2srim_generate_debris(
     recoilsdb: RecoilsDB,
-    dir_mddb: Path,
+    mddb_dir: Path,
     compute_damage_energy: bool,
-    path_debris: Path,
+    debris_path: Path,
     damage_energy_mode: materials.DamageEnergyMode,
     displacement_mode: materials.DisplacementMode,
     dist_fp: float,
@@ -91,7 +91,7 @@ def __spectra2srim_generate_debris(
     width = target[0].width
     component = target[0]
 
-    writer = LAMMPSWriter(path_debris, mode="w")
+    writer = LAMMPSWriter(debris_path, mode="w")
     events = recoilsdb.read("spectrapkas", what="event, time, timestep")
     for event, time, timestep in events:
         data = {
@@ -114,7 +114,7 @@ def __spectra2srim_generate_debris(
         )
         for atom_numb, recoil_energy, x, y, z, cosx, cosy, cosz in recoils:
             damagedb = DamageDB(
-                dir_mddb=dir_mddb,
+                mddb_dir=mddb_dir,
                 compute_damage_energy=compute_damage_energy,
                 recoil=materials.ELEMENT_BY_ATOMIC_NUMBER[atom_numb],
                 component=component,
@@ -146,9 +146,9 @@ def __spectra2srim_generate_debris(
 
 def __py2srim_generate_debris(
     recoilsdb: RecoilsDB,
-    dir_mddb: Path,
+    mddb_dir: Path,
     compute_damage_energy: bool,
-    path_debris: Path,
+    debris_path: Path,
     damage_energy_mode: materials.DamageEnergyMode,
     displacement_mode: materials.DisplacementMode,
     dist_fp: float,
@@ -166,7 +166,7 @@ def __py2srim_generate_debris(
     width = sum(component.width for component in target)
     component_edges = np.cumsum([0.0] + [component.width for component in target])
 
-    writer = LAMMPSWriter(path_debris, mode="w")
+    writer = LAMMPSWriter(debris_path, mode="w")
     nevents = recoilsdb.get_nevents()
     for event in range(1, nevents + 1):
         data = {
@@ -192,7 +192,7 @@ def __py2srim_generate_debris(
             component_idx = np.searchsorted(component_edges, x, side="right") - 1
 
             damagedb = DamageDB(
-                dir_mddb=dir_mddb,
+                mddb_dir=mddb_dir,
                 compute_damage_energy=compute_damage_energy,
                 recoil=materials.ELEMENT_BY_ATOMIC_NUMBER[atom_numb],
                 component=target[component_idx],

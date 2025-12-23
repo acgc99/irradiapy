@@ -72,15 +72,15 @@ def get_last_reader(
 
 
 def merge_lammps_snapshots(
-    path_in: Path, path_out: Path, overwrite: bool = False
+    in_path: Path, out_path: Path, overwrite: bool = False
 ) -> defaultdict:
     """Merge multiple snapshots in a LAMMPS file into a single snapshot.
 
     Parameters
     ----------
-    path_in : Path
+    in_path : Path
         Path to the input LAMMPS file (bzip2 compressed or not).
-    path_out : Path
+    out_path : Path
         Path to the output LAMMPS file (bzip2 compressed or not).
     overwrite : bool, optional (default=False)
         Whether to overwrite the output file if it exists.
@@ -91,18 +91,18 @@ def merge_lammps_snapshots(
         A dictionary containing the merged snapshot data.
     """
 
-    if not overwrite and path_out.exists():
-        raise FileExistsError(f"Output file {path_out} already exists.")
-    elif path_out.exists():
-        path_out.unlink()
-    if path_in.suffix == ".bz2":
-        reader = BZIP2LAMMPSReader(path_in)
+    if not overwrite and out_path.exists():
+        raise FileExistsError(f"Output file {out_path} already exists.")
+    elif out_path.exists():
+        out_path.unlink()
+    if in_path.suffix == ".bz2":
+        reader = BZIP2LAMMPSReader(in_path)
     else:
-        reader = LAMMPSReader(path_in)
-    if path_out.suffix == ".bz2":
-        writer = BZIP2LAMMPSWriter(path_out, mode="a")
+        reader = LAMMPSReader(in_path)
+    if out_path.suffix == ".bz2":
+        writer = BZIP2LAMMPSWriter(out_path, mode="a")
     else:
-        writer = LAMMPSWriter(path_out, mode="a")
+        writer = LAMMPSWriter(out_path, mode="a")
 
     data_atoms_list = []
     for data_atoms in reader:
@@ -130,15 +130,15 @@ def merge_lammps_snapshots(
 
 
 def apply_boundary_conditions_to_lammps(
-    path_in: Path, path_out: Path, x: bool, y: bool, z: bool, overwrite: bool = False
+    in_path: Path, out_path: Path, x: bool, y: bool, z: bool, overwrite: bool = False
 ) -> None:
     """Apply periodic boundary conditions to a LAMMPS dump file.
 
     Parameters
     ----------
-    path_in : Path
+    in_path : Path
         Path to the input LAMMPS file (bzip2 compressed or not).
-    path_out : Path
+    out_path : Path
         Path to the output LAMMPS file (bzip2 compressed or not).
     x : bool
         Whether to apply periodic boundary conditions in the x direction.
@@ -150,18 +150,18 @@ def apply_boundary_conditions_to_lammps(
         Whether to overwrite the output file if it exists.
     """
 
-    if not overwrite and path_out.exists():
-        raise FileExistsError(f"Output file {path_out} already exists.")
-    elif path_out.exists():
-        path_out.unlink()
-    if path_in.suffix == ".bz2":
-        reader = BZIP2LAMMPSReader(path_in)
+    if not overwrite and out_path.exists():
+        raise FileExistsError(f"Output file {out_path} already exists.")
+    elif out_path.exists():
+        out_path.unlink()
+    if in_path.suffix == ".bz2":
+        reader = BZIP2LAMMPSReader(in_path)
     else:
-        reader = LAMMPSReader(path_in)
-    if path_out.suffix == ".bz2":
-        writer = BZIP2LAMMPSWriter(path_out, mode="a")
+        reader = LAMMPSReader(in_path)
+    if out_path.suffix == ".bz2":
+        writer = BZIP2LAMMPSWriter(out_path, mode="a")
     else:
-        writer = LAMMPSWriter(path_out, mode="a")
+        writer = LAMMPSWriter(out_path, mode="a")
 
     for data_atoms in reader:
         data_atoms = apply_boundary_conditions(

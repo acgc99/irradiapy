@@ -40,6 +40,6 @@ def use_style(latex: bool = False) -> None:
 # region SRIM
 
 #: pathlib.Path: TRIM.exe directory (parent folder)
-DIR_SRIM = Path("./SRIM-2013")
+SRIM_DIR = Path("./SRIM-2013")
 
 # endregion

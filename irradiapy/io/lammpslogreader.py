@@ -14,7 +14,7 @@ class LAMMPSLogReader:
 
     Parameters
     ----------
-    path_log : Path
+    log_path : Path
         The path to the LAMMPS log file.
 
     Yields
@@ -28,7 +28,7 @@ class LAMMPSLogReader:
     this ensures compatibility if this reader is extended to read more data in the future.
     """
 
-    path_log: Path
+    log_path: Path
     data: dict = field(default_factory=lambda: {"thermo": None}, init=False)
     thermo: npt.NDArray[np.float64] = field(
         default_factory=lambda: np.empty(0, dtype=np.dtype([])), init=False
@@ -39,7 +39,7 @@ class LAMMPSLogReader:
 
         Parameters
         ----------
-        path_log : Path
+        log_path : Path
             The path to the log file.
 
         Returns
@@ -50,7 +50,7 @@ class LAMMPSLogReader:
         self.__reset()
         expecting_header = False  # Next line will be a header
         expecting_data = False  # Next lines will be data
-        for line in open(self.path_log, "r", encoding="utf-8"):
+        for line in open(self.log_path, "r", encoding="utf-8"):
             if line.startswith("Per MPI "):
                 expecting_header = True
                 self.__reset()

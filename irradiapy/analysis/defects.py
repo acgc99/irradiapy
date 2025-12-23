@@ -74,8 +74,8 @@ def identify_defects(
 def identify_lammps_dump(
     lattice: str,
     a0: float,
-    path_dump: Path,
-    path_dump_defects: Path,
+    dump_path: Path,
+    dump_defects_path: Path,
     a1: None | float = None,
     pos_pka: None | npt.NDArray[np.float64] = None,
     theta_pka: None | float = None,
@@ -98,9 +98,9 @@ def identify_lammps_dump(
         Dictionary containing simulation data as given by the LAMMPSReader and similar readers.
         Must include keys: 'atoms', 'natoms', 'boundary', 'xlo', 'xhi', 'ylo', 'yhi', 'zlo',
         'zhi', 'timestep'.
-    path_dump : Path
+    dump_path : Path
         Path to the LAMMPS dump file to read. Can be compressed with `.bz2` or not.
-    path_dump_defects : Path
+    dump_defects_path : Path
         Path to the output file where identified defects will be written (in text format).
     a1 : float, optional
         Final lattice parameter. If provided, defect positions are rescaled to this value
@@ -122,18 +122,18 @@ def identify_lammps_dump(
     debug : bool, optional (default=False)
         If `True`, enables debug mode for additional output.
     """
-    if path_dump_defects.exists():
+    if dump_defects_path.exists():
         if overwrite:
-            path_dump_defects.unlink()
+            dump_defects_path.unlink()
         else:
-            raise FileExistsError(f"Defects file {path_dump_defects} already exists.")
+            raise FileExistsError(f"Defects file {dump_defects_path} already exists.")
     if debug:
-        print(f"Identifying defects in {path_dump}")
-    if path_dump.suffix == ".bz2":
-        reader = BZIP2LAMMPSReader(path_dump)
+        print(f"Identifying defects in {dump_path}")
+    if dump_path.suffix == ".bz2":
+        reader = BZIP2LAMMPSReader(dump_path)
     else:
-        reader = LAMMPSReader(path_dump)
-    writer = LAMMPSWriter(path_dump_defects, mode="a")
+        reader = LAMMPSReader(dump_path)
+    writer = LAMMPSWriter(dump_defects_path, mode="a")
     defects_finder = DefectsIdentifier(lattice=lattice, a0=a0, debug=debug)
     for data_atoms in reader:
         if debug:
@@ -153,7 +153,7 @@ def plot_mddb_nd(
     target_dir: Path,
     mat_pka: materials.Element,
     mat_target: materials.Element,
-    path_plot: Path,
+    plot_path: Path,
     dpi: int = 300,
 ) -> None:
     """Plot the number of defects (vacancies) as a function of the PKA energy from a molecular
@@ -171,7 +171,7 @@ def plot_mddb_nd(
         Material of the PKA.
     mat_target : materials.Material
         Target material.
-    path_plot : Path, optional
+    plot_path : Path, optional
         Path to save the plot. If `None`, the plot is shown but not saved.
     dpi : int, optional (default=300)
         Dots per inch.
@@ -190,9 +190,9 @@ def plot_mddb_nd(
             "std": 0,
             "ste": 0,
         }
-        for path_defects in energy_dir.glob("*.xyz"):
+        for defects_path in energy_dir.glob("*.xyz"):
             nfiles[energy] += 1
-            data_defects = utils.io.get_last_reader(LAMMPSReader(path_defects))
+            data_defects = utils.io.get_last_reader(LAMMPSReader(defects_path))
 
             cond = data_defects["atoms"]["type"] == 0
             vacs = data_defects["atoms"][cond]
@@ -278,8 +278,8 @@ def plot_mddb_nd(
 
     ax.legend(loc="lower right")
     fig.tight_layout()
-    if path_plot is not None:
-        fig.savefig(path_plot, dpi=dpi)
+    if plot_path is not None:
+        fig.savefig(plot_path, dpi=dpi)
     else:
         plt.show()
     plt.close(fig)

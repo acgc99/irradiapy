@@ -22,11 +22,11 @@ class Spectra2SRIM:
     ----------
     seed : int (default=0)
         Seed for SRIM randomness.
-    path_spectrapka_in : Path
+    spectrapka_in_path : Path
         SPECTRA-PKA input file path, for target definition.
-    path_spectrapka_events : Path
+    spectrapka_events_path : Path
         SPECTRA-PKA config_events.pka file path, for recoils data.
-    dir_root : Path
+    root_dir : Path
         Root output directory where all data will be stored.
     srim_width : float, optional (default=1e8)
         The SPECTRA-PKA box might be small for SRIM ions. To avoid backscattering and
@@ -77,9 +77,9 @@ class Spectra2SRIM:
 
     seed: int = 0
 
-    path_spectrapka_in: Path = field(init=False)
-    path_spectrapka_events: Path = field(init=False)
-    dir_root: Path = field(init=False)
+    spectrapka_in_path: Path = field(init=False)
+    spectrapka_events_path: Path = field(init=False)
+    root_dir: Path = field(init=False)
     srim_width: float = field(default=1e8, init=False)
     matdict: dict[str, Any] = field(init=False)
     target: list[Component] = field(init=False)
@@ -175,7 +175,7 @@ class Spectra2SRIM:
         self.matdict = {}
         cols = []
         reading_columns = False
-        with open(self.path_spectrapka_in, "r", encoding="utf-8") as file:
+        with open(self.spectrapka_in_path, "r", encoding="utf-8") as file:
             for line in file:
                 if line.strip().startswith("columns="):
                     reading_columns = True
@@ -198,7 +198,7 @@ class Spectra2SRIM:
         self.matdict["symbols"] = unique_symbols.tolist()
         # Get lattice definition
         a0, lattice, nsize = None, None, None
-        with open(self.path_spectrapka_in, "r", encoding="utf-8") as file:
+        with open(self.spectrapka_in_path, "r", encoding="utf-8") as file:
             for line in file:
                 if line.strip().startswith("latt="):
                     a0 = float(line.split("=")[1].strip())
@@ -241,9 +241,9 @@ class Spectra2SRIM:
     def run(
         self,
         density: float,
-        path_spectrapka_in,
-        path_spectrapka_events,
-        dir_root,
+        spectrapka_in_path,
+        spectrapka_events_path,
+        root_dir,
         srim_width,
         calculation: str,
         max_recoil_energy: float,
@@ -256,11 +256,11 @@ class Spectra2SRIM:
         ----------
         density : float
             Density of the target material in g/cm3.
-        path_spectrapka_in : Path
+        spectrapka_in_path : Path
             SPECTRA-PKA input file path, for target definition.
-        path_spectrapka_events : Path
+        spectrapka_events_path : Path
             SPECTRA-PKA config_events.pka file path, for recoils data.
-        dir_root : Path
+        root_dir : Path
             Root output directory where all data will be stored.
         srim_width : float, optional (default=1e8)
             The SPECTRA-PKA box might be small for SRIM ions. To avoid backscattering and
@@ -280,18 +280,18 @@ class Spectra2SRIM:
         max_srim_iters : int, optional (default=32)
             Maximum number of SRIM iterations.
         """
-        self.path_spectrapka_in = path_spectrapka_in
-        self.path_spectrapka_events = path_spectrapka_events
-        self.dir_root = dir_root
+        self.spectrapka_in_path = spectrapka_in_path
+        self.spectrapka_events_path = spectrapka_events_path
+        self.root_dir = root_dir
         self.srim_width = srim_width
 
-        self.dir_root.mkdir(parents=True, exist_ok=True)
-        self.recoilsdb = RecoilsDB(self.dir_root / "recoils.db")
+        self.root_dir.mkdir(parents=True, exist_ok=True)
+        self.recoilsdb = RecoilsDB(self.root_dir / "recoils.db")
         self.__recoils__spectrapka_in_to_target(density=density)
 
         # Convert SPECTRA-PKA events to SQLite3 database
         self.recoilsdb.process_config_events(
-            self.path_spectrapka_events, exclude_recoils
+            self.spectrapka_events_path, exclude_recoils
         )
         # Read from SQLite3 database
         (
@@ -311,7 +311,7 @@ class Spectra2SRIM:
         depths_srim = np.full(nions, self.srim_width / 2.0, dtype=np.float64)
         py2srim = srim.Py2SRIM()
         py2srim.run(
-            dir_root=self.dir_root,
+            root_dir=self.root_dir,
             target=self.target,
             calculation=calculation,
             atomic_numbers=atomic_numbers,

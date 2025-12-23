@@ -22,13 +22,13 @@ class RecoilsDB(Database):
             self.load_target()
 
     def process_config_events(
-        self, path_spectrapka_events: Path, exclude_recoils: list[str] | None = None
+        self, spectrapka_events_path: Path, exclude_recoils: list[str] | None = None
     ) -> None:
         """Transform SPECTRA-PKA `config_event.pka` file into a SQLite3 table.
 
         Parameters
         ----------
-        path_spectrapka_events : Path
+        spectrapka_events_path : Path
             Path to the SPECTRA-PKA `config_event.pka` file.
         exclude_recoils : list[str] | None (default=None)
             List of symbols of recoils atoms to exclude from processing.
@@ -45,7 +45,7 @@ class RecoilsDB(Database):
                 "mass REAL, timestep INTEGER, recoil_energy REAL, time REAL, event INTEGER)"
             )
         )
-        with open(path_spectrapka_events, "r", encoding="utf-8") as file:
+        with open(spectrapka_events_path, "r", encoding="utf-8") as file:
             file.readline()
             for line in file:
                 row = line.split()[:-3]  # exclude last columns (not documented)
@@ -235,7 +235,8 @@ class RecoilsDB(Database):
             cur.execute(
                 (
                     "INSERT INTO elements (component_id, atomic_number, "
-                    "atomic_weight, symbol, stoich, ed_min, ed_avr, b_arc, c_arc, srim_el, srim_es) "
+                    "atomic_weight, symbol, stoich, ed_min, ed_avr, b_arc, "
+                    "c_arc, srim_el, srim_es) "
                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
                 ),
                 (
@@ -271,7 +272,8 @@ class RecoilsDB(Database):
         """Loads the target from the database."""
         cur = self.cursor()
         cur.execute(
-            "SELECT component_id, name, phase, density, width, height, length, ax, structure, srim_bragg FROM components"
+            "SELECT component_id, name, phase, density, width, height, length, ax, structure, "
+            "srim_bragg FROM components"
         )
         components = list(cur.fetchall())
         target = []

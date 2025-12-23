@@ -38,7 +38,7 @@ class SRIMDB(Database):
         Accepted values are: "quick", "full" and "mono".
     seed : int (default=0)
         Seed for SRIM randomness.
-    dir_srim : Path (default=config.DIR_SRIM)
+    srim_dir : Path (default=config.SRIM_DIR)
         Directory where SRIM is installed.
     check_interval : float
         Interval to check for SRIM window/popups.
@@ -75,7 +75,7 @@ class SRIMDB(Database):
     calculation: None | str = None
 
     seed: int = 0
-    dir_srim: Path = field(default_factory=lambda: config.DIR_SRIM)
+    srim_dir: Path = field(default_factory=lambda: config.SRIM_DIR)
 
     plot_type: int = 5
     xmin: float = 0.0
@@ -396,18 +396,18 @@ class SRIMDB(Database):
 
     def append_output(self) -> None:
         """Appends SRIM output files into the database."""
-        self.trimdat.process_file(self.dir_srim / "TRIM.DAT")  # This must be first
-        self.backscat.process_file(self.dir_srim / "SRIM Outputs/BACKSCAT.txt")
-        self.collision.process_file(self.dir_srim / "SRIM Outputs/COLLISON.txt")
-        self.e2recoil.process_file(self.dir_srim / "E2RECOIL.txt")
-        self.ioniz.process_file(self.dir_srim / "IONIZ.txt")
-        self.lateral.process_file(self.dir_srim / "LATERAL.txt")
-        self.phonon.process_file(self.dir_srim / "PHONON.txt")
-        self.range3d.process_file(self.dir_srim / "SRIM Outputs/RANGE_3D.txt")
-        self.range.process_file(self.dir_srim / "RANGE.txt")
-        self.sputter.process_file(self.dir_srim / "SRIM Outputs/SPUTTER.txt")
-        self.transmit.process_file(self.dir_srim / "SRIM Outputs/TRANSMIT.txt")
+        self.trimdat.process_file(self.srim_dir / "TRIM.DAT")  # This must be first
+        self.backscat.process_file(self.srim_dir / "SRIM Outputs/BACKSCAT.txt")
+        self.collision.process_file(self.srim_dir / "SRIM Outputs/COLLISON.txt")
+        self.e2recoil.process_file(self.srim_dir / "E2RECOIL.txt")
+        self.ioniz.process_file(self.srim_dir / "IONIZ.txt")
+        self.lateral.process_file(self.srim_dir / "LATERAL.txt")
+        self.phonon.process_file(self.srim_dir / "PHONON.txt")
+        self.range3d.process_file(self.srim_dir / "SRIM Outputs/RANGE_3D.txt")
+        self.range.process_file(self.srim_dir / "RANGE.txt")
+        self.sputter.process_file(self.srim_dir / "SRIM Outputs/SPUTTER.txt")
+        self.transmit.process_file(self.srim_dir / "SRIM Outputs/TRANSMIT.txt")
         self.nions = self.get_nions()
-        self.vacancy.process_file(self.dir_srim / "VACANCY.txt")
+        self.vacancy.process_file(self.srim_dir / "VACANCY.txt")
         if self.calculation in ["full", "mono"]:
-            self.novac.process_file(self.dir_srim / "NOVAC.txt")
+            self.novac.process_file(self.srim_dir / "NOVAC.txt")
