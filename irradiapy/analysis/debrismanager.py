@@ -5,13 +5,18 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import matplotlib.colors as mcolors
+import matplotlib.pyplot as plt
 import numpy as np
+import numpy.typing as npt
+from matplotlib.gridspec import GridSpec
 from numpy import typing as npt
 from numpy.lib.recfunctions import structured_to_unstructured as str2unstr
 from scipy.spatial.transform import Rotation
 from sklearn.decomposition import PCA
 
 from irradiapy import dtypes, utils
+from irradiapy.analysis.clusters import clusterize_atoms
 from irradiapy.enums import DamageEnergyMode, DisplacementMode
 from irradiapy.io.lammpsreader import LAMMPSReader
 from irradiapy.materials import Component, Element
@@ -420,3 +425,294 @@ class DebrisManager:
         """
         random_points_pca = self.__rng.uniform(min_pca, max_pca, size=(npoints, 3))
         return pca.inverse_transform(random_points_pca)
+
+    def displacements_number_plot(
+        self,
+        log: bool = True,
+        show: bool = False,
+        plot_path: Path | None = None,
+        dpi: int = 300,
+    ) -> None:
+        """Plot the number of displacements vs recoil energy.
+
+        Parameters
+        ----------
+        log : bool
+            If True, use logarithmic scale for both axes.
+        show : bool, optional (default=False)
+            Whether to show the plot.
+        plot_path : Path, optional (default=None)
+            Output path for the plot.
+        dpi : int, optional (default=300)
+            Dots per inch for the plot.
+        """
+        # Debris from the database
+        recoil_energies = list(self.__files.keys())
+        nds = []
+        stds = []
+        stes = []
+        for recoil_energy in recoil_energies:
+            files = self.__files[recoil_energy]
+            nfiles = len(files)
+            nd = []
+            for file in files:
+                defects = utils.io.get_last_reader(LAMMPSReader(file))["atoms"]
+                # print(file)
+                # print(defects)
+                nvacs = len(defects[defects["type"] == 0])
+                nd.append(nvacs)
+            mean = np.mean(nd)
+            std = np.std(nd)
+            ste = std / np.sqrt(nfiles)
+            nds.append(mean)
+            stds.append(std)
+            stes.append(ste)
+        recoil_energies = np.array(recoil_energies)
+        nds = np.array(nds)
+        stds = np.array(stds)
+        stes = np.array(stes)
+
+        # Theoretical models
+        dx = (
+            self.component.ed_min
+            if self.component.ed_min is not None
+            else self.component.ed_avr
+        )
+        recoil_energies_range = np.arange(
+            0.0,
+            recoil_energies.max(),
+            dx,
+        )
+        damage_energies_range = np.array(
+            [
+                self.component.recoil_energy_to_damage_energy(
+                    recoil_energy=recoil_energy,
+                    recoil=self.recoil,
+                    mode=self.damage_energy_mode,
+                )
+                for recoil_energy in recoil_energies_range
+            ]
+        )
+        try:
+            nds_nrt = np.array(
+                [
+                    self.component.damage_energy_to_displacements(
+                        damage_energy=damage_energy,
+                        mode=DisplacementMode.NRT,
+                    )
+                    for damage_energy in damage_energies_range
+                ]
+            )
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            nds_nrt = None
+            print(f"Could not compute NRT model: {e}")
+        try:
+            nds_ferarc = np.array(
+                [
+                    self.component.damage_energy_to_displacements(
+                        damage_energy=damage_energy,
+                        mode=DisplacementMode.FERARC,
+                    )
+                    for damage_energy in damage_energies_range
+                ]
+            )
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            nds_ferarc = None
+            print(f"Could not compute fer-arc model: {e}")
+
+        # Plot
+        fig = plt.figure()
+        ax = fig.add_subplot()
+        ax.set_xlabel("Recoil energy (keV)")
+        ax.set_ylabel("Number of vacancies")
+        if log:
+            ax.set_xscale("log")
+            ax.set_yscale("log")
+
+        recoil_energies /= 1e3
+        recoil_energies_range /= 1e3
+        ax.errorbar(
+            recoil_energies,
+            nds,
+            yerr=stes,
+            fmt="o",
+            label="debris",
+        )
+        if nds_nrt is not None:
+            ax.plot(
+                recoil_energies_range,
+                nds_nrt,
+                label="NRT",
+            )
+        if nds_ferarc is not None:
+            ax.plot(
+                recoil_energies_range,
+                nds_ferarc,
+                label="fer-arc",
+            )
+
+        ax.legend()
+        fig.tight_layout()
+        if plot_path:
+            plt.savefig(plot_path, dpi=dpi)
+        if show:
+            plt.show()
+        plt.close()
+
+    def cluster_sizes_plot(
+        self,
+        vacs_cutoff: float,
+        sias_cutoff: float,
+        vacs_binwidth: int = 10,
+        sias_binwidth: int = 10,
+        log: bool = True,
+        show: bool = False,
+        vacs_plot_path: Path | None = None,
+        sias_plot_path: Path | None = None,
+        dpi: int = 300,
+    ) -> None:
+        """Plot the cluster sizes distribution vs recoil energy.
+
+        Parameters
+        ----------
+        vacs_cutoff : float
+            Cutoff distance for vacancy clustering, in angstroms.
+        sias_cutoff : float
+            Cutoff distance for interstitial clustering, in angstroms.
+        vacs_binwidth : int, optional (default=10)
+            Bin width for vacancy cluster sizes histogram (bins >=11).
+        sias_binwidth : int, optional (default=10)
+            Bin width for interstitial cluster sizes histogram (bins >=11).
+        log : bool
+            If True, use logarithmic scale for the color map.
+        show : bool, optional (default=False)
+            Whether to show the plot.
+        vacs_plot_path : Path, optional (default=None)
+            Output path for the vacancy cluster sizes plot.
+        sias_plot_path : Path, optional (default=None)
+            Output path for the interstitial cluster sizes plot.
+        """
+        recoil_energies: list[float] = sorted(list(self.__files.keys()))
+
+        vac_sizes: list[npt.NDArray[np.int64]] = []
+        sia_sizes: list[npt.NDArray[np.int64]] = []
+        nfiles: dict[int, int] = {}
+
+        for recoil_energy in recoil_energies:
+            files = self.__files[recoil_energy]
+            nfiles[recoil_energy] = len(files)
+
+            vac_sizes_files: list[npt.NDArray[np.int64]] = []
+            sia_sizes_files: list[npt.NDArray[np.int64]] = []
+
+            for file in files:
+                defects = utils.io.get_last_reader(LAMMPSReader(file))["atoms"]
+                vacs = defects[defects["type"] == 0]
+                sias = defects[defects["type"] != 0]
+
+                vac_oclusters = clusterize_atoms(vacs, vacs_cutoff)[-1]
+                sia_oclusters = clusterize_atoms(sias, sias_cutoff)[-1]
+
+                vac_sizes_files.append(vac_oclusters["size"])
+                sia_sizes_files.append(sia_oclusters["size"])
+
+            vac_sizes.append(
+                np.concatenate(vac_sizes_files)
+                if vac_sizes_files
+                else np.empty(0, dtype=np.int64)
+            )
+            sia_sizes.append(
+                np.concatenate(sia_sizes_files)
+                if sia_sizes_files
+                else np.empty(0, dtype=np.int64)
+            )
+
+        def rounded_max(m: int, binwidth: int) -> int:
+            # keep 1..10 unbinned, bin >=11 by binwidth
+            if m <= 10:
+                return 10
+            return 10 + int(np.ceil((m - 10) / binwidth) * binwidth)
+
+        max_vac = max((int(v.max()) if v.size else 0) for v in vac_sizes)
+        max_sia = max((int(s.max()) if s.size else 0) for s in sia_sizes)
+        max_vac = rounded_max(max_vac, vacs_binwidth)
+        max_sia = rounded_max(max_sia, sias_binwidth)
+
+        vac_edges = np.concatenate(
+            (
+                np.arange(0.5, 10.5),
+                np.arange(10.5, max_vac + vacs_binwidth + 0.5, vacs_binwidth),
+            )
+        )
+        sia_edges = np.concatenate(
+            (
+                np.arange(0.5, 10.5),
+                np.arange(10.5, max_sia + sias_binwidth + 0.5, sias_binwidth),
+            )
+        )
+
+        recoils_nbins = len(recoil_energies)
+        vhists = np.empty((recoils_nbins, len(vac_edges) - 1), dtype=np.float64)
+        ihists = np.empty((recoils_nbins, len(sia_edges) - 1), dtype=np.float64)
+
+        for i, e in enumerate(recoil_energies):
+            vhist, _ = np.histogram(vac_sizes[i], bins=vac_edges, density=False)
+            ihist, _ = np.histogram(sia_sizes[i], bins=sia_edges, density=False)
+            vhist = vhist / nfiles[e]
+            ihist = ihist / nfiles[e]
+            vhists[i] = vhist
+            ihists[i] = ihist
+
+        def plot(
+            hists: npt.NDArray[np.float64],
+            edges: npt.NDArray[np.float64],
+            max_size: int,
+            bin_width: int,
+            path: Path | None,
+        ) -> None:
+            # hists = np.ma.masked_where(hists == 0, hists)
+            hists = np.ma.masked_less_equal(hists, 0.0)
+
+            fig = plt.figure(figsize=(8, 8))
+            gs = GridSpec(1, 2, height_ratios=[1], width_ratios=[1, 0.05])
+            ax = fig.add_subplot(gs[0, 0])
+            ax.set_xlabel("Energy (keV)")
+            ax.set_ylabel("Cluster size")
+
+            im = ax.imshow(
+                hists.T,
+                origin="lower",
+                aspect="auto",
+                norm=mcolors.LogNorm() if log else None,
+                cmap="viridis",
+                extent=[0, recoils_nbins, 0, hists.shape[1]],
+            )
+
+            xticks = np.arange(recoils_nbins) + 0.5
+            xlabels = [f"{e / 1000.0:<.1f}" for e in recoil_energies]
+            ax.set_xticks(xticks)
+            ax.set_xticklabels(xlabels)
+
+            if bin_width == 1:
+                ylabels = [str(i) for i in range(1, max_size + 1)]
+            else:
+                ylabels = [str(i) for i in range(1, 11)] + [
+                    f"{i}-{i + bin_width - 1}" for i in range(11, max_size, bin_width)
+                ]
+            yticks = np.arange(len(edges) - 1) + 0.5
+            ax.set_yticks(yticks)
+            ax.set_yticklabels(ylabels)
+
+            cax = fig.add_subplot(gs[0, 1])
+            fig.colorbar(im, cax=cax, label="Counts per cascade")
+
+            fig.tight_layout()
+
+            if path is not None:
+                fig.savefig(path, dpi=dpi)
+            if show or path is None:
+                plt.show()
+            plt.close(fig)
+
+        plot(ihists, sia_edges, max_sia, sias_binwidth, sias_plot_path)
+        plot(vhists, vac_edges, max_vac, vacs_binwidth, vacs_plot_path)
