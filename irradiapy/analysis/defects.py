@@ -3,12 +3,10 @@
 from collections import defaultdict
 from pathlib import Path
 
-import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.gridspec import GridSpec
 from numpy import typing as npt
 
-from irradiapy import dtypes, materials, utils
+from irradiapy import dtypes
 from irradiapy.analysis.defectsidentifier import DefectsIdentifier
 from irradiapy.io import BZIP2LAMMPSReader, LAMMPSReader, LAMMPSWriter
 
