@@ -1,6 +1,5 @@
 """Defects analysis module."""
 
-from collections import defaultdict
 from pathlib import Path
 
 import numpy as np
@@ -14,7 +13,7 @@ from irradiapy.io import BZIP2LAMMPSReader, LAMMPSReader, LAMMPSWriter
 def identify_defects(
     lattice: str,
     a0: float,
-    data_atoms: defaultdict,
+    data_atoms: dict,
     a1: None | float = None,
     pos_pka: None | npt.NDArray[np.float64] = None,
     theta_pka: None | float = None,
@@ -30,9 +29,9 @@ def identify_defects(
         Lattice type. Currently only "bcc" is supported.
     a0 : float
         Lattice parameter.
-    data_atoms : defaultdict
+    data_atoms : dict
         Dictionary containing simulation data as given by the LAMMPSReader and similar readers.
-        Must include keys: 'atoms', 'natoms', 'boundary', 'xlo', 'xhi', 'ylo', 'yhi', 'zlo',
+        Must include keys: 'atoms', 'boundary', 'xlo', 'xhi', 'ylo', 'yhi', 'zlo',
         'zhi', 'timestep'.
     a1 : float, optional (default=None)
         Final lattice parameter. If provided, defect positions are rescaled to this value
@@ -90,11 +89,11 @@ def identify_lammps_dump(
         Lattice type. Currently only "bcc" is supported.
     a0 : float
         Lattice parameter.
-    data_atoms : defaultdict
+    data_atoms : dict
         Dictionary containing simulation data as given by the LAMMPSReader and similar readers.
-    data_atoms : defaultdict
+    data_atoms : dict
         Dictionary containing simulation data as given by the LAMMPSReader and similar readers.
-        Must include keys: 'atoms', 'natoms', 'boundary', 'xlo', 'xhi', 'ylo', 'yhi', 'zlo',
+        Must include keys: 'atoms', 'boundary', 'xlo', 'xhi', 'ylo', 'yhi', 'zlo',
         'zhi', 'timestep'.
     dump_path : Path
         Path to the LAMMPS dump file to read. Can be compressed with `.bz2` or not.

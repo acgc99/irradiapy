@@ -1,7 +1,7 @@
 """Utility functions for I/O operations."""
 
 import bz2
-from collections import defaultdict, deque
+from collections import deque
 from pathlib import Path
 
 import numpy as np
@@ -73,7 +73,7 @@ def get_last_reader(
 
 def merge_lammps_snapshots(
     in_path: Path, out_path: Path, overwrite: bool = False
-) -> defaultdict:
+) -> dict:
     """Merge multiple snapshots in a LAMMPS file into a single snapshot.
 
     Parameters
@@ -87,7 +87,7 @@ def merge_lammps_snapshots(
 
     Returns
     -------
-    defaultdict
+    dict
         A dictionary containing the merged snapshot data.
     """
 
@@ -108,7 +108,7 @@ def merge_lammps_snapshots(
     for data_atoms in reader:
         data_atoms_list.append(data_atoms)
     reader.close()
-    data_atoms_merged = defaultdict(None)
+    data_atoms_merged = {}
     data_atoms_merged["timestep"] = data_atoms_list[-1]["timestep"]
     data_atoms_merged["time"] = data_atoms_list[-1]["time"]
     data_atoms_merged["boundary"] = data_atoms_list[-1]["boundary"]
@@ -118,9 +118,6 @@ def merge_lammps_snapshots(
     data_atoms_merged["yhi"] = data_atoms_list[-1]["yhi"]
     data_atoms_merged["zlo"] = data_atoms_list[-1]["zlo"]
     data_atoms_merged["zhi"] = data_atoms_list[-1]["zhi"]
-    data_atoms_merged["natoms"] = np.sum(
-        data_atoms["natoms"] for data_atoms in data_atoms_list
-    )
     data_atoms_merged["atoms"] = np.concatenate(
         [data_atoms["atoms"] for data_atoms in data_atoms_list]
     )

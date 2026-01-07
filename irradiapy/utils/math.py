@@ -2,7 +2,6 @@
 
 # pylint: disable=unbalanced-tuple-unpacking
 
-from collections import defaultdict
 from typing import Any, Callable
 
 import numpy as np
@@ -502,16 +501,16 @@ def fit_linear(
 
 
 def apply_boundary_conditions(
-    data_atoms: defaultdict[str, Any],
+    data_atoms: dict[str, Any],
     x: bool,
     y: bool,
     z: bool,
-) -> defaultdict[str, Any]:
+) -> dict[str, Any]:
     """Apply boundary conditions to atoms.
 
     Parameters
     ----------
-    data_atoms : defaultdict[str, Any]
+    data_atoms : dict[str, Any]
         Atoms data containing atom positions and boundaries.
     x : bool
         Whether to apply periodic boundary conditions in the x direction.
@@ -522,7 +521,7 @@ def apply_boundary_conditions(
 
     Returns
     -------
-    defaultdict[str, Any]
+    dict[str, Any]
         Updated atoms data with applied boundary conditions.
     """
     xlo, xhi = data_atoms["xlo"], data_atoms["xhi"]
@@ -551,27 +550,24 @@ def apply_boundary_conditions(
         atoms["z"] = np.clip(atoms["z"], zlo, zhi)
         data_atoms["boundary"][2] = "ff"
     data_atoms["atoms"] = atoms
-    data_atoms["natoms"] = len(atoms)
     return data_atoms
 
 
-def recombine_in_radius(
-    data_defects: defaultdict[str, Any], radius: float
-) -> defaultdict[str, Any]:
+def recombine_in_radius(data_defects: dict[str, Any], radius: float) -> dict[str, Any]:
     """Recombine defects (interstitials and vacancies) within a given radius.
 
     Takes into account periodic boundary conditions.
 
     Parameters
     ----------
-    data_defects : defaultdict[str, Any]
+    data_defects : dict[str, Any]
         Defects data containing defect positions and boundaries.
     radius : float
         Radius within which to recombine defects.
 
     Returns
     -------
-    defaultdict[str, Any]
+    dict[str, Any]
         Updated defects data with recombined defects.
     """
 
@@ -623,7 +619,6 @@ def recombine_in_radius(
     defects = np.concatenate([vacs[vac_mask], sias[sia_mask]])
 
     data_defects["atoms"] = defects
-    data_defects["natoms"] = len(defects)
 
     return data_defects
 

@@ -61,11 +61,9 @@ class BZIP2LAMMPSWriterMPI(MPIExceptionHandlerMixin):
     excluded_items: list[str] = field(default_factory=lambda: config.EXCLUDED_ITEMS)
 
     __file: TextIO | None = field(default=None, init=False)
-    __rank: int = field(init=False, repr=False)
-    __size: int = field(init=False, repr=False)
-    __comm_tag: int = field(
-        default_factory=MPITagAllocator.get_tag, init=False, repr=False
-    )
+    __rank: int = field(init=False)
+    __size: int = field(init=False)
+    __comm_tag: int = field(default_factory=MPITagAllocator.get_tag, init=False)
 
     def __post_init__(self) -> None:
         """Opens the file associated with this writer."""
@@ -153,6 +151,7 @@ class BZIP2LAMMPSWriterMPI(MPIExceptionHandlerMixin):
             else:
                 formatters.append("%s")
 
+        natoms = self.comm.allreduce(len(atoms), op=MPI.SUM)
         # Header
         if self.__rank == 0:
             header_lines = []
@@ -161,9 +160,7 @@ class BZIP2LAMMPSWriterMPI(MPIExceptionHandlerMixin):
             header_lines.append(
                 f"ITEM: TIMESTEP\n{self.int_format % data['timestep']}\n"
             )
-            header_lines.append(
-                f"ITEM: NUMBER OF ATOMS\n{self.int_format % data['natoms']}\n"
-            )
+            header_lines.append(f"ITEM: NUMBER OF ATOMS\n{self.int_format % natoms}\n")
             header_lines.append(f"ITEM: BOX BOUNDS {' '.join(data['boundary'])}\n")
             header_lines.append(
                 f"{self.float_format % data['xlo']} {self.float_format % data['xhi']}\n"

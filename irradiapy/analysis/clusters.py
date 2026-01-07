@@ -1,6 +1,5 @@
 """Cluster analysis module."""
 
-from collections import defaultdict
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -117,10 +116,9 @@ def clusterize_file(
         oclusters = np.concatenate((ioclusters, voclusters))
 
         if aclusters_path:
-            data_aclusters = defaultdict(None)
+            data_aclusters = {}
             data_aclusters["timestep"] = data_defects["timestep"]
             data_aclusters["time"] = data_defects["time"]
-            data_aclusters["natoms"] = len(aclusters)
             data_aclusters["boundary"] = data_defects["boundary"]
             data_aclusters["xlo"] = data_defects["xlo"]
             data_aclusters["xhi"] = data_defects["xhi"]
@@ -132,10 +130,9 @@ def clusterize_file(
             awriter.write(data_aclusters)
 
         if oclusters_path:
-            data_oclusters = defaultdict(None)
+            data_oclusters = {}
             data_oclusters["timestep"] = data_defects["timestep"]
             data_oclusters["time"] = data_defects["time"]
-            data_oclusters["natoms"] = len(oclusters)
             data_oclusters["boundary"] = data_defects["boundary"]
             data_oclusters["xlo"] = data_defects["xlo"]
             data_oclusters["xhi"] = data_defects["xhi"]

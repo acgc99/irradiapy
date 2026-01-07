@@ -87,7 +87,7 @@ class BZIP2LAMMPSWriter:
             self.__file.write(f"ITEM: TIME\n{self.float_format % data['time']}\n")
         self.__file.write(f"ITEM: TIMESTEP\n{self.int_format % data['timestep']}\n")
         self.__file.write(
-            f"ITEM: NUMBER OF ATOMS\n{self.int_format % data['natoms']}\n"
+            f"ITEM: NUMBER OF ATOMS\n{self.int_format % len(data['atoms'])}\n"
         )
         self.__file.write(f"ITEM: BOX BOUNDS {' '.join(data['boundary'])}\n")
         self.__file.write(

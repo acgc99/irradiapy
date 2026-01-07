@@ -151,13 +151,12 @@ class LAMMPSWriterMPI(MPIExceptionHandlerMixin):
             else:
                 formatters.append("%s")
 
+        natoms = self.comm.allreduce(len(atoms), op=MPI.SUM)
         if self.__rank == 0:
             if "time" in data:
                 self.__file.write(f"ITEM: TIME\n{self.float_format % data['time']}\n")
             self.__file.write(f"ITEM: TIMESTEP\n{self.int_format % data['timestep']}\n")
-            self.__file.write(
-                f"ITEM: NUMBER OF ATOMS\n{self.int_format % data['natoms']}\n"
-            )
+            self.__file.write(f"ITEM: NUMBER OF ATOMS\n{self.int_format % natoms}\n")
             self.__file.write(f"ITEM: BOX BOUNDS {' '.join(data['boundary'])}\n")
             self.__file.write(
                 f"{self.float_format % data['xlo']} {self.float_format % data['xhi']}\n"

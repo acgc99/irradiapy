@@ -1,7 +1,6 @@
 """This module contains the `BZIP2LAMMPSReader` class."""
 
 import bz2
-from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import BinaryIO, Generator, Type
@@ -28,7 +27,7 @@ class BZIP2LAMMPSReader:
     ------
     dict
         A dictionary containing the timestep data with keys:
-        'time' (optional), 'timestep', 'natoms', 'boundary', 'xlo', 'xhi',
+        'time' (optional), 'timestep', 'boundary', 'xlo', 'xhi',
         'ylo', 'yhi', 'zlo', 'zhi', and 'atoms' (as a numpy structured array).
 
     """
@@ -58,12 +57,12 @@ class BZIP2LAMMPSReader:
         ------
         dict
             A dictionary containing the timestep data with keys:
-            'time' (optional), 'timestep', 'natoms', 'boundary', 'xlo', 'xhi',
+            'time' (optional), 'timestep', 'boundary', 'xlo', 'xhi',
             'ylo', 'yhi', 'zlo', 'zhi', and 'atoms' (as a numpy structured array).
         """
         with bz2.open(self.file_path, mode="rt", encoding="utf-8") as file:
             while True:
-                data = defaultdict(None)
+                data = {}
                 line = file.readline()
                 if not line:
                     break
@@ -72,7 +71,7 @@ class BZIP2LAMMPSReader:
                     file.readline()
                 data["timestep"] = int(file.readline())
                 file.readline()
-                data["natoms"] = int(file.readline())
+                natoms = int(file.readline())
                 data["boundary"] = file.readline().split()[-3:]
                 data["xlo"], data["xhi"] = map(float, file.readline().split())
                 data["ylo"], data["yhi"] = map(float, file.readline().split())
@@ -80,8 +79,8 @@ class BZIP2LAMMPSReader:
 
                 line = file.readline()
                 items, types, dtype = self.__get_dtype(line)
-                data["atoms"] = np.empty(data["natoms"], dtype=dtype)
-                for i in range(data["natoms"]):
+                data["atoms"] = np.empty(natoms, dtype=dtype)
+                for i in range(natoms):
                     line = file.readline().split()
                     for j, item in enumerate(items):
                         data["atoms"][i][item] = types[j](line[j])

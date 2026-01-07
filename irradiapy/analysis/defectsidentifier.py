@@ -1,6 +1,5 @@
 """This module provides a class to find and analyze defects in crystalline structures."""
 
-from collections import defaultdict
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -203,14 +202,14 @@ class DefectsIdentifier:
 
     def __defect_identification(
         self,
-        data_atoms: defaultdict,
+        data_atoms: dict,
         idx_atoms: npt.NDArray[np.int64],
     ) -> dtypes.Defect:
         """Identifies defects based on the assignments.
 
         Parameters
         ----------
-        data_atoms : defaultdict
+        data_atoms : dict
             Dictionary containing simulation data as given by the LAMMPSReader and similar readers.
         idx_atoms : npt.NDArray[np.int64]
             Array of atomic index coordinates (shape: [N, 4]).
@@ -262,20 +261,20 @@ class DefectsIdentifier:
 
     def identify(
         self,
-        data_atoms: defaultdict,
+        data_atoms: dict,
         a1: None | float = None,
         pos_pka: None | npt.NDArray[np.float64] = None,
         theta_pka: None | float = None,
         phi_pka: None | float = None,
         transform: None | bool = False,
-    ) -> defaultdict:
+    ) -> dict:
         """Identify defects in the crystalline structure based on atomic positions.
 
         Parameters
         ----------
-        data_atoms : defaultdict
+        data_atoms : dict
             Dictionary containing simulation data as given by the LAMMPSReader and similar readers.
-            Must include keys: 'atoms', 'natoms', 'boundary', 'xlo', 'xhi', 'ylo', 'yhi', 'zlo',
+            Must include keys: 'atoms', 'boundary', 'xlo', 'xhi', 'ylo', 'yhi', 'zlo',
             'zhi', 'timestep'.
         a1 : float, optional
             Final lattice parameter. If provided, defect positions are rescaled to this value
@@ -295,10 +294,9 @@ class DefectsIdentifier:
 
         Returns
         -------
-        data_defects : defaultdict
+        data_defects : dict
             Dictionary containing the defects found in the structure. Keys are the same as in
-            `data_atoms`, but the 'atoms' key contains only defects and
-            'natoms' reflects the number of defects found.
+            `data_atoms`, but the 'atoms' key contains only defects.
         """
         self.__nxlo = round(data_atoms["xlo"] / self.a0)
         self.__nxhi = round(data_atoms["xhi"] / self.a0)
@@ -313,8 +311,9 @@ class DefectsIdentifier:
         self.__pery = data_atoms["boundary"][1] == "pp"
         self.__perz = data_atoms["boundary"][2] == "pp"
 
-        idx_atoms = np.zeros((data_atoms["natoms"], 4), dtype=np.int64)
-        mod_atoms = np.zeros((data_atoms["natoms"], 3), dtype=np.float64)
+        natoms = len(data_atoms["atoms"])
+        idx_atoms = np.zeros((natoms, 4), dtype=np.int64)
+        mod_atoms = np.zeros((natoms, 3), dtype=np.float64)
         idx_atoms[:, 0], mod_atoms[:, 0] = np.divmod(data_atoms["atoms"]["x"], self.a0)
         idx_atoms[:, 1], mod_atoms[:, 1] = np.divmod(data_atoms["atoms"]["y"], self.a0)
         idx_atoms[:, 2], mod_atoms[:, 2] = np.divmod(data_atoms["atoms"]["z"], self.a0)
@@ -360,10 +359,9 @@ class DefectsIdentifier:
                 defects["y"] *= a1 / self.a0
                 defects["z"] *= a1 / self.a0
 
-        data_defects = defaultdict(None)
+        data_defects = {}
         data_defects["time"] = data_atoms["time"]
         data_defects["timestep"] = data_atoms["timestep"]
-        data_defects["natoms"] = len(defects)
         data_defects["boundary"] = data_atoms["boundary"]
         data_defects["xlo"] = data_atoms["xlo"]
         data_defects["xhi"] = data_atoms["xhi"]

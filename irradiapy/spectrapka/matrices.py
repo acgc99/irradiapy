@@ -3,7 +3,6 @@
 # pylint: disable=line-too-long
 
 import re
-from collections import defaultdict
 from pathlib import Path
 from typing import TextIO
 
@@ -12,7 +11,7 @@ import numpy as np
 import numpy.typing as npt
 
 
-def read(file_path: Path) -> defaultdict:
+def read(file_path: Path) -> dict:
     """Reads SPECTRA-PKA .out file.
 
     Parameters
@@ -22,11 +21,11 @@ def read(file_path: Path) -> defaultdict:
 
     Returns
     -------
-    defaultdict
+    dict
         Dictionary containing the data from the .out file.
     """
 
-    data = defaultdict(None)
+    data = {}
     data["file"] = file_path.name
 
     file = open(file_path, "r", encoding="utf-8")
@@ -416,13 +415,13 @@ def __process_spectrum(file: TextIO, index: int, label: str) -> dict[str, npt.ND
     return data
 
 
-def plot_all(data: defaultdict, out_path: Path) -> None:
+def plot_all(data: dict, out_path: Path) -> None:
     """Plot all matrices from SPECTRA-PKA .out using data from irradiapy.spectrapka.output.read
     function.
 
     Parameters
     ----------
-    data : defaultdict
+    data : dict
         Data dictionary from irradiapy.spectrapka.output.read function.
     out_path : Path
         Output path to save the plots.

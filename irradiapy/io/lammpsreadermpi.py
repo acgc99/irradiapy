@@ -2,7 +2,6 @@
 
 # pylint: disable=no-name-in-module, broad-except
 
-from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import TracebackType
@@ -46,7 +45,7 @@ class LAMMPSReaderMPI(MPIExceptionHandlerMixin):
     ------
     dict
         A dictionary containing the timestep data with keys:
-        'time' (optional), 'timestep', 'natoms', 'boundary', 'xlo', 'xhi',
+        'time' (optional), 'timestep', 'boundary', 'xlo', 'xhi',
         'ylo', 'yhi', 'zlo', 'zhi', and 'atoms' (as a numpy structured array).
     """
 
@@ -61,6 +60,7 @@ class LAMMPSReaderMPI(MPIExceptionHandlerMixin):
     __nx: int = field(init=False)
     __ny: int = field(init=False)
     __nz: int = field(init=False)
+    __natoms: int = field(init=False)
 
     def __post_init__(self):
         self.__rank = self.comm.Get_rank()
@@ -106,7 +106,7 @@ class LAMMPSReaderMPI(MPIExceptionHandlerMixin):
         return items, types, np.dtype(list(zip(items, types)))
 
     def __process_header(self, file: TextIO) -> Dict[str, Any]:
-        data = defaultdict(None)
+        data = {}
         line = file.readline()
         if not line:
             return {}
@@ -118,7 +118,7 @@ class LAMMPSReaderMPI(MPIExceptionHandlerMixin):
             file.seek(file.tell() - len(line))
         data["timestep"] = int(file.readline())
         file.readline()
-        data["natoms"] = int(file.readline())
+        self.__natoms = int(file.readline())
         data["boundary"] = file.readline().split()[3:]
         bounds = []
         for _ in range(3):
@@ -151,10 +151,9 @@ class LAMMPSReaderMPI(MPIExceptionHandlerMixin):
             data.update({"items": items, "types": types, "dtype": dtype})
 
             # calculate raw line counts
-            natoms = data["natoms"]
             counts = [
-                (natoms // self.__commsize)
-                + (1 if i < (natoms % self.__commsize) else 0)
+                (self.__natoms // self.__commsize)
+                + (1 if i < (self.__natoms % self.__commsize) else 0)
                 for i in range(self.__commsize)
             ]
 

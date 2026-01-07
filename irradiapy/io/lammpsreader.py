@@ -1,6 +1,5 @@
 """This module contains the `LAMMPSReader` class."""
 
-from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Generator, TextIO, Type
@@ -27,7 +26,7 @@ class LAMMPSReader:
     ------
     dict
         A dictionary containing the timestep data with keys:
-        'time' (optional), 'timestep', 'natoms', 'boundary', 'xlo', 'xhi',
+        'time' (optional), 'timestep', 'boundary', 'xlo', 'xhi',
         'ylo', 'yhi', 'zlo', 'zhi', and 'atoms' (as a numpy structured array).
     """
 
@@ -52,7 +51,7 @@ class LAMMPSReader:
     ]:
         """Read the file as an iterator, timestep by timestep."""
         while True:
-            data = defaultdict(None)
+            data = {}
             line = self.__file.readline()
             if not line:
                 break
@@ -61,7 +60,7 @@ class LAMMPSReader:
                 self.__file.readline()
             data["timestep"] = int(self.__file.readline())
             self.__file.readline()
-            data["natoms"] = int(self.__file.readline())
+            natoms = int(self.__file.readline())
             data["boundary"] = self.__file.readline().split()[-3:]
             data["xlo"], data["xhi"] = map(float, self.__file.readline().split())
             data["ylo"], data["yhi"] = map(float, self.__file.readline().split())
@@ -70,8 +69,8 @@ class LAMMPSReader:
             line = self.__file.readline()
             items, types, dtype = self.__get_dtype(line)
 
-            data["atoms"] = np.empty(data["natoms"], dtype=dtype)
-            for i in range(data["natoms"]):
+            data["atoms"] = np.empty(natoms, dtype=dtype)
+            for i in range(natoms):
                 line = self.__file.readline().split()
                 for j, item in enumerate(items):
                     data["atoms"][i][item] = types[j](line[j])
