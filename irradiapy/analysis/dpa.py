@@ -246,7 +246,17 @@ def depth_dpa_hist_plot(
     ax.set_ylabel("Displacements per atom")
 
     for model in models:
-        scatter = ax.scatter(depth_centers, hists[model], label=model, marker=".")
+        if model == "nrt":
+            label = "NRT"
+        elif model == "arc":
+            label = "arc"
+        elif model == "ferarc":
+            label = "fer-arc"
+        elif model == "debris":
+            label = "debris"
+        else:
+            label = model
+        scatter = ax.scatter(depth_centers, hists[model], label=label, marker=".")
         if fits is not False:
             try:
                 ax.plot(
