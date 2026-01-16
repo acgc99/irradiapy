@@ -14,13 +14,54 @@ from irradiapy.materials.element import Element
 class Component:
     """Class for storing parameters of a component.
 
-    We identified clusters using a union-find based procedure [51].
-    Two SIAs (vacancies) are assigned to the same cluster if their separation
-    is shorter than the midpoint between the third (second) and fourth (third)
-    nearest-neighbour distances
-
     Parameters
     ----------
+    elements : tuple[Element, ...]
+        Tuple of elements in the component.
+    stoichs : tuple[float, ...]
+        Tuple of stoichiometric coefficients for each element.
+    name : str
+        Name of the component.
+    phase : Phases
+        Phase of the component (solid, liquid, gas).
+    density : float
+        Density of the component in g/cm3.
+    x0 : float, optional
+        Initial x position of the component in angstroms.
+    y0 : float, optional
+        Initial y position of the component in angstroms.
+    z0 : float, optional
+        Initial z position of the component in angstroms.
+    width : float, optional
+        Width of the component in angstroms.
+    height : float, optional
+        Height of the component in angstroms.
+    length : float, optional
+        Length of the component in angstroms.
+    ax : float, optional
+        Lattice parameter in x-axis in angstroms.
+    ay : float, optional
+        Lattice parameter in y-axis in angstroms.
+    az : float, optional
+        Lattice parameter in z-axis in angstroms.
+    c : float, optional
+        c parameter for hcp structure in angstroms.
+    structure : str, optional
+        Crystal structure (bcc, fcc, hcp, amorphous).
+    ed_min : float, optional
+        Minimum displacement energy in eV.
+    ed_avr : float, optional
+        Average displacement energy in eV.
+    b_arc : float, optional
+        b parameter for arc-dpa model.
+    c_arc : float, optional
+        c parameter for arc-dpa model.
+    calculate_energies : bool, optional
+        Whether to calculate missing energy parameters from elements.
+    srim_el : float, optional
+        SRIM lattice binding energy in eV.
+    srim_es : float, optional
+        SRIM surface binding energy in eV.
     """
 
     elements: tuple[Element, ...]
