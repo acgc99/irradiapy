@@ -403,7 +403,7 @@ def depth_cluster_sizes_plot(
         cbar.ax.yaxis.set_ticks_position("right")
         cbar.ax.yaxis.set_label_position("right")
 
-        fig.suptitle(title)
+        ax.set_title(title)
         fig.tight_layout()
         if plot_path is not None:
             plt.savefig(plot_path, dpi=dpi)
