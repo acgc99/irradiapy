@@ -249,7 +249,7 @@ class Spectra2SRIM:
         max_recoil_energy: float,
         exclude_recoils: list[int] | None = None,
         max_srim_iters: int = 32,
-    ) -> None:
+    ) -> RecoilsDB:
         """Run the SPECTRA-PKA to SRIM workflow.
 
         Parameters
@@ -279,6 +279,11 @@ class Spectra2SRIM:
             List of symbols of recoils atoms to exclude from processing.
         max_srim_iters : int, optional (default=32)
             Maximum number of SRIM iterations.
+
+        Returns
+        -------
+        RecoilsDB
+            Database with all recoils collected.
         """
         self.spectrapka_in_path = spectrapka_in_path
         self.spectrapka_events_path = spectrapka_events_path
