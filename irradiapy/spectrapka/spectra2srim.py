@@ -312,6 +312,36 @@ class Spectra2SRIM:
             _times,
             _events,
         ) = self.__read_spectrapka_events_for_srim()
+
+        # If SPECTRA-PKA output is empty
+        if nions == 0:
+            for component in self.target:
+                component.width = self.matdict["sizex"]
+            self.recoilsdb.save_target(self.target)
+            self.recoilsdb.commit()
+            return self.recoilsdb
+
+        # If no recoils above max_recoil_energy
+        if not np.any(recoil_energies > max_recoil_energy):
+            for i in range(nions):
+                self.recoilsdb.insert_recoil(
+                    event=int(_events[i]),
+                    atomic_number=int(atomic_numbers[i]),
+                    recoil_energy=float(recoil_energies[i]),
+                    x=float(_depths[i]),
+                    y=float(ys[i]),
+                    z=float(zs[i]),
+                    cosx=float(cosxs[i]),
+                    cosy=float(cosys[i]),
+                    cosz=float(coszs[i]),
+                )
+            for component in self.target:
+                component.width = self.matdict["sizex"]
+            self.recoilsdb.save_target(self.target)
+            self.recoilsdb.commit()
+            return self.recoilsdb
+
+        # Else, run SRIM for recoils above max_recoil_energy
         # To avoid backscattering and transmission, inject all SPECTRA-PKA recoils at mid-target
         depths_srim = np.full(nions, self.srim_width / 2.0, dtype=np.float64)
         py2srim = srim.Py2SRIM()
