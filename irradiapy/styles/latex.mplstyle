@@ -1,30 +1,24 @@
-# Original from https://everyhue.me/posts/sane-color-scheme-for-matplotlib/
-# This is matplotlib ggplot style with font-size and color modifications
-# for easier and inclusive visualization (colour universal design (CUD) palette)
-
-patch.linewidth: 0.5
-patch.facecolor: 348ABD  # blue
-patch.edgecolor: EEEEEE
-patch.antialiased: True
+# Original from https://github.com/matplotlib/matplotlib/blob/main/lib/matplotlib/mpl-data/stylelib/ggplot.mplstyle
+# This is matplotlib ggplot style with color modifications for
+# easier and inclusive visualization (colour universal design (CUD) palette),
+# and font-size changes for easier reading in a paper.
 
 text.usetex: True
+text.color: black
+
 font.family: "serif"
 font.serif: "Computer Modern"
-font.size: 16.0
-text.color: 555555
+font.size: 24.0
 
-scatter.marker: o
-lines.markersize: 6
+figure.facecolor: white
+figure.edgecolor: 0.50
 
 axes.facecolor: white
-axes.edgecolor: E5E5E5
+axes.edgecolor: black
 axes.linewidth: 1
 axes.grid: True
-axes.titlesize: x-large
-axes.labelsize: large
-axes.labelcolor: 555555
-axes.axisbelow: True       # grid/ticks are below elements (e.g., lines, text)
-
+axes.labelcolor: black
+axes.axisbelow: True
 axes.prop_cycle: cycler("color", ["#000000", "#e69f00", "#56b4e9", "#009e73", "#f0e442", "#0072b2", "#d55e00", "#cc79a7", "#F5C710", "#999999"])
 # "black": "#000000"
 # "orange": "#e69f00"
@@ -37,14 +31,20 @@ axes.prop_cycle: cycler("color", ["#000000", "#e69f00", "#56b4e9", "#009e73", "#
 # "amber": "#F5C710"
 # "grey": "#999999"
 
-xtick.color: 555555
+xtick.color: black
 xtick.direction: out
 
-ytick.color: 555555
+ytick.color: black
 ytick.direction: out
 
-grid.color: E5E5E5
-grid.linestyle: -    # solid line
+grid.color: lightgray
+grid.linestyle: -
 
-figure.facecolor: white
-figure.edgecolor: 0.50
+patch.linewidth: 0.5
+patch.facecolor: "#56b4e9"
+patch.edgecolor: lightgray
+patch.antialiased: True
+
+scatter.marker: o
+
+lines.markersize: 6
