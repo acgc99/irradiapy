@@ -63,11 +63,11 @@ pywinauto>=0.6.8
 scikit_learn>=1.6.0
 scipy>=1.14.1
 mpi4py>=3.0.0
+indexed-bzip2>=1.7.0
 ```
 Note that:
-- The code might work with previous versions, but results might change slightly. For example, [`scipy.spatial.transform.Rotation.align_vectors`](https://docs.scipy.org/doc/scipy-1.14.1/reference/generated/scipy.spatial.transform.Rotation.align_vectors.html) changed its behaviour when only two vectors are provided between versions 1.11 and 1.12.
-- `mpi4py` is not needed now, but it will be requeried in the following versions. I need to check this, but its version must be < 4 for LAMMPS compatibility.
-- (For the future) If you do `pip install lammps`, you are not installing the right thing. To use your LAMMPS distribution you must build the package from source.
+- The code might work with previous packages versions, but results might change slightly. For example, [`scipy.spatial.transform.Rotation.align_vectors`](https://docs.scipy.org/doc/scipy-1.14.1/reference/generated/scipy.spatial.transform.Rotation.align_vectors.html) changed its behaviour when only two vectors are provided between versions 1.11 and 1.12.
+- (Not applicable yet) You need to be able to run LAMMPS from Python. On Windows, you will need first to install [MS-MPI](https://learn.microsoft.com/en-gb/message-passing-interface/microsoft-mpi) (`msmpisetup.exe`), and then LAMMPS for Windows with Python support [LAMMPS-64bit-Python-latest-MSMPI.exe](https://rpm.lammps.org/windows/). In Linux, you need to build the Python package from source with `make install-python` or similar.
 
 Installation (PyPI link [here](https://pypi.org/project/irradiapy/)):
 ```
