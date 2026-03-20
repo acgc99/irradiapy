@@ -382,19 +382,27 @@ def depth_injected_ions_hist(
 
     nevents = recoilsdb.get_nevents()
     depths = np.empty(nevents)
+    nstopped = 0
     for event in range(1, nevents + 1):
         ions_vacs = next(
             recoilsdb.read(
                 table="ions_vacs",
                 what=axis,
                 conditions=f"WHERE event = {event} LIMIT 1 OFFSET 1",
-            )
+            ),
+            None,
         )
+        if ions_vacs is None:
+            continue
         # This takes the second row, which is the rest position of
         # the primary recoil atom after all recoils
-        depths[event - 1] = ions_vacs[0]
+        depths[nstopped] = ions_vacs[0]
+        nstopped += 1
+    if nstopped == 0:
+        print("Injected ions did not stop in the target.")
+        return np.array([], dtype=np.float64), np.array([], dtype=np.float64)
 
-    hist, depth_edges = np.histogram(depths, bins=nbins)
+    hist, depth_edges = np.histogram(depths[:nstopped], bins=nbins)
     hist = hist / nevents
     depth_centers = (depth_edges[:-1] + depth_edges[1:]) / 2.0
     analysisdb.save_depth_ions_hist(axis=axis, depth_centers=depth_centers, hist=hist)
