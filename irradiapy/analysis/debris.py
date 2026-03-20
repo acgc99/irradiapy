@@ -221,7 +221,7 @@ def __py2srim_generate_debris(
     """Generate MD debris from Python to SRIM results."""
     target = recoilsdb.load_target()
     width = sum(component.width for component in target)
-    component_edges = np.cumsum([0.0] + [component.width for component in target])
+    component_edges = _component_edges(target)
 
     writer = LAMMPSWriter(debris_path, mode="w")
     nevents = recoilsdb.get_nevents()
@@ -246,8 +246,8 @@ def __py2srim_generate_debris(
         )
         for atom_numb, recoil_energy, x, y, z, cosx, cosy, cosz in recoils:
             # Determine layer and select target material
-            component_idx = np.searchsorted(component_edges, x, side="right") - 1
-
+            # component_idx = np.searchsorted(component_edges, x, side="right") - 1
+            component_idx = _component_idx_from_x(x, component_edges)
             debris_manager = DebrisManager(
                 mddb_dir=mddb_dir,
                 recoil=materials.ELEMENT_BY_ATOMIC_NUMBER[atom_numb],
@@ -280,6 +280,24 @@ def __py2srim_generate_debris(
 
         writer.write(data)
     writer.close()
+
+
+def _component_edges(target: list[materials.Component]) -> list[tuple[float, float]]:
+    """Calculate the x bounds of each component in a layered target."""
+    bounds = []
+    current_x = 0.0
+    for component in target:
+        bounds.append((current_x, current_x + component.width))
+        current_x += component.width
+    return bounds
+
+
+def _component_idx_from_x(x: float, bounds: list[tuple[float, float]]) -> int:
+    """Determine the component index from the x coordinate."""
+    for idx, (xlo, xhi) in enumerate(bounds):
+        if xlo <= x <= xhi:
+            return idx
+    raise ValueError(f"x={x} is out of bounds of the target.")
 
 
 def __apply_boundary_conditions(
