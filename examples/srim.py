@@ -41,6 +41,8 @@ max_srim_iters = 10
 fail_on_transmit = False
 # Execution will fail if an ion is backscattered
 fail_on_backscatt = False
+# If True, then the initial primary ion position will not be used to place a vacancy.
+surface_irradiation = True
 # Target width, angstroms
 width = 8e3
 # Fluence, ions/angstrom^2
@@ -111,6 +113,7 @@ irpy.analysis.debris.generate_debris(
     displacement_mode=displacement_mode,
     exclude_from_vacs=exclude_vacancies_ion,
     fp_dist=fp_dist,
+    surface_irradiation=surface_irradiation,
 )
 
 print("Clustering debris...")
