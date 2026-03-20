@@ -170,3 +170,42 @@ def apply_boundary_conditions_to_lammps(
         writer.write(data_atoms)
     reader.close()
     writer.close()
+
+
+def lammps_to_mmonca(path_in: str, path_out: str, scale: float = 10.0) -> None:
+    """Convert LAMMPS dump file to MMonCa format. Uses LAMMPSReader.
+
+    Parameters
+    ----------
+    path_in : str
+        Path to the input LAMMPS dump file.
+    path_out : str
+        Path to the output MMonCa file.
+    scale : float, optional (default=10.0)
+        Scale factor to convert from angstroms to other units
+        (default is 10.0, angstroms to nanometers).
+
+    Warning
+    -------
+    This converter is very basic, all defects of type 0 are considered vacancies (V),
+    any other defects type are considered a interstitials (I). Therefore, this will
+    produce wrong results when multiple elements are present.
+    """
+    total = 0
+    with open(path_out, "w", encoding="utf-8") as ofile:
+        nions = 0
+        for data_defects in LAMMPSReader(path_in):
+            defects = data_defects["atoms"]
+            nions += 1
+            natoms = len(defects)
+            natom = 0
+            ofile.write(f"{natoms}\n")
+            for defect in defects:
+                natom += 1
+                x = defect["x"] / scale
+                y = defect["y"] / scale
+                z = defect["z"] / scale
+                kind = "V" if defect["type"] == 0 else "I"
+                ofile.write(f"{natom} {kind} {x} {y} {z}\n")
+            total += natom
+    print(f"Total mean defects (vacs + sias): {total/nions}")
