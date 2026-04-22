@@ -226,10 +226,17 @@ class Spectra2SRIM:
 
         # Create SRIM target
         elements = [ELEMENT_BY_SYMBOL[sym] for sym in self.matdict["symbols"]]
+        # SRIM PKA energy to damage energy compatibility
+        if all(symbol == "Fe" for symbol in self.matdict["symbols"]):
+            name = "Iron"
+        elif all(symbol == "W" for symbol in self.matdict["symbols"]):
+            name = "Tungsten"
+        else:
+            name = "Layer1"
         component = Component(
             elements=elements,
             stoichs=self.matdict["stoichs"],
-            name="layer1",
+            name=name,
             width=self.srim_width,
             phase=Phases.SOLID,
             density=density,
