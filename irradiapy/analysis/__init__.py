@@ -3,3 +3,4 @@
 from irradiapy.analysis import clusters, debris, defects, dpa, recoils
 from irradiapy.analysis.analysisdb import AnalysisDB
 from irradiapy.analysis.debrismanager import DebrisManager
+from irradiapy.analysis.defectsidentifier import DefectsIdentifier
