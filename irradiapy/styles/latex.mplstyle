@@ -19,23 +19,27 @@ axes.linewidth: 1
 axes.grid: True
 axes.labelcolor: black
 axes.axisbelow: True
-axes.prop_cycle: cycler("color", ["#000000", "#e69f00", "#56b4e9", "#009e73", "#f0e442", "#0072b2", "#d55e00", "#cc79a7", "#F5C710", "#999999"])
+axes.labelsize: 32.0
+
+axes.prop_cycle: cycler("color", ["#000000", "#e69f00", "#56b4e9", "#009e73", "#78620a", "#0072b2", "#d55e00", "#cc79a7", "#f0e442", "#999999"])
 # "black": "#000000"
 # "orange": "#e69f00"
 # "skyblue": "#56b4e9"
 # "bluish green": "#009e73"
-# "yellow": "#f0e442"
+# "dark gold": "#78620a"
 # "blue": "#0072b2"
 # "vermilion": "#d55e00"
 # "reddish purple": "#cc79a7"
-# "amber": "#F5C710"
+# "yellow": "#f0e442"
 # "grey": "#999999"
 
 xtick.color: black
 xtick.direction: out
+xtick.labelsize: 28.0
 
 ytick.color: black
 ytick.direction: out
+ytick.labelsize: 28.0
 
 grid.color: lightgray
 grid.linestyle: -

@@ -21,11 +21,11 @@ axes.prop_cycle: cycler("color", ["#000000", "#e69f00", "#56b4e9", "#009e73", "#
 # "orange": "#e69f00"
 # "skyblue": "#56b4e9"
 # "bluish green": "#009e73"
-# "yellow": "#f0e442"
+# "dark gold": "#aa6c39"
 # "blue": "#0072b2"
 # "vermilion": "#d55e00"
 # "reddish purple": "#cc79a7"
-# "amber": "#F5C710"
+# "yellow": "#f0e442"
 # "grey": "#999999"
 
 xtick.color: black
