@@ -634,7 +634,7 @@ class Py2SRIM:
         fail_on_transmit : bool
             Whether to fail if there are transmitted ions.
         minimize_window : bool
-            Whether to minimize the SRIM/TRIM window while this simulation runs.
+            Whether to minimize the SRIM window while SRIM simulations run.
         """
         if ignore_32bit_warning:
             warnings.filterwarnings(

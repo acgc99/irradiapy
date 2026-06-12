@@ -256,6 +256,7 @@ class Spectra2SRIM:
         max_recoil_energy: float,
         exclude_recoils: list[int] | None = None,
         max_srim_iters: int = 32,
+        minimize_window: bool = False,
     ) -> RecoilsDB:
         """Run the SPECTRA-PKA to SRIM workflow.
 
@@ -286,6 +287,8 @@ class Spectra2SRIM:
             List of symbols of recoils atoms to exclude from processing.
         max_srim_iters : int, optional (default=32)
             Maximum number of SRIM iterations.
+        minimize_window : bool (default=False)
+            Whether to minimize the SRIM window while SRIM simulations run.
 
         Returns
         -------
@@ -369,6 +372,7 @@ class Spectra2SRIM:
             fail_on_backscatt=True,
             fail_on_transmit=True,
             ignore_32bit_warning=True,
+            minimize_window=minimize_window,
         )
         # Undo artificial offsets during SRIM calculations to avoid backscattering/transmission.
         cur = self.recoilsdb.cursor()
