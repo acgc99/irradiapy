@@ -1,0 +1,37 @@
+# Normalize text files to LF
+* text=auto eol=lf
+
+# Source/config/text
+*.py text eol=lf
+*.toml text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.csv text eol=lf
+*.dat text eol=lf
+*.in text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# Known binary scientific/data formats
+*.jld2 binary
+*.h5 binary
+*.hdf5 binary
+*.npy binary
+*.npz binary
+*.mat binary
+*.vtk binary
+*.vti binary
+*.vtu binary
+
+# Generic binaries
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.pdf binary
+*.zip binary
+*.tar binary
+*.gz binary
+*.7z binary
+*.so binary
+*.dll binary
+*.exe binary
