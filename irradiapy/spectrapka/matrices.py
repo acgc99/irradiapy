@@ -441,7 +441,7 @@ def plot_all(data: dict, out_path: Path) -> None:
     ax.set_xscale("log")
     ax.set_xlabel("Energy (eV)")
     ax.set_ylabel("Neutron flux (n/cm²/s) per lethargy interval", fontsize=12)
-    ax.set_title(f"Spectrum: {spectrum['name']}")
+    ax.set_title(f"Spectrum: {spectrum['name']}", fontsize=12)
     fig.tight_layout()
     fig.savefig(out_path / "spectrum.png", dpi=300)
     plt.close(fig)
@@ -472,16 +472,18 @@ def plot_all(data: dict, out_path: Path) -> None:
         ax.set_ylabel("PKAs/s")
         if matrix["type"] == "channel":
             ax.set_title(
-                f"Recoil matrix of: {matrix['in_atom']}{matrix['channel']}{matrix['out_atom']}"
+                f"Recoil matrix of: {matrix['in_atom']}{matrix['channel']}{matrix['out_atom']}",
+                fontsize=12,
             )
         elif matrix["type"] == "total":
             ax.set_title(
-                f"Total recoil matrix of: {matrix['in_atom']}{matrix['channel']}{matrix['out_atom']}"
+                f"Total recoil matrix of: {matrix['in_atom']}{matrix['channel']}{matrix['out_atom']}",
+                fontsize=12,
             )
         elif matrix["type"] == "isotopic":
-            ax.set_title(f"Isotopic recoil matrix of {matrix['isotope']}")
+            ax.set_title(f"Isotopic recoil matrix of {matrix['isotope']}", fontsize=12)
         else:
-            ax.set_title(f"Elemental recoil matrix of {matrix['element']}")
+            ax.set_title(f"Elemental recoil matrix of {matrix['element']}", fontsize=12)
         fig.tight_layout()
         fig.savefig(plot_path, dpi=300)
         plt.close(fig)
