@@ -7,7 +7,6 @@ import platform
 import subprocess
 import threading
 import time
-import traceback
 import warnings
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -35,11 +34,15 @@ elif OS_NAME == "Linux":
         )
     if not os.environ.get("DISPLAY"):
         warnings.warn(
-            "SRIM Wine automation requires an X11 DISPLAY. "
-            "Use a Plasma X11 session, not Wayland."
+            "SRIM automation requires an X11-compatible DISPLAY. "
+            "It works in a full X11 session, and may also work in a Wayland "
+            "session when SRIM/Wine runs through XWayland."
         )
 else:
-    warnings.warn(f"SRIM subpackage only supports Windows or Linux/Wine. {OS_NAME!r} not supported.")
+    warnings.warn(
+        "SRIM subpackage only supports Windows or Linux/Wine. "
+        f"{OS_NAME!r} not supported."
+    )
 
 
 @dataclass
