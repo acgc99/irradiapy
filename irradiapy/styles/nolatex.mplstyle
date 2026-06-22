@@ -5,7 +5,7 @@
 
 text.color: black
 
-font.size: 24.0
+font.size: 16.0
 
 figure.facecolor: white
 figure.edgecolor: 0.50
@@ -16,12 +16,14 @@ axes.linewidth: 1
 axes.grid: True
 axes.labelcolor: black
 axes.axisbelow: True
-axes.prop_cycle: cycler("color", ["#000000", "#e69f00", "#56b4e9", "#009e73", "#f0e442", "#0072b2", "#d55e00", "#cc79a7", "#F5C710", "#999999"])
+axes.labelsize = 16.0
+
+axes.prop_cycle: cycler("color", ["#000000", "#e69f00", "#56b4e9", "#009e73", "#78620a", "#0072b2", "#d55e00", "#cc79a7", "#f0e442", "#999999"])
 # "black": "#000000"
 # "orange": "#e69f00"
 # "skyblue": "#56b4e9"
 # "bluish green": "#009e73"
-# "dark gold": "#aa6c39"
+# "dark gold": "#78620a"
 # "blue": "#0072b2"
 # "vermilion": "#d55e00"
 # "reddish purple": "#cc79a7"
@@ -30,9 +32,11 @@ axes.prop_cycle: cycler("color", ["#000000", "#e69f00", "#56b4e9", "#009e73", "#
 
 xtick.color: black
 xtick.direction: out
+xtick.labelsize: 16.0
 
 ytick.color: black
 ytick.direction: out
+ytick.labelsize: 16.0
 
 grid.color: lightgray
 grid.linestyle: -
@@ -45,3 +49,4 @@ patch.antialiased: True
 scatter.marker: o
 
 lines.markersize: 6
+
