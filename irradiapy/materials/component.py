@@ -70,6 +70,7 @@ class Component:
     phase: "Phases"
     density: float  # g/cm3
     atomic_density: float = field(init=False)  # atoms/angstrom^3
+    stoichiometry_dict: dict[str, float] = field(init=False)
 
     # Position
     x0: None | float = None  # Angstrom
@@ -105,6 +106,7 @@ class Component:
     def __post_init__(self) -> None:
         self.nelements = len(self.elements)
         self.atomic_density = self.__calculate_atomic_density()
+        self.stoichiometry_dict = self.__stoichiometry_dict()
 
         if not isinstance(self.phase, Phases):
             raise ValueError("phase must be an instance of Phases Enum.")
@@ -182,6 +184,15 @@ class Component:
         )  # amu / atom
         atomic_density = self.density * g_cm3_to_amu_a3 / atomic_mass
         return atomic_density
+
+    def __stoichiometry_dict(self) -> dict[str, float]:
+        """Return component stoichiometry as a symbol-to-fraction dictionary."""
+        stoichiometry: dict[str, float] = {}
+        for element, stoich in zip(self.elements, self.stoichs):
+            stoichiometry[element.symbol] = stoichiometry.get(element.symbol, 0.0) + float(
+                stoich
+            )
+        return stoichiometry
 
     # region Recoil to damage energy
 

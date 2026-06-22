@@ -1,7 +1,5 @@
 """This module contains functions to generate debris from `RecoilsDB`."""
 
-from __future__ import annotations
-
 import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -10,6 +8,7 @@ import numpy as np
 
 from irradiapy import dtypes, materials
 from irradiapy.analysis.debrismanager import DebrisManager
+from irradiapy.debris_database import DebrisDatabase
 from irradiapy.enums import DamageEnergyMode, DisplacementMode
 from irradiapy.io.lammpswriter import LAMMPSWriter
 from irradiapy.utils.math import apply_boundary_conditions
@@ -22,10 +21,14 @@ def generate_debris(
     recoilsdb: RecoilsDB,
     mddb_dir: Path,
     debris_path: Path,
-    compute_damage_energy: bool,
     damage_energy_mode: DamageEnergyMode,
     displacement_mode: DisplacementMode,
     fp_dist: float,
+    electronic_interactions: str,
+    interatomic_potentials: list[str] | None = None,
+    doi: str | None = None,
+    contributors: list[str] | None = None,
+    invalid_recoil_energy: float = 1e3,
     energy_tolerance: float = 0.1,
     surface_irradiation: bool = False,
     exclude_from_ions: list[int] | None = None,
@@ -35,7 +38,7 @@ def generate_debris(
     yhi: None | float = None,
     zlo: None | float = None,
     zhi: None | float = None,
-):
+) -> None:
     """Generate MD debris from RecoilsDB.
 
     Parameters
@@ -46,16 +49,23 @@ def generate_debris(
         Path to the MD debris database directory.
     debris_path : Path
         Output file path.
-    compute_damage_energy : bool
-        If MD simulations do not include electronic stopping, this should be set to `True`. The
-        conversion from recoil energy to damage energy will be performed according to the selected
-        `damage_energy_mode`.
+    electronic_interactions : str
+        Electronic interactions recorded in the selected MD datasets. If this is ``"None"``,
+        recoil energy is converted to damage energy before selecting cascades.
     damage_energy_mode : materials.Material.DamageEnergyMode
         Mode for recoil to damage energy calculation.
     displacement_mode : materials.Material.DisplacementMode
         Mode for calculation of number of displacement atoms.
     fp_dist : float
         Distance between the vacancy and the interstitial of a Frenkel pair, in angstroms.
+    interatomic_potentials : list[str] | None, optional (default=None)
+        Optional exact-set filter for the MD dataset interatomic potentials.
+    doi : str | None, optional (default=None)
+        Optional exact filter for the MD dataset DOI.
+    contributors : list[str] | None, optional (default=None)
+        Optional exact-set filter for the MD dataset contributors.
+    invalid_recoil_energy : float, optional (default=1e3)
+        Energy below which unmatched recoils are represented by Frenkel pairs only, in eV.
     energy_tolerance : float (default=0.1)
         Tolerance for energy decomposition. For example, if this value if ``0.1``, the recoil energy
         is 194 keV and the database contains an energy of 200 keV, then 194 will be in the range
@@ -89,15 +99,21 @@ def generate_debris(
         exclude_from_ions = []
     if exclude_from_vacs is None:
         exclude_from_vacs = []
+    debris_database = DebrisDatabase.from_path(mddb_dir)
     if recoilsdb.table_exists("spectrapkas"):
         __spectra2srim_generate_debris(
             recoilsdb=recoilsdb,
             mddb_dir=mddb_dir,
-            compute_damage_energy=compute_damage_energy,
+            debris_database=debris_database,
+            electronic_interactions=electronic_interactions,
             debris_path=debris_path,
             damage_energy_mode=damage_energy_mode,
             displacement_mode=displacement_mode,
             fp_dist=fp_dist,
+            interatomic_potentials=interatomic_potentials,
+            doi=doi,
+            contributors=contributors,
+            invalid_recoil_energy=invalid_recoil_energy,
             energy_tolerance=energy_tolerance,
             surface_irradiation=surface_irradiation,
             exclude_from_ions=exclude_from_ions,
@@ -108,11 +124,16 @@ def generate_debris(
         __py2srim_generate_debris(
             recoilsdb=recoilsdb,
             mddb_dir=mddb_dir,
-            compute_damage_energy=compute_damage_energy,
+            debris_database=debris_database,
+            electronic_interactions=electronic_interactions,
             debris_path=debris_path,
             damage_energy_mode=damage_energy_mode,
             displacement_mode=displacement_mode,
             fp_dist=fp_dist,
+            interatomic_potentials=interatomic_potentials,
+            doi=doi,
+            contributors=contributors,
+            invalid_recoil_energy=invalid_recoil_energy,
             energy_tolerance=energy_tolerance,
             surface_irradiation=surface_irradiation,
             exclude_from_ions=exclude_from_ions,
@@ -128,11 +149,16 @@ def generate_debris(
 def __spectra2srim_generate_debris(
     recoilsdb: RecoilsDB,
     mddb_dir: Path,
-    compute_damage_energy: bool,
+    debris_database: DebrisDatabase,
+    electronic_interactions: str | None,
     debris_path: Path,
     damage_energy_mode: DamageEnergyMode,
     displacement_mode: DisplacementMode,
     fp_dist: float,
+    interatomic_potentials: list[str] | None,
+    doi: str | None,
+    contributors: list[str] | None,
+    invalid_recoil_energy: float,
     energy_tolerance: float,
     surface_irradiation: bool,
     exclude_from_ions: list[int],
@@ -143,6 +169,7 @@ def __spectra2srim_generate_debris(
     target = recoilsdb.load_target()
     width = target[0].width
     component = target[0]
+    debris_managers: dict[tuple[int, int], DebrisManager] = {}
 
     writer = LAMMPSWriter(debris_path, mode="w")
     events = recoilsdb.read("spectrapkas", what="event, time, timestep")
@@ -166,16 +193,23 @@ def __spectra2srim_generate_debris(
             conditions=f"WHERE event={event}",
         )
         for atom_numb, recoil_energy, x, y, z, cosx, cosy, cosz in recoils:
-            debris_manager = DebrisManager(
+            debris_manager = _get_debris_manager(
+                debris_managers=debris_managers,
                 mddb_dir=mddb_dir,
-                recoil=materials.ELEMENT_BY_ATOMIC_NUMBER[atom_numb],
+                debris_database=debris_database,
+                atom_numb=atom_numb,
                 component=component,
-                compute_damage_energy=compute_damage_energy,
+                component_idx=0,
+                electronic_interactions=electronic_interactions,
                 damage_energy_mode=damage_energy_mode,
                 displacement_mode=displacement_mode,
                 fp_dist=fp_dist,
+                interatomic_potentials=interatomic_potentials,
+                doi=doi,
+                contributors=contributors,
+                invalid_recoil_energy=invalid_recoil_energy,
                 energy_tolerance=energy_tolerance,
-                seed=seed + event,
+                seed=seed,
             )
             defects_ = debris_manager.get_recoil_debris(
                 recoil_energy,
@@ -203,11 +237,16 @@ def __spectra2srim_generate_debris(
 def __py2srim_generate_debris(
     recoilsdb: RecoilsDB,
     mddb_dir: Path,
-    compute_damage_energy: bool,
+    debris_database: DebrisDatabase,
+    electronic_interactions: str | None,
     debris_path: Path,
     damage_energy_mode: DamageEnergyMode,
     displacement_mode: DisplacementMode,
     fp_dist: float,
+    interatomic_potentials: list[str] | None,
+    doi: str | None,
+    contributors: list[str] | None,
+    invalid_recoil_energy: float,
     energy_tolerance: float,
     surface_irradiation: bool,
     exclude_from_ions: list[int],
@@ -222,6 +261,7 @@ def __py2srim_generate_debris(
     target = recoilsdb.load_target()
     width = sum(component.width for component in target)
     component_edges = _component_edges(target)
+    debris_managers: dict[tuple[int, int], DebrisManager] = {}
 
     writer = LAMMPSWriter(debris_path, mode="w")
     nevents = recoilsdb.get_nevents()
@@ -248,16 +288,23 @@ def __py2srim_generate_debris(
             # Determine layer and select target material
             # component_idx = np.searchsorted(component_edges, x, side="right") - 1
             component_idx = _component_idx_from_x(x, component_edges)
-            debris_manager = DebrisManager(
+            debris_manager = _get_debris_manager(
+                debris_managers=debris_managers,
                 mddb_dir=mddb_dir,
-                recoil=materials.ELEMENT_BY_ATOMIC_NUMBER[atom_numb],
+                debris_database=debris_database,
+                atom_numb=atom_numb,
                 component=target[component_idx],
-                compute_damage_energy=compute_damage_energy,
+                component_idx=component_idx,
+                electronic_interactions=electronic_interactions,
                 damage_energy_mode=damage_energy_mode,
                 displacement_mode=displacement_mode,
                 fp_dist=fp_dist,
+                interatomic_potentials=interatomic_potentials,
+                doi=doi,
+                contributors=contributors,
+                invalid_recoil_energy=invalid_recoil_energy,
                 energy_tolerance=energy_tolerance,
-                seed=seed + event,
+                seed=seed,
             )
             defects_ = debris_manager.get_recoil_debris(
                 recoil_energy,
@@ -280,6 +327,46 @@ def __py2srim_generate_debris(
 
         writer.write(data)
     writer.close()
+
+
+def _get_debris_manager(
+    debris_managers: dict[tuple[int, int], DebrisManager],
+    mddb_dir: Path,
+    debris_database: DebrisDatabase,
+    atom_numb: int,
+    component: materials.Component,
+    component_idx: int,
+    electronic_interactions: str | None,
+    damage_energy_mode: DamageEnergyMode,
+    displacement_mode: DisplacementMode,
+    fp_dist: float,
+    interatomic_potentials: list[str] | None,
+    doi: str | None,
+    contributors: list[str] | None,
+    invalid_recoil_energy: float,
+    energy_tolerance: float,
+    seed: int,
+) -> DebrisManager:
+    """Get a cached debris manager for a recoil/component pair."""
+    key = (int(atom_numb), int(component_idx))
+    if key not in debris_managers:
+        debris_managers[key] = DebrisManager(
+            mddb_dir=mddb_dir,
+            recoil=materials.ELEMENT_BY_ATOMIC_NUMBER[atom_numb],
+            component=component,
+            electronic_interactions=electronic_interactions,
+            damage_energy_mode=damage_energy_mode,
+            displacement_mode=displacement_mode,
+            fp_dist=fp_dist,
+            interatomic_potentials=interatomic_potentials,
+            doi=doi,
+            contributors=contributors,
+            invalid_recoil_energy=invalid_recoil_energy,
+            energy_tolerance=energy_tolerance,
+            seed=seed + int(atom_numb) + int(component_idx),
+            debris_database=debris_database,
+        )
+    return debris_managers[key]
 
 
 def _component_edges(target: list[materials.Component]) -> list[tuple[float, float]]:

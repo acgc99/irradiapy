@@ -1,7 +1,5 @@
 """This module contains the `Collision` class."""
 
-from __future__ import annotations
-
 import warnings
 from math import sqrt
 from pathlib import Path

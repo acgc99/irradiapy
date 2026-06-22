@@ -254,9 +254,15 @@ class Spectra2SRIM:
         srim_width,
         calculation: str,
         max_recoil_energy: float,
+        mddb_dir: Path,
+        electronic_interactions: str,
         exclude_recoils: list[int] | None = None,
         max_srim_iters: int = 32,
         minimize_window: bool = False,
+        interatomic_potentials: list[str] | None = None,
+        doi: str | None = None,
+        contributors: list[str] | None = None,
+        invalid_recoil_energy: float = 1e3,
     ) -> RecoilsDB:
         """Run the SPECTRA-PKA to SRIM workflow.
 
@@ -283,12 +289,24 @@ class Spectra2SRIM:
             SRIM calculation mode: "quick", "full" or "mono".
         max_recoil_energy : float
             Recoils above this energies, will be sent to SRIM, in eV.
+        mddb_dir : Path
+            Root MD debris database directory.
+        electronic_interactions : str
+            Electronic interactions.
         exclude_recoils : list[str] | None (default=None)
             List of symbols of recoils atoms to exclude from processing.
         max_srim_iters : int, optional (default=32)
             Maximum number of SRIM iterations.
         minimize_window : bool (default=False)
             Whether to minimize the SRIM window while SRIM simulations run.
+        interatomic_potentials : list[str] | None, optional (default=None)
+            Optional exact-set metadata filter.
+        doi : str | None, optional (default=None)
+            Optional exact DOI metadata filter.
+        contributors : list[str] | None, optional (default=None)
+            Optional exact-set metadata filter.
+        invalid_recoil_energy : float, optional (default=1e3)
+            Unmatched recoils below this energy are terminal and become FP-only debris.
 
         Returns
         -------
@@ -331,27 +349,6 @@ class Spectra2SRIM:
             self.recoilsdb.commit()
             return self.recoilsdb
 
-        # If no recoils above max_recoil_energy
-        if not np.any(recoil_energies > max_recoil_energy):
-            for i in range(nions):
-                self.recoilsdb.insert_recoil(
-                    event=int(_events[i]),
-                    atomic_number=int(atomic_numbers[i]),
-                    recoil_energy=float(recoil_energies[i]),
-                    x=float(_depths[i]),
-                    y=float(ys[i]),
-                    z=float(zs[i]),
-                    cosx=float(cosxs[i]),
-                    cosy=float(cosys[i]),
-                    cosz=float(coszs[i]),
-                )
-            for component in self.target:
-                component.width = self.matdict["sizex"]
-            self.recoilsdb.save_target(self.target)
-            self.recoilsdb.commit()
-            return self.recoilsdb
-
-        # Else, run SRIM for recoils above max_recoil_energy
         # To avoid backscattering and transmission, inject all SPECTRA-PKA recoils at mid-target
         depths_srim = np.full(nions, self.srim_width / 2.0, dtype=np.float64)
         py2srim = srim.Py2SRIM()
@@ -371,6 +368,12 @@ class Spectra2SRIM:
             max_srim_iters=max_srim_iters,
             fail_on_backscatt=True,
             fail_on_transmit=True,
+            mddb_dir=mddb_dir,
+            electronic_interactions=electronic_interactions,
+            interatomic_potentials=interatomic_potentials,
+            doi=doi,
+            contributors=contributors,
+            invalid_recoil_energy=invalid_recoil_energy,
             ignore_32bit_warning=True,
             minimize_window=minimize_window,
         )

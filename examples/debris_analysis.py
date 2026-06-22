@@ -1,19 +1,21 @@
 """Example to analyse a database of debris."""
 
 import os
+import subprocess
 from pathlib import Path
 
 import numpy as np
 
 import irradiapy as irpy
 
-os.system("cls" if os.name == "nt" else "clear")
+subprocess.run("cls" if os.name == "nt" else "clear", shell=True, check=False)
 irpy.config.use_style(latex=False)
 
-# Database of MD cascades
-# For example: CascadesDefectsDB/Fe/cascadesdb_fe_granberg_sand
+# Root database of MD cascades
+# For example: CascadesDefectsDB
 # Donwloaded from: https://github.com/acgc99/CascadesDefectsDB
 mddb_dir = Path()
+electronic_interactions = "SRIM"
 
 recoil = irpy.materials.Fe
 component = irpy.materials.Fe_bcc
@@ -24,7 +26,7 @@ debrismanager = irpy.analysis.DebrisManager(
     mddb_dir=mddb_dir,
     recoil=recoil,
     component=component,
-    compute_damage_energy=False,
+    electronic_interactions=electronic_interactions,
     damage_energy_mode=irpy.DamageEnergyMode.SRIM,
     displacement_mode=irpy.DisplacementMode.FERARC,
     fp_dist=4.0 * component.ax,

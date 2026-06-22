@@ -17,7 +17,9 @@ import numpy as np
 from numpy import typing as npt
 
 from irradiapy import config, dtypes, materials
+from irradiapy.debris_database import DebrisDatabase
 from irradiapy.materials.component import Component
+from irradiapy.materials.element import Element
 from irradiapy.recoilsdb import RecoilsDB
 from irradiapy.srim.srimdb import SRIMDB
 
@@ -55,8 +57,8 @@ class Py2SRIM:
         Seed for SRIM randomness.
     root_dir: Path
         Root directory where all calculations will be stored.
-    srim_target : SRIMTarget
-        SRIM target.
+    target : list[Component]
+        List of target components.
     calculation : str
         SRIM calculation.
     srim_dir : Path (default=config.SRIM_DIR)
@@ -342,7 +344,9 @@ class Py2SRIM:
 
     def __generate_trimauto(self) -> None:
         """Generates `TRIMAUTO` file."""
-        with open(self.srim_dir / "TRIMAUTO", "w", encoding="ascii", newline="\r\n") as file:
+        with open(
+            self.srim_dir / "TRIMAUTO", "w", encoding="ascii", newline="\r\n"
+        ) as file:
             file.write("1\n\nCheck TRIMAUTO.txt for details.\n")
 
     # endregion
@@ -372,6 +376,44 @@ class Py2SRIM:
     # endregion
 
     # region Run
+
+    @staticmethod
+    def __should_run_srim_for_recoil(
+        recoil: Element,
+        component: Component,
+        recoil_energy: float,
+        max_recoil_energy: float,
+        invalid_recoil_energy: float,
+        debris_database: DebrisDatabase,
+        electronic_interactions: str,
+        interatomic_potentials: list[str] | None = None,
+        doi: str | None = None,
+        contributors: list[str] | None = None,
+    ) -> bool:
+        """Return whether a recoil should be sent to SRIM."""
+        # Any recoil above max_recoil_energy is sent to SRIM.
+        if recoil_energy > max_recoil_energy:
+            return True
+        matches = debris_database.has_matches(
+            recoil=recoil,
+            component=component,
+            electronic_interactions=electronic_interactions,
+            interatomic_potentials=interatomic_potentials,
+            doi=doi,
+            contributors=contributors,
+        )
+        # If it matches the database, no need to run SRIM.
+        # If the recoil matches the database but its energy is lower than
+        # the lowest one available in the database, matches is still true,
+        # FP will be used.
+        if matches:
+            return False
+        # Any unmatched recoil below invalid_recoil_energy is not sent to SRIM,
+        # FPs will be placed instead.
+        if recoil_energy < invalid_recoil_energy:
+            return False
+        # Send to SRIM unmatched recoils between invalid_recoil_energy and max_recoil_energy.
+        return True
 
     def __create_srimdb(
         self,
@@ -511,26 +553,72 @@ class Py2SRIM:
                     time.sleep(self.check_interval)
             return
 
-        raise RuntimeError(f"Unsupported operating system for SRIM automation: {OS_NAME!r}")
+        raise RuntimeError(
+            f"Unsupported operating system for SRIM automation: {OS_NAME!r}"
+        )
+
+    def __component_from_depth(self, depth: float) -> Component:
+        """Return the target component at given depth."""
+        current_depth = 0.0
+        for component in self.target:
+            if component.width is None:
+                raise ValueError("All target components must have a width.")
+            next_depth = current_depth + component.width
+            if current_depth <= depth <= next_depth:
+                return component
+            current_depth = next_depth
+        raise ValueError(f"depth={depth} is out of bounds of the target.")
+
+    def __srim_mask(
+        self,
+        atomic_numbers: npt.NDArray[np.int64],
+        energies: npt.NDArray[np.float64],
+        depths: npt.NDArray[np.float64],
+        max_recoil_energy: float,
+        invalid_recoil_energy: float,
+        debris_database: DebrisDatabase,
+        electronic_interactions: str,
+        interatomic_potentials: list[str] | None,
+        doi: str | None,
+        contributors: list[str] | None,
+    ) -> npt.NDArray[np.bool_]:
+        """Return the mask of recoils that should be sent to SRIM."""
+        mask = np.zeros(atomic_numbers.shape, dtype=bool)
+        for i, atomic_number in enumerate(atomic_numbers):
+            recoil = materials.ELEMENT_BY_ATOMIC_NUMBER[int(atomic_number)]
+            component = self.__component_from_depth(depths[i])
+            mask[i] = self.__should_run_srim_for_recoil(
+                recoil=recoil,
+                component=component,
+                recoil_energy=energies[i],
+                max_recoil_energy=max_recoil_energy,
+                invalid_recoil_energy=invalid_recoil_energy,
+                debris_database=debris_database,
+                electronic_interactions=electronic_interactions,
+                interatomic_potentials=interatomic_potentials,
+                doi=doi,
+                contributors=contributors,
+            )
+        return mask
 
     @staticmethod
-    def __separate_ions_by_atomic_number(
-        energy_threshold: float,
+    def __group_ions_by_atomic_number(
+        mask: npt.NDArray[np.bool_],
         atomic_numbers: npt.NDArray[np.int64],
         energies: npt.NDArray[np.float64],
         **extra_fields: npt.NDArray[np.float64],
     ) -> dict[int, dict[str, npt.NDArray[np.float64]]]:
-        """Group ions by atomic number, keeping only those above the energy threshold.
+        """Group selected ions by atomic number.
 
         Parameters
         ----------
-        energy_threshold : float
-            Minimum energy (eV) to include an ion in the output.
-        atomic_numbers : array_like
+        mask : npt.NDArray[np.bool_]
+            Boolean mask indicating which ions to include.
+        atomic_numbers : npt.NDArray[np.int64]
             Atomic number of each ion.
-        energies : array_like
+        energies : npt.NDArray[np.float64]
             Energy (eV) of each ion. Used for thresholding.
-        **extra_fields : array_like
+        **extra_fields : npt.NDArray[np.float64]
             Any extra per-ion arrays to propagate (depths, ys, zs, cosxs, ...).
 
         Returns
@@ -542,27 +630,18 @@ class Py2SRIM:
                 '<field name>'   : np.ndarray  # for each entry in extra_fields
                 'nions'          : int
         """
-        if energies.shape != atomic_numbers.shape:
-            raise ValueError(
-                "`energies` and `atomic_numbers` must have the same shape."
-            )
-
         ions: dict[int, dict[str, npt.NDArray[np.float64]]] = {}
-        unique_atomic_numbers = np.unique(atomic_numbers)
+        unique_atomic_numbers = np.unique(atomic_numbers[mask])
 
         for atomic_number in unique_atomic_numbers:
-            mask = (atomic_numbers == atomic_number) & (energies > energy_threshold)
-            if not np.any(mask):
-                continue
-
+            atomic_mask = (atomic_numbers == atomic_number) & mask
             batch: dict[str, npt.NDArray[np.float64]] = {
-                "atomic_numbers": atomic_numbers[mask],
-                "energies": energies[mask],
+                "atomic_numbers": atomic_numbers[atomic_mask],
+                "energies": energies[atomic_mask],
             }
             for name, arr in extra_fields.items():
-                batch[name] = arr[mask]
+                batch[name] = arr[atomic_mask]
             batch["nions"] = batch["atomic_numbers"].size
-
             ions[int(atomic_number)] = batch
 
         return ions
@@ -701,6 +780,12 @@ class Py2SRIM:
     def __collect_recoils(
         self,
         max_recoil_energy: float,
+        invalid_recoil_energy: float,
+        debris_database: DebrisDatabase,
+        electronic_interactions: str,
+        interatomic_potentials: list[str] | None,
+        doi: str | None,
+        contributors: list[str] | None,
         atomic_numbers: npt.NDArray[np.int64],
         energies: npt.NDArray[np.float64],
         depths: npt.NDArray[np.float64],
@@ -713,18 +798,12 @@ class Py2SRIM:
         """Collect all recoils from all SRIM databases into a single database taking into account
         their hierarchy.
 
-        This is the Py2SRIM version of the SPECTRA-PKA → SRIM collector.
-
-        Differences vs the original:
-        - It does not read SPECTRA-PKA files.
-        - `event` is the ion index provided to `Py2SRIM.run`, 1-based (i + 1).
-        - It assumes `self.root_dir` already contains the SRIM tree created by `run`.
-        - It assumes the same `max_recoil_energy` used to build the SRIM tree.
-
         Parameters
         ----------
         max_recoil_energy : float
             Recoils above this energies will be sent to SRIM, in eV.
+        invalid_recoil_energy : float
+            Unmatched recoils at or above this energy will be sent to SRIM, in eV.
         atomic_numbers : npt.NDArray[np.int64]
             Ion atomic numbers.
         energies : npt.NDArray[np.float64]
@@ -797,8 +876,21 @@ class Py2SRIM:
             ) in collisions:
                 atomic_number = int(materials.ATOMIC_NUMBER_BY_SYMBOL[atom_hit])
 
-                if recoil_energy < max_recoil_energy:
-                    # This recoil is below threshold -> terminal; store it.
+                component = self.__component_from_depth(float(depth))
+                should_run = self.__should_run_srim_for_recoil(
+                    recoil=materials.ELEMENT_BY_ATOMIC_NUMBER[atomic_number],
+                    component=component,
+                    recoil_energy=float(recoil_energy),
+                    max_recoil_energy=max_recoil_energy,
+                    invalid_recoil_energy=invalid_recoil_energy,
+                    debris_database=debris_database,
+                    electronic_interactions=electronic_interactions,
+                    interatomic_potentials=interatomic_potentials,
+                    doi=doi,
+                    contributors=contributors,
+                )
+                if not should_run:
+                    # This recoil is terminal; store it.
                     self.recoilsdb.insert_recoil(
                         event=event,
                         atomic_number=atomic_number,
@@ -858,8 +950,22 @@ class Py2SRIM:
             cosy = float(cosys[i])
             cosz = float(coszs[i])
 
-            # Low-energy primary ion -> store into final DB as terminal recoil.
-            if ion_energy < max_recoil_energy:
+            component = self.__component_from_depth(depth)
+            should_run = self.__should_run_srim_for_recoil(
+                recoil=materials.ELEMENT_BY_ATOMIC_NUMBER[ion_atomic_number],
+                component=component,
+                recoil_energy=ion_energy,
+                max_recoil_energy=max_recoil_energy,
+                invalid_recoil_energy=invalid_recoil_energy,
+                debris_database=debris_database,
+                electronic_interactions=electronic_interactions,
+                interatomic_potentials=interatomic_potentials,
+                doi=doi,
+                contributors=contributors,
+            )
+
+            # Terminal primary ion -> store into final DB as terminal recoil.
+            if not should_run:
                 self.recoilsdb.insert_recoil(
                     event=event,
                     atomic_number=ion_atomic_number,
@@ -908,20 +1014,18 @@ class Py2SRIM:
     def __collect_ions_vacs(
         self,
         max_recoil_energy: float,
+        invalid_recoil_energy: float,
+        debris_database: DebrisDatabase,
+        electronic_interactions: str,
+        interatomic_potentials: list[str] | None,
+        doi: str | None,
+        contributors: list[str] | None,
         atomic_numbers: npt.NDArray[np.int64],
         energies: npt.NDArray[np.float64],
+        depths: npt.NDArray[np.float64],
     ) -> None:
         """Collect all ions and vacancies from all SRIM databases into a single database
         taking into account their hierarchy.
-
-        This is the Py2SRIM version of the SPECTRA-PKA → SRIM ions/vacs collector.
-
-        Differences vs the original Spectra2SRIM implementation:
-        - It does not read SPECTRA-PKA files.
-        - `event` is the ion index provided to `Py2SRIM.run`, 1-based (i + 1).
-        - It assumes `self.root_dir` already contains the SRIM tree created by `run`.
-        - It assumes the same `max_recoil_energy` used to build the SRIM tree.
-        - No depth offset is applied (no mid-target injection as in Spectra2SRIM).
         """
         # For each SRIM database, keep track of how many ions we have already consumed.
         # Key is the full path to the srim.db file.
@@ -997,19 +1101,32 @@ class Py2SRIM:
             collision_rows = list(
                 srimdb_branch.read(
                     table="collision",
-                    what="recoil_energy, atom_hit",
+                    what="depth, recoil_energy, atom_hit",
                     conditions=f"WHERE ion_numb={ion_numb}",
                 )
             )
             srimdb_branch.close()
 
             # Recurse on high-energy recoils
-            for recoil_energy, atom_hit in collision_rows:
+            for depth, recoil_energy, atom_hit in collision_rows:
                 recoil_energy = float(recoil_energy)
                 atomic_number = int(materials.ATOMIC_NUMBER_BY_SYMBOL[atom_hit])
+                component = self.__component_from_depth(float(depth))
+                should_run = self.__should_run_srim_for_recoil(
+                    recoil=materials.ELEMENT_BY_ATOMIC_NUMBER[atomic_number],
+                    component=component,
+                    recoil_energy=recoil_energy,
+                    max_recoil_energy=max_recoil_energy,
+                    invalid_recoil_energy=invalid_recoil_energy,
+                    debris_database=debris_database,
+                    electronic_interactions=electronic_interactions,
+                    interatomic_potentials=interatomic_potentials,
+                    doi=doi,
+                    contributors=contributors,
+                )
 
-                if recoil_energy < max_recoil_energy:
-                    # Below threshold -> terminal for ions/vacs purposes
+                if not should_run:
+                    # Terminal for ions/vacs purposes
                     continue
 
                 leaf_tree = (*tree, atomic_number)
@@ -1038,12 +1155,23 @@ class Py2SRIM:
         for i in range(nions):
             event = int(i + 1)
             ion_atomic_number = int(atomic_numbers[i])
-            ion_energy = energies[i]
+            ion_energy = float(energies[i])
+            component = self.__component_from_depth(depths[i])
+            should_run = self.__should_run_srim_for_recoil(
+                recoil=materials.ELEMENT_BY_ATOMIC_NUMBER[ion_atomic_number],
+                component=component,
+                recoil_energy=ion_energy,
+                max_recoil_energy=max_recoil_energy,
+                invalid_recoil_energy=invalid_recoil_energy,
+                debris_database=debris_database,
+                electronic_interactions=electronic_interactions,
+                interatomic_potentials=interatomic_potentials,
+                doi=doi,
+                contributors=contributors,
+            )
 
-            # If this primary ion is below the threshold, it was never transferred
-            # to any SRIM branch (by construction of the SRIM tree),
-            # so there are no ions/vacs to collect for it.
-            if ion_energy < max_recoil_energy:
+            # Terminal primary ions never enter a SRIM branch, so no ions/vacs are collected.
+            if not should_run:
                 continue
 
             # High-energy primary ion: follow SRIM cascades starting at Z/srim.db.
@@ -1084,6 +1212,12 @@ class Py2SRIM:
         max_srim_iters: int,
         fail_on_transmit: bool,
         fail_on_backscatt: bool,
+        mddb_dir: Path,
+        electronic_interactions: str,
+        interatomic_potentials: list[str] | None = None,
+        doi: str | None = None,
+        contributors: list[str] | None = None,
+        invalid_recoil_energy: float = 1e3,
         ignore_32bit_warning: bool = True,
         minimize_window: bool | None = None,
     ) -> RecoilsDB:
@@ -1102,7 +1236,7 @@ class Py2SRIM:
         ----------
         root_dir: Path
             Root directory where all calculations will be stored.
-        srim_target : SRIMTarget
+        target : list[Component]
             SRIM target.
         calculation : str
             SRIM calculation.
@@ -1130,6 +1264,18 @@ class Py2SRIM:
             If True, raise if any ion is transmitted (TRANSMIT.txt non-empty).
         fail_on_backscatt : bool
             If True, raise if any ion is backscattered (BACKSCAT.txt non-empty).
+        mddb_dir : Path
+            Root MD debris database directory.
+        electronic_interactions : str
+            Electronic interactions.
+        interatomic_potentials : list[str] | None, optional (default=None)
+            Optional exact-set metadata filter.
+        doi : str | None, optional (default=None)
+            Optional exact DOI metadata filter.
+        contributors : list[str] | None, optional (default=None)
+            Optional exact-set metadata filter.
+        invalid_recoil_energy : float, optional (default=1e3)
+            Unmatched recoils below this energy are terminal and become FP-only debris.
         ignore_32bit_warning : bool (default=True)
             Whether to ignore the 32-bit warning when using 32-bit SRIM with 64-bit Python.
         minimize_window : bool | None (default=None)
@@ -1156,6 +1302,7 @@ class Py2SRIM:
 
         self.root_dir.mkdir(parents=True, exist_ok=True)
         self.recoilsdb = RecoilsDB(self.root_dir / "recoils.db")
+        debris_database = DebrisDatabase.from_path(mddb_dir)
 
         def run_branch(
             tree: tuple[int, ...],
@@ -1220,8 +1367,20 @@ class Py2SRIM:
                 [materials.ATOMIC_NUMBER_BY_SYMBOL[row[7]] for row in collisions],
                 dtype=np.int32,
             )
-            leaf_batches = self.__separate_ions_by_atomic_number(
-                energy_threshold=max_recoil_energy,
+            srim_mask = self.__srim_mask(
+                atomic_numbers=branch_atomic_numbers,
+                energies=branch_energies,
+                depths=branch_depths,
+                max_recoil_energy=max_recoil_energy,
+                invalid_recoil_energy=invalid_recoil_energy,
+                debris_database=debris_database,
+                electronic_interactions=electronic_interactions,
+                interatomic_potentials=interatomic_potentials,
+                doi=doi,
+                contributors=contributors,
+            )
+            leaf_batches = self.__group_ions_by_atomic_number(
+                mask=srim_mask,
                 atomic_numbers=branch_atomic_numbers,
                 energies=branch_energies,
                 depths=branch_depths,
@@ -1249,8 +1408,20 @@ class Py2SRIM:
                 run_branch(leaf_tree, batch)
                 recurse(leaf_tree)
 
-        batches = self.__separate_ions_by_atomic_number(
-            energy_threshold=max_recoil_energy,
+        srim_mask = self.__srim_mask(
+            atomic_numbers=atomic_numbers,
+            energies=energies,
+            depths=depths,
+            max_recoil_energy=max_recoil_energy,
+            invalid_recoil_energy=invalid_recoil_energy,
+            debris_database=debris_database,
+            electronic_interactions=electronic_interactions,
+            interatomic_potentials=interatomic_potentials,
+            doi=doi,
+            contributors=contributors,
+        )
+        batches = self.__group_ions_by_atomic_number(
+            mask=srim_mask,
             atomic_numbers=atomic_numbers,
             energies=energies,
             depths=depths,
@@ -1262,17 +1433,22 @@ class Py2SRIM:
         )
         if not batches:
             print("No ions above the recoil energy threshold; nothing to run.")
-            return
-
-        for atomic_number, batch in batches.items():
-            tree = (int(atomic_number),)
-            run_branch(tree, batch)
-            if max_srim_iters > 1:
-                recurse(tree)
+        else:
+            for atomic_number, batch in batches.items():
+                tree = (int(atomic_number),)
+                run_branch(tree, batch)
+                if max_srim_iters > 1:
+                    recurse(tree)
 
         # Collect all recoils data into a single database
         self.__collect_recoils(
             max_recoil_energy=max_recoil_energy,
+            invalid_recoil_energy=invalid_recoil_energy,
+            debris_database=debris_database,
+            electronic_interactions=electronic_interactions,
+            interatomic_potentials=interatomic_potentials,
+            doi=doi,
+            contributors=contributors,
             atomic_numbers=atomic_numbers,
             energies=energies,
             depths=depths,
@@ -1285,8 +1461,15 @@ class Py2SRIM:
         # Collect all ions and vacancies into a single database
         self.__collect_ions_vacs(
             max_recoil_energy=max_recoil_energy,
+            invalid_recoil_energy=invalid_recoil_energy,
+            debris_database=debris_database,
+            electronic_interactions=electronic_interactions,
+            interatomic_potentials=interatomic_potentials,
+            doi=doi,
+            contributors=contributors,
             atomic_numbers=atomic_numbers,
             energies=energies,
+            depths=depths,
         )
         self.recoilsdb.save_target(self.target)
         self.recoilsdb.commit()

@@ -3,6 +3,7 @@
 # pylint: disable=invalid-name
 
 import os
+import subprocess
 from copy import deepcopy
 from pathlib import Path
 
@@ -10,7 +11,7 @@ import numpy as np
 
 import irradiapy as irpy
 
-os.system("cls" if os.name == "nt" else "clear")
+subprocess.run("cls" if os.name == "nt" else "clear", shell=True, check=False)
 
 # region Configuration
 
@@ -18,12 +19,12 @@ os.system("cls" if os.name == "nt" else "clear")
 irpy.config.use_style(latex=False)
 # TRIM.exe directory (parent folder)
 irpy.config.SRIM_DIR = Path()
-# Database of MD cascades
-# For example: CascadesDefectsDB/Fe/cascadesdb_fe_granberg_sand
+# Root database of MD cascades
+# For example: CascadesDefectsDB
 # Donwloaded from: https://github.com/acgc99/CascadesDefectsDB
 mddb_dir = Path()
-# True if the database does not include electronic stopping
-compute_damage_energy = False
+# Electronic interactions included in the MD cascade datasets
+electronic_interactions = "SRIM"
 # SRIM calculation mode
 # full is recommended for multielemental targets or non-self-ion irradiation
 calculation = "quick"
@@ -35,6 +36,8 @@ displacement_mode = irpy.DisplacementMode.FERARC
 exclude_vacancies_ion = [1, 2]
 # If a recoil energy exceeds this value, SRIM will be run again, electronvolts
 max_recoil_energy = 250e3
+# If an unmatched recoil energy is below this value, FP are placed instead of running SRIM
+invalid_recoil_energy = 1e3
 # Maximum number of SRIM iterations
 max_srim_iters = 10
 # Execution will fail if an ion is transmitted
@@ -100,6 +103,9 @@ recoilsdb = py2srim.run(
     max_srim_iters=max_srim_iters,
     fail_on_transmit=fail_on_transmit,
     fail_on_backscatt=fail_on_backscatt,
+    mddb_dir=mddb_dir,
+    electronic_interactions=electronic_interactions,
+    invalid_recoil_energy=invalid_recoil_energy,
 )
 # recoilsdb = irpy.RecoilsDB(root_dir / "recoils.db")
 
@@ -107,12 +113,13 @@ print("Generating debris...")
 irpy.analysis.debris.generate_debris(
     recoilsdb=recoilsdb,
     mddb_dir=mddb_dir,
-    compute_damage_energy=compute_damage_energy,
     debris_path=debris_path,
+    electronic_interactions=electronic_interactions,
     damage_energy_mode=damage_energy_mode,
     displacement_mode=displacement_mode,
     exclude_from_vacs=exclude_vacancies_ion,
     fp_dist=fp_dist,
+    invalid_recoil_energy=invalid_recoil_energy,
     surface_irradiation=surface_irradiation,
 )
 

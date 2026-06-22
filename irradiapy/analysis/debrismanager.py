@@ -16,6 +16,7 @@ from sklearn.decomposition import PCA
 
 from irradiapy import dtypes, utils
 from irradiapy.analysis.clusters import clusterize_atoms
+from irradiapy.debris_database import DebrisDatabase
 from irradiapy.enums import DamageEnergyMode, DisplacementMode
 from irradiapy.io.lammpsreader import LAMMPSReader
 from irradiapy.materials import Component, Element
@@ -28,21 +29,29 @@ class DebrisManager:
     Attributes
     ----------
     mddb_dir : Path
-        Directory of the MD debris database.
+        Root directory of the MD debris database.
     recoil: Element
         Recoil element.
     component: Component
         Target material.
-    compute_damage_energy : bool
-        If MD simulations do not include electronic stopping, this should be set to `True`. The
-        conversion from recoil energy to damage energy will be performed according to the selected
-        `damage_energy_mode`.
+    electronic_interactions : str
+        Electronic interactions recorded in the selected MD datasets. If this is ``"None"``,
+        recoil energy is converted to damage energy before selecting cascades.
     damage_energy_mode : materials.Material.DamageEnergyMode
         Mode for recoil to damage energy calculation.
     displacement_mode : materials.Material.DisplacementMode
         Mode for calculation of number of displacement atoms.
     fp_dist : float
         Distance between the vacancy and the interstitial of a Frenkel pair, in angstroms.
+    interatomic_potentials : Sequence[str] | None, optional (default=None)
+        Optional exact-set filter for the MD dataset interatomic potentials.
+    doi : str | None, optional (default=None)
+        Optional exact filter for the MD dataset DOI.
+    contributors : Sequence[str] | None, optional (default=None)
+        Optional exact-set filter for the MD dataset contributors.
+    invalid_recoil_energy : float (default=1e3)
+        Energy below which unmatched recoils are considered invalid for SRIM and represented
+        with Frenkel pairs only, in eV.
     energy_tolerance : float (default=0.1)
         Tolerance for energy decomposition. For example, if this value if ``0.1``, the recoil energy
         is 194 keV and the database contains an energy of 200 keV, then 194 will be in the range
@@ -57,12 +66,18 @@ class DebrisManager:
     mddb_dir: Path
     recoil: Element
     component: Component
-    compute_damage_energy: bool
+    electronic_interactions: str
     damage_energy_mode: DamageEnergyMode
     displacement_mode: DisplacementMode
     fp_dist: float
+    interatomic_potentials: list[str] | None = None
+    doi: str | None = None
+    contributors: list[str] | None = None
+    invalid_recoil_energy: float = 1e3
     energy_tolerance: float = 0.1
     seed: int = 0
+    debris_database: DebrisDatabase | None = None
+    compute_damage_energy: bool = field(init=False)
     __rng: np.random.Generator = field(init=False)
     __calc_nd: Callable[[float], float] = field(init=False)
     __files: dict[float, list[Path]] = field(init=False)
@@ -71,14 +86,19 @@ class DebrisManager:
 
     def __post_init__(self) -> None:
         self.__rng = np.random.default_rng(self.seed)
-        # Scan the database
-        self.__files = {
-            float(folder.name): list(folder.iterdir())
-            for folder in self.mddb_dir.iterdir()
-            if folder.is_dir()
-        }
+        if self.debris_database is None:
+            self.debris_database = DebrisDatabase.from_path(self.mddb_dir)
+        self.__files = self.debris_database.matching_files_by_energy(
+            recoil=self.recoil,
+            component=self.component,
+            electronic_interactions=self.electronic_interactions,
+            interatomic_potentials=self.interatomic_potentials,
+            doi=self.doi,
+            contributors=self.contributors,
+        )
         self.__energies = np.array(sorted(self.__files.keys(), reverse=True))
         self.__nenergies = len(self.__energies)
+        self.compute_damage_energy = self.electronic_interactions == "None"
         # Recoil to damage energy conversion
         self.__compute_damage_energy = (
             lambda recoil_energy: self.component.recoil_energy_to_damage_energy(
@@ -131,6 +151,11 @@ class DebrisManager:
         tuple[dict[float, list[Path]], int]
             Dictionary of selected paths and number of residual FP.
         """
+        if self.__nenergies == 0:
+            damage_energy = self.__compute_damage_energy(recoil_energy)
+            nfp = np.round(self.__calc_nd(damage_energy)).astype(np.int64)
+            return {}, int(nfp)
+
         # Decompose the recoil energy into cascades and residual energy
 
         # Rounding: if the recoil energy is closer than 10% to any energy of the database, use the
@@ -447,6 +472,8 @@ class DebrisManager:
         """
         # Debris from the database
         recoil_energies = list(self.__files.keys())
+        if not recoil_energies:
+            raise ValueError("No matching MD debris datasets selected; cannot plot.")
         nds = []
         stds = []
         stes = []
@@ -592,6 +619,8 @@ class DebrisManager:
             Output path for the interstitial cluster sizes plot.
         """
         recoil_energies: list[float] = sorted(list(self.__files.keys()))
+        if not recoil_energies:
+            raise ValueError("No matching MD debris datasets selected; cannot plot.")
 
         vac_sizes: list[npt.NDArray[np.int64]] = []
         sia_sizes: list[npt.NDArray[np.int64]] = []
