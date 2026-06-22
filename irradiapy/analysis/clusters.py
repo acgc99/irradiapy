@@ -80,6 +80,7 @@ def clusterize_file(
     defects_path: Path,
     cutoff_sia: float,
     cutoff_vac: float,
+    interstitials_z: list[int] | None = None,
     aclusters_path: Path | None = None,
     oclusters_path: Path | None = None,
 ) -> None:
@@ -93,6 +94,9 @@ def clusterize_file(
         Cutoff distance for interstitials clustering.
     cutoff_vac : float
         Cutoff distance for vacancies clustering.
+    interstitials_z : list[int] | None (default=None)
+        List of atomic numbers that are considered interstitials.
+        If None, all non-zero types are considered interstitials.
     aclusters_path : Path | None (default=None)
         Where atomic clusters will be stored if provided.
     oclusters_path : Path | None (default=None)
@@ -110,6 +114,9 @@ def clusterize_file(
         nsim += 1
         cond = data_defects["atoms"]["type"] == 0
         sia, vac = data_defects["atoms"][~cond], data_defects["atoms"][cond]
+        # Remove interstitials that are not in the specified list of atomic numbers
+        if interstitials_z is not None:
+            sia = sia[np.isin(sia["type"], interstitials_z)]
         iaclusters, ioclusters = clusterize_atoms(sia, cutoff_sia)
         vaclusters, voclusters = clusterize_atoms(vac, cutoff_vac)
         aclusters = np.concatenate((iaclusters, vaclusters))
