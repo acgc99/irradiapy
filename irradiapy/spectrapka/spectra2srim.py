@@ -253,7 +253,7 @@ class Spectra2SRIM:
         root_dir,
         srim_width,
         calculation: str,
-        max_recoil_energy: float,
+        max_energy_rel: float,
         exclude_recoils: list[int] | None = None,
         max_srim_iters: int = 32,
         minimize_window: bool = False,
@@ -282,8 +282,11 @@ class Spectra2SRIM:
             Unfortunately, there is not a strict rule to set this value.
         calculation : str
             SRIM calculation mode: "quick", "full" or "mono".
-        max_recoil_energy : float
-            Recoils above this energies, will be sent to SRIM, in eV.
+        max_energy_rel : float
+            Relative recoil energy threshold for matching MD debris datasets. Recoils above
+            ``max_dataset_energy * max_energy_rel`` are sent to SRIM, where
+            ``max_dataset_energy`` is the highest recoil energy available in the matching
+            dataset data. Must be at least 1.0.
         exclude_recoils : list[str] | None (default=None)
             List of symbols of recoils atoms to exclude from processing.
         max_srim_iters : int, optional (default=32)
@@ -303,6 +306,8 @@ class Spectra2SRIM:
         self.spectrapka_events_path = spectrapka_events_path
         self.root_dir = root_dir
         self.srim_width = srim_width
+        if max_energy_rel < 1.0:
+            raise ValueError("max_energy_rel must be at least 1.0")
 
         self.root_dir.mkdir(parents=True, exist_ok=True)
         self.recoilsdb = RecoilsDB(self.root_dir / "recoils.db")
@@ -350,7 +355,7 @@ class Spectra2SRIM:
             cosxs=cosxs,
             cosys=cosys,
             coszs=coszs,
-            max_recoil_energy=max_recoil_energy,
+            max_energy_rel=max_energy_rel,
             max_srim_iters=max_srim_iters,
             fail_on_backscatt=True,
             fail_on_transmit=True,

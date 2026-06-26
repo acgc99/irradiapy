@@ -21,6 +21,7 @@ class DebrisDataset:
     doi: str
     contributors: set[str]
     files_by_energy: dict[float, tuple[Path, ...]]
+    max_energy: float
 
     @classmethod
     def from_path(cls, path: Path) -> "DebrisDataset":
@@ -67,6 +68,7 @@ class DebrisDataset:
             doi=str(meta["doi"]),
             contributors=set(str(v) for v in meta["contributors"]),
             files_by_energy=files_by_energy,
+            max_energy=max(files_by_energy, default=0.0),
         )
 
     def matches(

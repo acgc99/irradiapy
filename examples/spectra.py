@@ -35,8 +35,8 @@ damage_energy_mode = irpy.DamageEnergyMode.LINDHARD
 displacement_mode = irpy.DisplacementMode.FERARC
 # Exclude these PKAs (atomic numbers) from creating vacancies at their original position
 exclude_vacancies_ion = [1, 2]
-# If a recoil energy exceeds this value, SRIM will be run again, electronvolts
-max_recoil_energy = 250e3
+# If a recoil energy exceeds this relative MD dataset limit, SRIM will be run again
+max_energy_rel = 1.25
 # Absolute recoil energy below which unmatched recoils use FP instead of SRIM, eV
 fp_energy_abs = 1e3
 # Maximum number of SRIM iterations
@@ -69,7 +69,7 @@ recoilsdb = spectrapka2srim.run(
     root_dir=root_dir,
     srim_width=srim_width,
     calculation=calculation,
-    max_recoil_energy=max_recoil_energy,
+    max_energy_rel=max_energy_rel,
     density=irpy.materials.Fe_bcc.density,
     max_srim_iters=max_srim_iters,
     fp_energy_abs=fp_energy_abs,

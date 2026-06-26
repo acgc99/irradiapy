@@ -382,24 +382,22 @@ class Py2SRIM:
         recoil: Element,
         component: Component,
         recoil_energy: float,
-        max_recoil_energy: float,
+        max_energy_rel: float,
         fp_energy_abs: float,
         debris_database: DebrisDatabase,
     ) -> bool:
         """Return whether a recoil should be sent to SRIM."""
-        # Any recoil above max_recoil_energy is sent to SRIM.
-        if recoil_energy > max_recoil_energy:
-            return True
-        matches = debris_database.has_matches(
+        matching_datasets = debris_database.matching_datasets(
             recoil=recoil,
             component=component,
         )
-        # If it matches the database, no need to run SRIM.
-        # If the recoil matches the database but its energy is lower than
-        # the lowest one available in the database, matches is still true,
-        # FP will be used.
-        if matches:
+        if matching_datasets:
+            max_dataset_energy = max(dataset.max_energy for dataset in matching_datasets)
+            # Recoils above the relative dataset limit are sent to SRIM.
+            if recoil_energy > max_dataset_energy * max_energy_rel:
+                return True
             return False
+
         # Any unmatched recoil below fp_energy_abs is not sent to SRIM;
         # Frenkel pairs are placed instead.
         if recoil_energy < fp_energy_abs:
@@ -566,7 +564,7 @@ class Py2SRIM:
         atomic_numbers: npt.NDArray[np.int64],
         energies: npt.NDArray[np.float64],
         depths: npt.NDArray[np.float64],
-        max_recoil_energy: float,
+        max_energy_rel: float,
         fp_energy_abs: float,
         debris_database: DebrisDatabase,
     ) -> npt.NDArray[np.bool_]:
@@ -579,7 +577,7 @@ class Py2SRIM:
                 recoil=recoil,
                 component=component,
                 recoil_energy=energies[i],
-                max_recoil_energy=max_recoil_energy,
+                max_energy_rel=max_energy_rel,
                 fp_energy_abs=fp_energy_abs,
                 debris_database=debris_database,
             )
@@ -601,7 +599,7 @@ class Py2SRIM:
         atomic_numbers : npt.NDArray[np.int64]
             Atomic number of each ion.
         energies : npt.NDArray[np.float64]
-            Energy (eV) of each ion. Used for thresholding.
+            Energy (eV) of each ion.
         **extra_fields : npt.NDArray[np.float64]
             Any extra per-ion arrays to propagate (depths, ys, zs, cosxs, ...).
 
@@ -763,7 +761,7 @@ class Py2SRIM:
 
     def __collect_recoils(
         self,
-        max_recoil_energy: float,
+        max_energy_rel: float,
         fp_energy_abs: float,
         debris_database: DebrisDatabase,
         atomic_numbers: npt.NDArray[np.int64],
@@ -780,8 +778,11 @@ class Py2SRIM:
 
         Parameters
         ----------
-        max_recoil_energy : float
-            Recoils above this energy will be sent to SRIM, in eV.
+        max_energy_rel : float
+            Relative recoil energy threshold for matching MD debris datasets. Recoils above
+            ``max_dataset_energy * max_energy_rel`` are sent to SRIM, where
+            ``max_dataset_energy`` is the highest recoil energy available in the matching
+            dataset data. Must be at least 1.0.
         fp_energy_abs : float
             Absolute recoil energy below which unmatched recoils are represented by Frenkel
             pairs instead of being sent to SRIM, in eV.
@@ -862,7 +863,7 @@ class Py2SRIM:
                     recoil=materials.ELEMENT_BY_ATOMIC_NUMBER[atomic_number],
                     component=component,
                     recoil_energy=float(recoil_energy),
-                    max_recoil_energy=max_recoil_energy,
+                    max_energy_rel=max_energy_rel,
                     fp_energy_abs=fp_energy_abs,
                     debris_database=debris_database,
                 )
@@ -881,7 +882,7 @@ class Py2SRIM:
                     )
                     continue
 
-                # Above threshold: try to follow to the next SRIM level.
+                # Recoil selected for SRIM: try to follow to the next SRIM level.
                 leaf_tree = (*tree, atomic_number)
                 leaf_db_path = self.__tree2path_db(
                     leaf_tree,
@@ -932,7 +933,7 @@ class Py2SRIM:
                 recoil=materials.ELEMENT_BY_ATOMIC_NUMBER[ion_atomic_number],
                 component=component,
                 recoil_energy=ion_energy,
-                max_recoil_energy=max_recoil_energy,
+                max_energy_rel=max_energy_rel,
                 fp_energy_abs=fp_energy_abs,
                 debris_database=debris_database,
             )
@@ -986,7 +987,7 @@ class Py2SRIM:
 
     def __collect_ions_vacs(
         self,
-        max_recoil_energy: float,
+        max_energy_rel: float,
         fp_energy_abs: float,
         debris_database: DebrisDatabase,
         atomic_numbers: npt.NDArray[np.int64],
@@ -1085,7 +1086,7 @@ class Py2SRIM:
                     recoil=materials.ELEMENT_BY_ATOMIC_NUMBER[atomic_number],
                     component=component,
                     recoil_energy=recoil_energy,
-                    max_recoil_energy=max_recoil_energy,
+                    max_energy_rel=max_energy_rel,
                     fp_energy_abs=fp_energy_abs,
                     debris_database=debris_database,
                 )
@@ -1126,7 +1127,7 @@ class Py2SRIM:
                 recoil=materials.ELEMENT_BY_ATOMIC_NUMBER[ion_atomic_number],
                 component=component,
                 recoil_energy=ion_energy,
-                max_recoil_energy=max_recoil_energy,
+                max_energy_rel=max_energy_rel,
                 fp_energy_abs=fp_energy_abs,
                 debris_database=debris_database,
             )
@@ -1169,7 +1170,7 @@ class Py2SRIM:
         cosxs: npt.NDArray[np.float64],
         cosys: npt.NDArray[np.float64],
         coszs: npt.NDArray[np.float64],
-        max_recoil_energy: float,
+        max_energy_rel: float,
         max_srim_iters: int,
         fail_on_transmit: bool,
         fail_on_backscatt: bool,
@@ -1179,13 +1180,13 @@ class Py2SRIM:
     ) -> RecoilsDB:
         """Run SRIM iteratively, creating a folder tree driven by a recoil-energy threshold.
 
-        - group ions by atomic number, keeping only those with energy > ``max_recoil_energy``
+        - group ions by atomic number, keeping only those that should be sent to SRIM
         - create a directory tree under ``root_dir`` of the form:
               root_dir / atomic_number_1 / [atomic_number_2 / atomic_number_3 / ...]
           where each branch holds a ``srim.db`` file
         - run SRIM once per branch
         - recursively spawn new SRIM runs for recoils from the ``collision`` table whose
-          energy is above ``max_recoil_energy``
+          energy is above the relative maximum of their matching MD debris datasets
         - stop at depth ``max_srim_iters`` (depth is len(tree), e.g. (26, 76, 26) -> 3)
 
         Parameters
@@ -1212,8 +1213,11 @@ class Py2SRIM:
             Ion initial y directions.
         coszs : npt.NDArray[np.float64]
             Ion initial z directions.
-        max_recoil_energy : float
-            Recoils above this energy (eV) will spawn further SRIM branches.
+        max_energy_rel : float
+            Relative recoil energy threshold for matching MD debris datasets. Recoils above
+            ``max_dataset_energy * max_energy_rel`` spawn further SRIM branches, where
+            ``max_dataset_energy`` is the highest recoil energy available in the matching
+            dataset data. Must be at least 1.0.
         max_srim_iters : int
             Maximum number of SRIM iterations.
         fail_on_transmit : bool
@@ -1242,6 +1246,8 @@ class Py2SRIM:
         if not isinstance(minimize_window, bool):
             raise TypeError("minimize_window must be a bool")
         self.minimize_window = minimize_window
+        if max_energy_rel < 1.0:
+            raise ValueError("max_energy_rel must be at least 1.0")
         if max_srim_iters < 1:
             raise ValueError("max_srim_iters must be at least 1")
         if self.calculation not in {"quick", "full", "mono"}:
@@ -1318,7 +1324,7 @@ class Py2SRIM:
                 atomic_numbers=branch_atomic_numbers,
                 energies=branch_energies,
                 depths=branch_depths,
-                max_recoil_energy=max_recoil_energy,
+                max_energy_rel=max_energy_rel,
                 fp_energy_abs=fp_energy_abs,
                 debris_database=debris_database,
             )
@@ -1333,7 +1339,7 @@ class Py2SRIM:
                 cosys=branch_cosys,
                 coszs=branch_coszs,
             )
-            # No recoils above threshold
+            # No recoils selected for SRIM.
             if not leaf_batches:
                 return
 
@@ -1355,7 +1361,7 @@ class Py2SRIM:
             atomic_numbers=atomic_numbers,
             energies=energies,
             depths=depths,
-            max_recoil_energy=max_recoil_energy,
+            max_energy_rel=max_energy_rel,
             fp_energy_abs=fp_energy_abs,
             debris_database=debris_database,
         )
@@ -1371,7 +1377,7 @@ class Py2SRIM:
             coszs=coszs,
         )
         if not batches:
-            print("No ions above the recoil energy threshold; nothing to run.")
+            print("No ions selected for SRIM; nothing to run.")
         else:
             for atomic_number, batch in batches.items():
                 tree = (int(atomic_number),)
@@ -1381,7 +1387,7 @@ class Py2SRIM:
 
         # Collect all recoils data into a single database
         self.__collect_recoils(
-            max_recoil_energy=max_recoil_energy,
+            max_energy_rel=max_energy_rel,
             fp_energy_abs=fp_energy_abs,
             debris_database=debris_database,
             atomic_numbers=atomic_numbers,
@@ -1395,7 +1401,7 @@ class Py2SRIM:
         )
         # Collect all ions and vacancies into a single database
         self.__collect_ions_vacs(
-            max_recoil_energy=max_recoil_energy,
+            max_energy_rel=max_energy_rel,
             fp_energy_abs=fp_energy_abs,
             debris_database=debris_database,
             atomic_numbers=atomic_numbers,

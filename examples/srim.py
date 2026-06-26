@@ -29,8 +29,8 @@ damage_energy_mode = irpy.DamageEnergyMode.SRIM
 displacement_mode = irpy.DisplacementMode.FERARC
 # Exclude these PKAs (atomic numbers) from creating vacancies at their original position
 exclude_vacancies_ion = [1, 2]
-# If a recoil energy exceeds this value, SRIM will be run again, electronvolts
-max_recoil_energy = 250e3
+# If a recoil energy exceeds this relative MD dataset limit, SRIM will be run again
+max_energy_rel = 1.25
 # Absolute recoil energy below which unmatched recoils use FP instead of SRIM, eV
 fp_energy_abs = 1e3
 # Maximum number of SRIM iterations
@@ -101,7 +101,7 @@ recoilsdb = py2srim.run(
     cosxs=cosxs,
     coszs=coszs,
     cosys=cosys,
-    max_recoil_energy=max_recoil_energy,
+    max_energy_rel=max_energy_rel,
     max_srim_iters=max_srim_iters,
     fail_on_transmit=fail_on_transmit,
     fail_on_backscatt=fail_on_backscatt,
