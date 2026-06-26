@@ -15,7 +15,8 @@ irpy.config.use_style(latex=False)
 # For example: CascadesDefectsDB
 # Donwloaded from: https://github.com/acgc99/CascadesDefectsDB
 mddb_dir = Path()
-irpy.config.set_debris_database(mddb_dir)
+electronic_interactions = "SRIM"
+irpy.config.set_debris_database(mddb_dir, electronic_interactions)
 
 recoil = irpy.materials.Fe
 component = irpy.materials.Fe_bcc

@@ -24,7 +24,8 @@ irpy.config.set_srim_dir(srim_dir)
 # For example: CascadesDefectsDB
 # Donwloaded from: https://github.com/acgc99/CascadesDefectsDB
 mddb_dir = Path()
-irpy.config.set_debris_database(mddb_dir)
+electronic_interactions = "SRIM"
+irpy.config.set_debris_database(mddb_dir, electronic_interactions)
 # SRIM calculation mode
 # full is recommended for multielemental targets or non-self-ion irradiation
 calculation = "quick"
