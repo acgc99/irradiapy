@@ -55,7 +55,7 @@ class DebrisDatabase:
 
         datasets = tuple(
             dataset
-            for dataset in (DebrisDataset.from_path(path) for path in dataset_dirs)
+            for dataset in (DebrisDataset(path) for path in dataset_dirs)
             if self.__matches_database_filters(dataset)
         )
 

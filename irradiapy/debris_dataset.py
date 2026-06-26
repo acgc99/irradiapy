@@ -1,6 +1,6 @@
 """This module contains the `DebrisDataset` class."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 import json
 import numpy as np
@@ -9,23 +9,23 @@ from irradiapy.materials.component import Component
 from irradiapy.materials.element import Element
 
 
-@dataclass(frozen=True)
+@dataclass
 class DebrisDataset:
     """Metadata and cascade files for one MD debris dataset."""
 
-    path: Path
-    recoil: str
-    target: dict[str, float]
-    interatomic_potentials: set[str]
-    electronic_interactions: str
-    doi: str
-    contributors: set[str]
-    files_by_energy: dict[float, tuple[Path, ...]]
-    max_energy: float
+    path: str | Path
+    recoil: str = field(init=False)
+    target: dict[str, float] = field(init=False)
+    interatomic_potentials: set[str] = field(init=False)
+    electronic_interactions: str = field(init=False)
+    doi: str = field(init=False)
+    contributors: set[str] = field(init=False)
+    files_by_energy: dict[float, tuple[Path, ...]] = field(init=False)
+    max_energy: float = field(init=False)
 
-    @classmethod
-    def from_path(cls, path: Path) -> "DebrisDataset":
+    def __post_init__(self) -> None:
         """Load one dataset directory containing a ``meta.json`` file."""
+        path = Path(self.path)
         meta_path = path / "meta.json"
         with open(meta_path, encoding="utf-8") as file:
             meta = json.load(file)
@@ -43,9 +43,12 @@ class DebrisDataset:
             missing = ", ".join(sorted(missing_keys))
             raise ValueError(f"{meta_path} is missing required metadata: {missing}")
 
-        target = meta["target"]
-        if not isinstance(target, dict):
-            raise TypeError(f"{meta_path}: target must be an object")
+        self.recoil = meta["recoil"]
+        self.target = meta["target"]
+        self.electronic_interactions = meta["electronic_interactions"]
+        self.doi = meta["doi"]
+        self.interatomic_potentials = set(meta["interatomic_potentials"])
+        self.contributors = set(meta["contributors"])
 
         files_by_energy: dict[float, tuple[Path, ...]] = {}
         for folder in path.iterdir():
@@ -58,18 +61,8 @@ class DebrisDataset:
             files = tuple(sorted(folder.glob("*.xyz")))
             if files:
                 files_by_energy[energy] = files
-
-        return cls(
-            path=path,
-            recoil=str(meta["recoil"]),
-            target={str(symbol): float(stoich) for symbol, stoich in target.items()},
-            interatomic_potentials=set(str(v) for v in meta["interatomic_potentials"]),
-            electronic_interactions=meta["electronic_interactions"],
-            doi=str(meta["doi"]),
-            contributors=set(str(v) for v in meta["contributors"]),
-            files_by_energy=files_by_energy,
-            max_energy=max(files_by_energy, default=0.0),
-        )
+        self.files_by_energy = files_by_energy
+        self.max_energy = max(files_by_energy, default=0.0)
 
     def matches(
         self,
