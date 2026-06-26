@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from irradiapy import dtypes, materials
+from irradiapy import config, dtypes, materials
 from irradiapy.analysis.debrismanager import DebrisManager
 from irradiapy.debris_database import DebrisDatabase
 from irradiapy.enums import DamageEnergyMode, DisplacementMode
@@ -19,12 +19,10 @@ if TYPE_CHECKING:
 
 def generate_debris(
     recoilsdb: RecoilsDB,
-    mddb_dir: Path,
     debris_path: Path,
     damage_energy_mode: DamageEnergyMode,
     displacement_mode: DisplacementMode,
     fp_dist: float,
-    electronic_interactions: str,
     interatomic_potentials: list[str] | None = None,
     doi: str | None = None,
     contributors: list[str] | None = None,
@@ -45,13 +43,8 @@ def generate_debris(
     ----------
     recoilsdb
         RecoilsDB instance from Py2SRIM or SPECTRA2SRIM runs.
-    mddb_dir
-        Path to the MD debris database directory.
     debris_path : Path
         Output file path.
-    electronic_interactions : str
-        Electronic interactions recorded in the selected MD datasets. If this is ``"None"``,
-        recoil energy is converted to damage energy before selecting cascades.
     damage_energy_mode : materials.Material.DamageEnergyMode
         Mode for recoil to damage energy calculation.
     displacement_mode : materials.Material.DisplacementMode
@@ -99,13 +92,11 @@ def generate_debris(
         exclude_from_ions = []
     if exclude_from_vacs is None:
         exclude_from_vacs = []
-    debris_database = DebrisDatabase.from_path(mddb_dir)
+    debris_database = config.get_debris_database()
     if recoilsdb.table_exists("spectrapkas"):
         __spectra2srim_generate_debris(
             recoilsdb=recoilsdb,
-            mddb_dir=mddb_dir,
             debris_database=debris_database,
-            electronic_interactions=electronic_interactions,
             debris_path=debris_path,
             damage_energy_mode=damage_energy_mode,
             displacement_mode=displacement_mode,
@@ -123,9 +114,7 @@ def generate_debris(
     else:
         __py2srim_generate_debris(
             recoilsdb=recoilsdb,
-            mddb_dir=mddb_dir,
             debris_database=debris_database,
-            electronic_interactions=electronic_interactions,
             debris_path=debris_path,
             damage_energy_mode=damage_energy_mode,
             displacement_mode=displacement_mode,
@@ -148,9 +137,7 @@ def generate_debris(
 
 def __spectra2srim_generate_debris(
     recoilsdb: RecoilsDB,
-    mddb_dir: Path,
     debris_database: DebrisDatabase,
-    electronic_interactions: str | None,
     debris_path: Path,
     damage_energy_mode: DamageEnergyMode,
     displacement_mode: DisplacementMode,
@@ -195,12 +182,10 @@ def __spectra2srim_generate_debris(
         for atom_numb, recoil_energy, x, y, z, cosx, cosy, cosz in recoils:
             debris_manager = _get_debris_manager(
                 debris_managers=debris_managers,
-                mddb_dir=mddb_dir,
                 debris_database=debris_database,
                 atom_numb=atom_numb,
                 component=component,
                 component_idx=0,
-                electronic_interactions=electronic_interactions,
                 damage_energy_mode=damage_energy_mode,
                 displacement_mode=displacement_mode,
                 fp_dist=fp_dist,
@@ -236,9 +221,7 @@ def __spectra2srim_generate_debris(
 
 def __py2srim_generate_debris(
     recoilsdb: RecoilsDB,
-    mddb_dir: Path,
     debris_database: DebrisDatabase,
-    electronic_interactions: str | None,
     debris_path: Path,
     damage_energy_mode: DamageEnergyMode,
     displacement_mode: DisplacementMode,
@@ -290,12 +273,10 @@ def __py2srim_generate_debris(
             component_idx = _component_idx_from_x(x, component_edges)
             debris_manager = _get_debris_manager(
                 debris_managers=debris_managers,
-                mddb_dir=mddb_dir,
                 debris_database=debris_database,
                 atom_numb=atom_numb,
                 component=target[component_idx],
                 component_idx=component_idx,
-                electronic_interactions=electronic_interactions,
                 damage_energy_mode=damage_energy_mode,
                 displacement_mode=displacement_mode,
                 fp_dist=fp_dist,
@@ -331,12 +312,10 @@ def __py2srim_generate_debris(
 
 def _get_debris_manager(
     debris_managers: dict[tuple[int, int], DebrisManager],
-    mddb_dir: Path,
     debris_database: DebrisDatabase,
     atom_numb: int,
     component: materials.Component,
     component_idx: int,
-    electronic_interactions: str | None,
     damage_energy_mode: DamageEnergyMode,
     displacement_mode: DisplacementMode,
     fp_dist: float,
@@ -351,10 +330,8 @@ def _get_debris_manager(
     key = (int(atom_numb), int(component_idx))
     if key not in debris_managers:
         debris_managers[key] = DebrisManager(
-            mddb_dir=mddb_dir,
             recoil=materials.ELEMENT_BY_ATOMIC_NUMBER[atom_numb],
             component=component,
-            electronic_interactions=electronic_interactions,
             damage_energy_mode=damage_energy_mode,
             displacement_mode=displacement_mode,
             fp_dist=fp_dist,

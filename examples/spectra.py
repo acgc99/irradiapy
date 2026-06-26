@@ -17,14 +17,13 @@ subprocess.run("cls" if os.name == "nt" else "clear", shell=True, check=False)
 # Use the style of the package
 irpy.config.use_style(latex=False)
 # TRIM.exe directory (parent folder)
-irpy.config.SRIM_DIR = Path()
+srim_dir = Path()
+irpy.config.set_srim_dir(srim_dir)
 # Root database of MD cascades
 # For example: CascadesDefectsDB
 # Donwloaded from: https://github.com/acgc99/CascadesDefectsDB
 mddb_dir = Path()
-
-# Electronic interactions included in the MD cascade datasets
-electronic_interactions = "SRIM"
+irpy.config.set_debris_database(mddb_dir)
 # SRIM calculation mode
 # full is recommended for multielemental targets or non-self-ion irradiation
 calculation = "full"
@@ -71,8 +70,6 @@ recoilsdb = spectrapka2srim.run(
     max_recoil_energy=max_recoil_energy,
     density=irpy.materials.Fe_bcc.density,
     max_srim_iters=max_srim_iters,
-    mddb_dir=mddb_dir,
-    electronic_interactions=electronic_interactions,
     invalid_recoil_energy=invalid_recoil_energy,
 )
 recoilsdb = irpy.RecoilsDB(root_dir / "recoils.db")
@@ -80,9 +77,7 @@ recoilsdb = irpy.RecoilsDB(root_dir / "recoils.db")
 print("Generating debris...")
 irpy.analysis.debris.generate_debris(
     recoilsdb=recoilsdb,
-    mddb_dir=mddb_dir,
     debris_path=debris_path,
-    electronic_interactions=electronic_interactions,
     damage_energy_mode=damage_energy_mode,
     displacement_mode=displacement_mode,
     exclude_from_vacs=exclude_vacancies_ion,

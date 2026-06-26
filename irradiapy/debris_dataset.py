@@ -73,7 +73,6 @@ class DebrisDataset:
         self,
         recoil: Element,
         component: Component,
-        electronic_interactions: str | None,
         interatomic_potentials: list[str] | None = None,
         doi: str | None = None,
         contributors: list[str] | None = None,
@@ -84,8 +83,6 @@ class DebrisDataset:
         if self.recoil != recoil.symbol:
             return False
         if not self.target_matches_component(self.target, component):
-            return False
-        if self.electronic_interactions != electronic_interactions:
             return False
         if doi is not None and self.doi != doi:
             return False

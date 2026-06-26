@@ -61,7 +61,7 @@ class Py2SRIM:
         List of target components.
     calculation : str
         SRIM calculation.
-    srim_dir : Path (default=config.SRIM_DIR)
+    srim_dir : Path (default=config.get_srim_dir())
         Directory where SRIM is installed.
     wineprefix : Path (default=Path(os.environ.get("WINEPREFIX", Path.home() / ".wine-srim2013")))
         Wine prefix to use for running SRIM on Linux. By default, it uses the `WINEPREFIX`
@@ -110,7 +110,7 @@ class Py2SRIM:
     root_dir: Path = field(init=False)
     target: list[Component] = field(init=False)
     calculation: str = field(init=False)
-    srim_dir: Path = field(default_factory=lambda: config.SRIM_DIR)
+    srim_dir: Path = field(default_factory=config.get_srim_dir)
     wineprefix: Path = field(
         default_factory=lambda: Path(
             os.environ.get("WINEPREFIX", Path.home() / ".wine-srim2013")
@@ -385,7 +385,6 @@ class Py2SRIM:
         max_recoil_energy: float,
         invalid_recoil_energy: float,
         debris_database: DebrisDatabase,
-        electronic_interactions: str,
         interatomic_potentials: list[str] | None = None,
         doi: str | None = None,
         contributors: list[str] | None = None,
@@ -397,7 +396,6 @@ class Py2SRIM:
         matches = debris_database.has_matches(
             recoil=recoil,
             component=component,
-            electronic_interactions=electronic_interactions,
             interatomic_potentials=interatomic_potentials,
             doi=doi,
             contributors=contributors,
@@ -577,7 +575,6 @@ class Py2SRIM:
         max_recoil_energy: float,
         invalid_recoil_energy: float,
         debris_database: DebrisDatabase,
-        electronic_interactions: str,
         interatomic_potentials: list[str] | None,
         doi: str | None,
         contributors: list[str] | None,
@@ -594,7 +591,6 @@ class Py2SRIM:
                 max_recoil_energy=max_recoil_energy,
                 invalid_recoil_energy=invalid_recoil_energy,
                 debris_database=debris_database,
-                electronic_interactions=electronic_interactions,
                 interatomic_potentials=interatomic_potentials,
                 doi=doi,
                 contributors=contributors,
@@ -782,7 +778,6 @@ class Py2SRIM:
         max_recoil_energy: float,
         invalid_recoil_energy: float,
         debris_database: DebrisDatabase,
-        electronic_interactions: str,
         interatomic_potentials: list[str] | None,
         doi: str | None,
         contributors: list[str] | None,
@@ -884,7 +879,6 @@ class Py2SRIM:
                     max_recoil_energy=max_recoil_energy,
                     invalid_recoil_energy=invalid_recoil_energy,
                     debris_database=debris_database,
-                    electronic_interactions=electronic_interactions,
                     interatomic_potentials=interatomic_potentials,
                     doi=doi,
                     contributors=contributors,
@@ -958,7 +952,6 @@ class Py2SRIM:
                 max_recoil_energy=max_recoil_energy,
                 invalid_recoil_energy=invalid_recoil_energy,
                 debris_database=debris_database,
-                electronic_interactions=electronic_interactions,
                 interatomic_potentials=interatomic_potentials,
                 doi=doi,
                 contributors=contributors,
@@ -1016,7 +1009,6 @@ class Py2SRIM:
         max_recoil_energy: float,
         invalid_recoil_energy: float,
         debris_database: DebrisDatabase,
-        electronic_interactions: str,
         interatomic_potentials: list[str] | None,
         doi: str | None,
         contributors: list[str] | None,
@@ -1119,7 +1111,6 @@ class Py2SRIM:
                     max_recoil_energy=max_recoil_energy,
                     invalid_recoil_energy=invalid_recoil_energy,
                     debris_database=debris_database,
-                    electronic_interactions=electronic_interactions,
                     interatomic_potentials=interatomic_potentials,
                     doi=doi,
                     contributors=contributors,
@@ -1164,7 +1155,6 @@ class Py2SRIM:
                 max_recoil_energy=max_recoil_energy,
                 invalid_recoil_energy=invalid_recoil_energy,
                 debris_database=debris_database,
-                electronic_interactions=electronic_interactions,
                 interatomic_potentials=interatomic_potentials,
                 doi=doi,
                 contributors=contributors,
@@ -1212,8 +1202,6 @@ class Py2SRIM:
         max_srim_iters: int,
         fail_on_transmit: bool,
         fail_on_backscatt: bool,
-        mddb_dir: Path,
-        electronic_interactions: str,
         interatomic_potentials: list[str] | None = None,
         doi: str | None = None,
         contributors: list[str] | None = None,
@@ -1264,10 +1252,6 @@ class Py2SRIM:
             If True, raise if any ion is transmitted (TRANSMIT.txt non-empty).
         fail_on_backscatt : bool
             If True, raise if any ion is backscattered (BACKSCAT.txt non-empty).
-        mddb_dir : Path
-            Root MD debris database directory.
-        electronic_interactions : str
-            Electronic interactions.
         interatomic_potentials : list[str] | None, optional (default=None)
             Optional exact-set metadata filter.
         doi : str | None, optional (default=None)
@@ -1302,7 +1286,7 @@ class Py2SRIM:
 
         self.root_dir.mkdir(parents=True, exist_ok=True)
         self.recoilsdb = RecoilsDB(self.root_dir / "recoils.db")
-        debris_database = DebrisDatabase.from_path(mddb_dir)
+        debris_database = config.get_debris_database()
 
         def run_branch(
             tree: tuple[int, ...],
@@ -1374,7 +1358,6 @@ class Py2SRIM:
                 max_recoil_energy=max_recoil_energy,
                 invalid_recoil_energy=invalid_recoil_energy,
                 debris_database=debris_database,
-                electronic_interactions=electronic_interactions,
                 interatomic_potentials=interatomic_potentials,
                 doi=doi,
                 contributors=contributors,
@@ -1415,7 +1398,6 @@ class Py2SRIM:
             max_recoil_energy=max_recoil_energy,
             invalid_recoil_energy=invalid_recoil_energy,
             debris_database=debris_database,
-            electronic_interactions=electronic_interactions,
             interatomic_potentials=interatomic_potentials,
             doi=doi,
             contributors=contributors,
@@ -1445,7 +1427,6 @@ class Py2SRIM:
             max_recoil_energy=max_recoil_energy,
             invalid_recoil_energy=invalid_recoil_energy,
             debris_database=debris_database,
-            electronic_interactions=electronic_interactions,
             interatomic_potentials=interatomic_potentials,
             doi=doi,
             contributors=contributors,
@@ -1463,7 +1444,6 @@ class Py2SRIM:
             max_recoil_energy=max_recoil_energy,
             invalid_recoil_energy=invalid_recoil_energy,
             debris_database=debris_database,
-            electronic_interactions=electronic_interactions,
             interatomic_potentials=interatomic_potentials,
             doi=doi,
             contributors=contributors,

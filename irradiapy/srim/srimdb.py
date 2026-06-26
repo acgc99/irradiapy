@@ -38,7 +38,7 @@ class SRIMDB(Database):
         Accepted values are: "quick", "full" and "mono".
     seed : int (default=0)
         Seed for SRIM randomness.
-    srim_dir : Path (default=config.SRIM_DIR)
+    srim_dir : Path (default=config.get_srim_dir())
         Directory where SRIM is installed.
     check_interval : float
         Interval to check for SRIM window/popups.
@@ -75,7 +75,7 @@ class SRIMDB(Database):
     calculation: None | str = None
 
     seed: int = 0
-    srim_dir: Path = field(default_factory=lambda: config.SRIM_DIR)
+    srim_dir: Path = field(default_factory=config.get_srim_dir)
 
     plot_type: int = 5
     xmin: float = 0.0

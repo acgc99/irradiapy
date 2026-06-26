@@ -14,6 +14,7 @@ class DebrisDatabase:
 
     root: Path
     datasets: tuple[DebrisDataset, ...]
+    electronic_interactions: str
 
     @classmethod
     def from_path(cls, root: Path) -> "DebrisDatabase":
@@ -30,13 +31,13 @@ class DebrisDatabase:
             raise ValueError(f"No debris datasets with meta.json found in {root}")
 
         datasets = tuple(DebrisDataset.from_path(path) for path in dataset_dirs)
-        cls.__validate_electronic_interactions(datasets)
-        return cls(root=root, datasets=datasets)
+        electronic_interactions = cls.__validate_electronic_interactions(datasets)
+        return cls(root, datasets, electronic_interactions)
 
     @staticmethod
     def __validate_electronic_interactions(
         datasets: tuple[DebrisDataset, ...],
-    ) -> None:
+    ) -> str:
         """Require all datasets to use the same electronic interactions."""
         electronic_interactions = datasets[0].electronic_interactions
         for dataset in datasets[1:]:
@@ -44,12 +45,12 @@ class DebrisDatabase:
                 raise ValueError(
                     "All datasets in a database must have the same electronic_interactions."
                 )
+        return electronic_interactions
 
     def matching_datasets(
         self,
         recoil: Element,
         component: Component,
-        electronic_interactions: str | None,
         interatomic_potentials: list[str] | None = None,
         doi: str | None = None,
         contributors: list[str] | None = None,
@@ -61,7 +62,6 @@ class DebrisDatabase:
             if dataset.matches(
                 recoil=recoil,
                 component=component,
-                electronic_interactions=electronic_interactions,
                 interatomic_potentials=interatomic_potentials,
                 doi=doi,
                 contributors=contributors,
@@ -72,7 +72,6 @@ class DebrisDatabase:
         self,
         recoil: Element,
         component: Component,
-        electronic_interactions: str | None,
         interatomic_potentials: list[str] | None = None,
         doi: str | None = None,
         contributors: list[str] | None = None,
@@ -82,7 +81,6 @@ class DebrisDatabase:
             self.matching_datasets(
                 recoil=recoil,
                 component=component,
-                electronic_interactions=electronic_interactions,
                 interatomic_potentials=interatomic_potentials,
                 doi=doi,
                 contributors=contributors,
@@ -93,7 +91,6 @@ class DebrisDatabase:
         self,
         recoil: Element,
         component: Component,
-        electronic_interactions: str | None,
         interatomic_potentials: list[str] | None = None,
         doi: str | None = None,
         contributors: list[str] | None = None,
@@ -103,7 +100,6 @@ class DebrisDatabase:
         for dataset in self.matching_datasets(
             recoil=recoil,
             component=component,
-            electronic_interactions=electronic_interactions,
             interatomic_potentials=interatomic_potentials,
             doi=doi,
             contributors=contributors,

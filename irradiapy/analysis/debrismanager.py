@@ -14,7 +14,7 @@ from numpy.lib.recfunctions import structured_to_unstructured as str2unstr
 from scipy.spatial.transform import Rotation
 from sklearn.decomposition import PCA
 
-from irradiapy import dtypes, utils
+from irradiapy import config, dtypes, utils
 from irradiapy.analysis.clusters import clusterize_atoms
 from irradiapy.debris_database import DebrisDatabase
 from irradiapy.enums import DamageEnergyMode, DisplacementMode
@@ -28,15 +28,10 @@ class DebrisManager:
 
     Attributes
     ----------
-    mddb_dir : Path
-        Root directory of the MD debris database.
     recoil: Element
         Recoil element.
     component: Component
         Target material.
-    electronic_interactions : str
-        Electronic interactions recorded in the selected MD datasets. If this is ``"None"``,
-        recoil energy is converted to damage energy before selecting cascades.
     damage_energy_mode : materials.Material.DamageEnergyMode
         Mode for recoil to damage energy calculation.
     displacement_mode : materials.Material.DisplacementMode
@@ -63,10 +58,8 @@ class DebrisManager:
         Random seed for random number generator.
     """
 
-    mddb_dir: Path
     recoil: Element
     component: Component
-    electronic_interactions: str
     damage_energy_mode: DamageEnergyMode
     displacement_mode: DisplacementMode
     fp_dist: float
@@ -87,18 +80,19 @@ class DebrisManager:
     def __post_init__(self) -> None:
         self.__rng = np.random.default_rng(self.seed)
         if self.debris_database is None:
-            self.debris_database = DebrisDatabase.from_path(self.mddb_dir)
+            self.debris_database = config.get_debris_database()
         self.__files = self.debris_database.matching_files_by_energy(
             recoil=self.recoil,
             component=self.component,
-            electronic_interactions=self.electronic_interactions,
             interatomic_potentials=self.interatomic_potentials,
             doi=self.doi,
             contributors=self.contributors,
         )
         self.__energies = np.array(sorted(self.__files.keys(), reverse=True))
         self.__nenergies = len(self.__energies)
-        self.compute_damage_energy = self.electronic_interactions == "None"
+        self.compute_damage_energy = (
+            self.debris_database.electronic_interactions == "None"
+        )
         # Recoil to damage energy conversion
         self.__compute_damage_energy = (
             lambda recoil_energy: self.component.recoil_energy_to_damage_energy(

@@ -254,8 +254,6 @@ class Spectra2SRIM:
         srim_width,
         calculation: str,
         max_recoil_energy: float,
-        mddb_dir: Path,
-        electronic_interactions: str,
         exclude_recoils: list[int] | None = None,
         max_srim_iters: int = 32,
         minimize_window: bool = False,
@@ -289,10 +287,6 @@ class Spectra2SRIM:
             SRIM calculation mode: "quick", "full" or "mono".
         max_recoil_energy : float
             Recoils above this energies, will be sent to SRIM, in eV.
-        mddb_dir : Path
-            Root MD debris database directory.
-        electronic_interactions : str
-            Electronic interactions.
         exclude_recoils : list[str] | None (default=None)
             List of symbols of recoils atoms to exclude from processing.
         max_srim_iters : int, optional (default=32)
@@ -368,8 +362,6 @@ class Spectra2SRIM:
             max_srim_iters=max_srim_iters,
             fail_on_backscatt=True,
             fail_on_transmit=True,
-            mddb_dir=mddb_dir,
-            electronic_interactions=electronic_interactions,
             interatomic_potentials=interatomic_potentials,
             doi=doi,
             contributors=contributors,
