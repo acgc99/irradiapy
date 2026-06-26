@@ -11,15 +11,17 @@ import irradiapy as irpy
 subprocess.run("cls" if os.name == "nt" else "clear", shell=True, check=False)
 irpy.config.use_style(latex=False)
 
+recoil = irpy.materials.Fe
+component = irpy.materials.Fe_bcc
+
 # Root database of MD cascades
 # For example: CascadesDefectsDB
 # Donwloaded from: https://github.com/acgc99/CascadesDefectsDB
 mddb_dir = Path()
 electronic_interactions = "SRIM"
-irpy.config.set_debris_database(mddb_dir, electronic_interactions)
+mddb_target = {"Fe": 1.0}
+irpy.config.set_debris_database(mddb_dir, electronic_interactions, mddb_target)
 
-recoil = irpy.materials.Fe
-component = irpy.materials.Fe_bcc
 cutoff_sia = (np.sqrt(2.0) + np.sqrt(11.0) / 2.0) * component.ax / 2.0
 cutoff_vac = (1.0 + np.sqrt(2.0)) * component.ax / 2.0
 

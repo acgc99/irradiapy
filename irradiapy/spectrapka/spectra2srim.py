@@ -257,9 +257,6 @@ class Spectra2SRIM:
         exclude_recoils: list[int] | None = None,
         max_srim_iters: int = 32,
         minimize_window: bool = False,
-        interatomic_potentials: list[str] | None = None,
-        doi: str | None = None,
-        contributors: list[str] | None = None,
         invalid_recoil_energy: float = 1e3,
     ) -> RecoilsDB:
         """Run the SPECTRA-PKA to SRIM workflow.
@@ -293,12 +290,6 @@ class Spectra2SRIM:
             Maximum number of SRIM iterations.
         minimize_window : bool (default=False)
             Whether to minimize the SRIM window while SRIM simulations run.
-        interatomic_potentials : list[str] | None, optional (default=None)
-            Optional exact-set metadata filter.
-        doi : str | None, optional (default=None)
-            Optional exact DOI metadata filter.
-        contributors : list[str] | None, optional (default=None)
-            Optional exact-set metadata filter.
         invalid_recoil_energy : float, optional (default=1e3)
             Unmatched recoils below this energy are terminal and become FP-only debris.
 
@@ -362,9 +353,6 @@ class Spectra2SRIM:
             max_srim_iters=max_srim_iters,
             fail_on_backscatt=True,
             fail_on_transmit=True,
-            interatomic_potentials=interatomic_potentials,
-            doi=doi,
-            contributors=contributors,
             invalid_recoil_energy=invalid_recoil_energy,
             ignore_32bit_warning=True,
             minimize_window=minimize_window,

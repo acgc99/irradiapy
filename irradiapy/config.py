@@ -90,6 +90,10 @@ _debris_database: DebrisDatabase | None = None  # pylint: disable=invalid-name
 def set_debris_database(
     path: str | Path,
     electronic_interactions: str,
+    target: dict[str, float],
+    interatomic_potentials: list[set[str]] | None = None,
+    doi: set[str] | None = None,
+    contributors: list[set[str]] | None = None,
 ) -> DebrisDatabase:
     """Configure the global MD debris database.
 
@@ -99,15 +103,34 @@ def set_debris_database(
         Database root path.
     electronic_interactions : str
         Electronic interactions metadata required for selected datasets.
+    target : dict[str, float]
+        Target stoichiometry metadata required for selected datasets.
+    interatomic_potentials : list[set[str]] | None, optional
+        Accepted interatomic potential metadata sets.
+    doi : set[str] | None, optional
+        Accepted DOI metadata values.
+    contributors : list[set[str]] | None, optional
+        Accepted contributor metadata sets.
 
     Returns
     -------
     DebrisDatabase
         Configured debris database.
+
+    Note
+    ----
+    Recoil is not a database-level filter because it is unknown when using SPECTRA-PKA.
     """
     global _debris_database  # pylint: disable=global-statement
 
-    _debris_database = DebrisDatabase(path, electronic_interactions)
+    _debris_database = DebrisDatabase(
+        root=path,
+        electronic_interactions=electronic_interactions,
+        target=target,
+        interatomic_potentials=interatomic_potentials,
+        doi=doi,
+        contributors=contributors,
+    )
     return _debris_database
 
 
@@ -116,7 +139,7 @@ def get_debris_database() -> DebrisDatabase:
     if _debris_database is None:
         raise RuntimeError(
             "No debris database configured. Call "
-            "irradiapy.config.set_debris_database(path, electronic_interactions) "
+            "irradiapy.config.set_debris_database(path, electronic_interactions, target) "
             "before running "
             "SRIM/debris workflows."
         )

@@ -23,9 +23,6 @@ def generate_debris(
     damage_energy_mode: DamageEnergyMode,
     displacement_mode: DisplacementMode,
     fp_dist: float,
-    interatomic_potentials: list[str] | None = None,
-    doi: str | None = None,
-    contributors: list[str] | None = None,
     invalid_recoil_energy: float = 1e3,
     energy_tolerance: float = 0.1,
     surface_irradiation: bool = False,
@@ -51,12 +48,6 @@ def generate_debris(
         Mode for calculation of number of displacement atoms.
     fp_dist : float
         Distance between the vacancy and the interstitial of a Frenkel pair, in angstroms.
-    interatomic_potentials : list[str] | None, optional (default=None)
-        Optional exact-set filter for the MD dataset interatomic potentials.
-    doi : str | None, optional (default=None)
-        Optional exact filter for the MD dataset DOI.
-    contributors : list[str] | None, optional (default=None)
-        Optional exact-set filter for the MD dataset contributors.
     invalid_recoil_energy : float, optional (default=1e3)
         Energy below which unmatched recoils are represented by Frenkel pairs only, in eV.
     energy_tolerance : float (default=0.1)
@@ -101,9 +92,6 @@ def generate_debris(
             damage_energy_mode=damage_energy_mode,
             displacement_mode=displacement_mode,
             fp_dist=fp_dist,
-            interatomic_potentials=interatomic_potentials,
-            doi=doi,
-            contributors=contributors,
             invalid_recoil_energy=invalid_recoil_energy,
             energy_tolerance=energy_tolerance,
             surface_irradiation=surface_irradiation,
@@ -119,9 +107,6 @@ def generate_debris(
             damage_energy_mode=damage_energy_mode,
             displacement_mode=displacement_mode,
             fp_dist=fp_dist,
-            interatomic_potentials=interatomic_potentials,
-            doi=doi,
-            contributors=contributors,
             invalid_recoil_energy=invalid_recoil_energy,
             energy_tolerance=energy_tolerance,
             surface_irradiation=surface_irradiation,
@@ -142,9 +127,6 @@ def __spectra2srim_generate_debris(
     damage_energy_mode: DamageEnergyMode,
     displacement_mode: DisplacementMode,
     fp_dist: float,
-    interatomic_potentials: list[str] | None,
-    doi: str | None,
-    contributors: list[str] | None,
     invalid_recoil_energy: float,
     energy_tolerance: float,
     surface_irradiation: bool,
@@ -189,9 +171,6 @@ def __spectra2srim_generate_debris(
                 damage_energy_mode=damage_energy_mode,
                 displacement_mode=displacement_mode,
                 fp_dist=fp_dist,
-                interatomic_potentials=interatomic_potentials,
-                doi=doi,
-                contributors=contributors,
                 invalid_recoil_energy=invalid_recoil_energy,
                 energy_tolerance=energy_tolerance,
                 seed=seed,
@@ -226,9 +205,6 @@ def __py2srim_generate_debris(
     damage_energy_mode: DamageEnergyMode,
     displacement_mode: DisplacementMode,
     fp_dist: float,
-    interatomic_potentials: list[str] | None,
-    doi: str | None,
-    contributors: list[str] | None,
     invalid_recoil_energy: float,
     energy_tolerance: float,
     surface_irradiation: bool,
@@ -280,9 +256,6 @@ def __py2srim_generate_debris(
                 damage_energy_mode=damage_energy_mode,
                 displacement_mode=displacement_mode,
                 fp_dist=fp_dist,
-                interatomic_potentials=interatomic_potentials,
-                doi=doi,
-                contributors=contributors,
                 invalid_recoil_energy=invalid_recoil_energy,
                 energy_tolerance=energy_tolerance,
                 seed=seed,
@@ -319,9 +292,6 @@ def _get_debris_manager(
     damage_energy_mode: DamageEnergyMode,
     displacement_mode: DisplacementMode,
     fp_dist: float,
-    interatomic_potentials: list[str] | None,
-    doi: str | None,
-    contributors: list[str] | None,
     invalid_recoil_energy: float,
     energy_tolerance: float,
     seed: int,
@@ -335,9 +305,6 @@ def _get_debris_manager(
             damage_energy_mode=damage_energy_mode,
             displacement_mode=displacement_mode,
             fp_dist=fp_dist,
-            interatomic_potentials=interatomic_potentials,
-            doi=doi,
-            contributors=contributors,
             invalid_recoil_energy=invalid_recoil_energy,
             energy_tolerance=energy_tolerance,
             seed=seed + int(atom_numb) + int(component_idx),

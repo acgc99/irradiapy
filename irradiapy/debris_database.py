@@ -14,12 +14,34 @@ class DebrisDatabase:
 
     root: str | Path
     electronic_interactions: str
+    target: dict[str, float]
+    interatomic_potentials: list[set[str]] | None = None
+    doi: set[str] | None = None
+    contributors: list[set[str]] | None = None
     datasets: tuple[DebrisDataset, ...] = field(init=False)
 
     def __post_init__(self) -> None:
         """Build a database from a root directory."""
         root = Path(self.root)
         electronic_interactions = self.electronic_interactions
+        if not isinstance(self.target, dict):
+            raise TypeError("target must be a dict.")
+        if not self.target:
+            raise ValueError("target must contain at least one element.")
+        self.target = {
+            str(symbol): float(stoich) for symbol, stoich in self.target.items()
+        }
+        if self.interatomic_potentials is not None:
+            self.interatomic_potentials = [
+                set(interatomic_potentials)
+                for interatomic_potentials in self.interatomic_potentials
+            ]
+        if self.doi is not None:
+            self.doi = set(self.doi)
+        if self.contributors is not None:
+            self.contributors = [
+                set(contributors) for contributors in self.contributors
+            ]
         dataset_dirs = tuple(
             sorted(
                 child
@@ -34,56 +56,64 @@ class DebrisDatabase:
         datasets = tuple(
             dataset
             for dataset in (DebrisDataset.from_path(path) for path in dataset_dirs)
-            if dataset.electronic_interactions == electronic_interactions
+            if self.__matches_database_filters(dataset)
         )
 
         if not datasets:
             raise ValueError(
-                "No debris datasets with "
-                f"electronic_interactions={electronic_interactions!r} found in {root}"
+                "No debris datasets matching the database filters found in "
+                f"{root}"
             )
 
         self.root = root
         self.electronic_interactions = electronic_interactions
         self.datasets = datasets
 
+    def __matches_database_filters(self, dataset: DebrisDataset) -> bool:
+        """Return whether a dataset matches the database-level filters."""
+        if dataset.electronic_interactions != self.electronic_interactions:
+            return False
+
+        if not dataset.target_matches_metadata(dataset.target, self.target):
+            return False
+
+        if self.interatomic_potentials is not None and (
+            dataset.interatomic_potentials not in self.interatomic_potentials
+        ):
+            return False
+
+        if self.doi is not None and dataset.doi not in self.doi:
+            return False
+
+        if self.contributors is not None and (
+            dataset.contributors not in self.contributors
+        ):
+            return False
+
+        return True
+
     def matching_datasets(
         self,
         recoil: Element,
         component: Component,
-        interatomic_potentials: list[str] | None = None,
-        doi: str | None = None,
-        contributors: list[str] | None = None,
     ) -> tuple[DebrisDataset, ...]:
-        """Return datasets matching the requested metadata filters."""
+        """Return datasets matching the requested recoil and component."""
         return tuple(
             dataset
             for dataset in self.datasets
-            if dataset.matches(
-                recoil=recoil,
-                component=component,
-                interatomic_potentials=interatomic_potentials,
-                doi=doi,
-                contributors=contributors,
-            )
+            if dataset.matches(recoil=recoil, component=component)
         )
 
     def has_matches(
         self,
         recoil: Element,
         component: Component,
-        interatomic_potentials: list[str] | None = None,
-        doi: str | None = None,
-        contributors: list[str] | None = None,
     ) -> bool:
         """Return whether at least one dataset matches."""
         return bool(
             self.matching_datasets(
                 recoil=recoil,
                 component=component,
-                interatomic_potentials=interatomic_potentials,
-                doi=doi,
-                contributors=contributors,
             )
         )
 
@@ -91,18 +121,12 @@ class DebrisDatabase:
         self,
         recoil: Element,
         component: Component,
-        interatomic_potentials: list[str] | None = None,
-        doi: str | None = None,
-        contributors: list[str] | None = None,
     ) -> dict[float, list[Path]]:
         """Return merged cascade files by energy for all matching datasets."""
         files_by_energy: dict[float, list[Path]] = {}
         for dataset in self.matching_datasets(
             recoil=recoil,
             component=component,
-            interatomic_potentials=interatomic_potentials,
-            doi=doi,
-            contributors=contributors,
         ):
             for energy, files in dataset.files_by_energy.items():
                 files_by_energy.setdefault(energy, []).extend(files)

@@ -20,12 +20,6 @@ irpy.config.use_style(latex=False)
 # TRIM.exe directory (parent folder)
 srim_dir = Path()
 irpy.config.set_srim_dir(srim_dir)
-# Root database of MD cascades
-# For example: CascadesDefectsDB
-# Donwloaded from: https://github.com/acgc99/CascadesDefectsDB
-mddb_dir = Path()
-electronic_interactions = "SRIM"
-irpy.config.set_debris_database(mddb_dir, electronic_interactions)
 # SRIM calculation mode
 # full is recommended for multielemental targets or non-self-ion irradiation
 calculation = "quick"
@@ -69,6 +63,13 @@ Fe_bcc = irpy.materials.Fe_bcc
 component = deepcopy(Fe_bcc)
 component.width = width
 target = [component]
+# Root database of MD cascades
+# For example: CascadesDefectsDB
+# Donwloaded from: https://github.com/acgc99/CascadesDefectsDB
+mddb_dir = Path()
+electronic_interactions = "SRIM"
+mddb_target = {"Fe": 1.0}
+irpy.config.set_debris_database(mddb_dir, electronic_interactions, mddb_target)
 # Important distances
 fp_dist = 4.0 * Fe_bcc.ax
 cutoff_sia = (np.sqrt(2.0) + np.sqrt(11.0) / 2.0) * Fe_bcc.ax / 2.0

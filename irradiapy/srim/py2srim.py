@@ -385,9 +385,6 @@ class Py2SRIM:
         max_recoil_energy: float,
         invalid_recoil_energy: float,
         debris_database: DebrisDatabase,
-        interatomic_potentials: list[str] | None = None,
-        doi: str | None = None,
-        contributors: list[str] | None = None,
     ) -> bool:
         """Return whether a recoil should be sent to SRIM."""
         # Any recoil above max_recoil_energy is sent to SRIM.
@@ -396,9 +393,6 @@ class Py2SRIM:
         matches = debris_database.has_matches(
             recoil=recoil,
             component=component,
-            interatomic_potentials=interatomic_potentials,
-            doi=doi,
-            contributors=contributors,
         )
         # If it matches the database, no need to run SRIM.
         # If the recoil matches the database but its energy is lower than
@@ -575,9 +569,6 @@ class Py2SRIM:
         max_recoil_energy: float,
         invalid_recoil_energy: float,
         debris_database: DebrisDatabase,
-        interatomic_potentials: list[str] | None,
-        doi: str | None,
-        contributors: list[str] | None,
     ) -> npt.NDArray[np.bool_]:
         """Return the mask of recoils that should be sent to SRIM."""
         mask = np.zeros(atomic_numbers.shape, dtype=bool)
@@ -591,9 +582,6 @@ class Py2SRIM:
                 max_recoil_energy=max_recoil_energy,
                 invalid_recoil_energy=invalid_recoil_energy,
                 debris_database=debris_database,
-                interatomic_potentials=interatomic_potentials,
-                doi=doi,
-                contributors=contributors,
             )
         return mask
 
@@ -778,9 +766,6 @@ class Py2SRIM:
         max_recoil_energy: float,
         invalid_recoil_energy: float,
         debris_database: DebrisDatabase,
-        interatomic_potentials: list[str] | None,
-        doi: str | None,
-        contributors: list[str] | None,
         atomic_numbers: npt.NDArray[np.int64],
         energies: npt.NDArray[np.float64],
         depths: npt.NDArray[np.float64],
@@ -879,9 +864,6 @@ class Py2SRIM:
                     max_recoil_energy=max_recoil_energy,
                     invalid_recoil_energy=invalid_recoil_energy,
                     debris_database=debris_database,
-                    interatomic_potentials=interatomic_potentials,
-                    doi=doi,
-                    contributors=contributors,
                 )
                 if not should_run:
                     # This recoil is terminal; store it.
@@ -952,9 +934,6 @@ class Py2SRIM:
                 max_recoil_energy=max_recoil_energy,
                 invalid_recoil_energy=invalid_recoil_energy,
                 debris_database=debris_database,
-                interatomic_potentials=interatomic_potentials,
-                doi=doi,
-                contributors=contributors,
             )
 
             # Terminal primary ion -> store into final DB as terminal recoil.
@@ -1009,9 +988,6 @@ class Py2SRIM:
         max_recoil_energy: float,
         invalid_recoil_energy: float,
         debris_database: DebrisDatabase,
-        interatomic_potentials: list[str] | None,
-        doi: str | None,
-        contributors: list[str] | None,
         atomic_numbers: npt.NDArray[np.int64],
         energies: npt.NDArray[np.float64],
         depths: npt.NDArray[np.float64],
@@ -1111,9 +1087,6 @@ class Py2SRIM:
                     max_recoil_energy=max_recoil_energy,
                     invalid_recoil_energy=invalid_recoil_energy,
                     debris_database=debris_database,
-                    interatomic_potentials=interatomic_potentials,
-                    doi=doi,
-                    contributors=contributors,
                 )
 
                 if not should_run:
@@ -1155,9 +1128,6 @@ class Py2SRIM:
                 max_recoil_energy=max_recoil_energy,
                 invalid_recoil_energy=invalid_recoil_energy,
                 debris_database=debris_database,
-                interatomic_potentials=interatomic_potentials,
-                doi=doi,
-                contributors=contributors,
             )
 
             # Terminal primary ions never enter a SRIM branch, so no ions/vacs are collected.
@@ -1202,9 +1172,6 @@ class Py2SRIM:
         max_srim_iters: int,
         fail_on_transmit: bool,
         fail_on_backscatt: bool,
-        interatomic_potentials: list[str] | None = None,
-        doi: str | None = None,
-        contributors: list[str] | None = None,
         invalid_recoil_energy: float = 1e3,
         ignore_32bit_warning: bool = True,
         minimize_window: bool | None = None,
@@ -1252,12 +1219,6 @@ class Py2SRIM:
             If True, raise if any ion is transmitted (TRANSMIT.txt non-empty).
         fail_on_backscatt : bool
             If True, raise if any ion is backscattered (BACKSCAT.txt non-empty).
-        interatomic_potentials : list[str] | None, optional (default=None)
-            Optional exact-set metadata filter.
-        doi : str | None, optional (default=None)
-            Optional exact DOI metadata filter.
-        contributors : list[str] | None, optional (default=None)
-            Optional exact-set metadata filter.
         invalid_recoil_energy : float, optional (default=1e3)
             Unmatched recoils below this energy are terminal and become FP-only debris.
         ignore_32bit_warning : bool (default=True)
@@ -1358,9 +1319,6 @@ class Py2SRIM:
                 max_recoil_energy=max_recoil_energy,
                 invalid_recoil_energy=invalid_recoil_energy,
                 debris_database=debris_database,
-                interatomic_potentials=interatomic_potentials,
-                doi=doi,
-                contributors=contributors,
             )
             leaf_batches = self.__group_ions_by_atomic_number(
                 mask=srim_mask,
@@ -1398,9 +1356,6 @@ class Py2SRIM:
             max_recoil_energy=max_recoil_energy,
             invalid_recoil_energy=invalid_recoil_energy,
             debris_database=debris_database,
-            interatomic_potentials=interatomic_potentials,
-            doi=doi,
-            contributors=contributors,
         )
         batches = self.__group_ions_by_atomic_number(
             mask=srim_mask,
@@ -1427,9 +1382,6 @@ class Py2SRIM:
             max_recoil_energy=max_recoil_energy,
             invalid_recoil_energy=invalid_recoil_energy,
             debris_database=debris_database,
-            interatomic_potentials=interatomic_potentials,
-            doi=doi,
-            contributors=contributors,
             atomic_numbers=atomic_numbers,
             energies=energies,
             depths=depths,
@@ -1444,9 +1396,6 @@ class Py2SRIM:
             max_recoil_energy=max_recoil_energy,
             invalid_recoil_energy=invalid_recoil_energy,
             debris_database=debris_database,
-            interatomic_potentials=interatomic_potentials,
-            doi=doi,
-            contributors=contributors,
             atomic_numbers=atomic_numbers,
             energies=energies,
             depths=depths,

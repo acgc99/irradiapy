@@ -16,10 +16,10 @@ class DebrisDataset:
     path: Path
     recoil: str
     target: dict[str, float]
-    interatomic_potentials: tuple[str, ...]
+    interatomic_potentials: set[str]
     electronic_interactions: str
     doi: str
-    contributors: tuple[str, ...]
+    contributors: set[str]
     files_by_energy: dict[float, tuple[Path, ...]]
 
     @classmethod
@@ -62,10 +62,10 @@ class DebrisDataset:
             path=path,
             recoil=str(meta["recoil"]),
             target={str(symbol): float(stoich) for symbol, stoich in target.items()},
-            interatomic_potentials=tuple(str(v) for v in meta["interatomic_potentials"]),
+            interatomic_potentials=set(str(v) for v in meta["interatomic_potentials"]),
             electronic_interactions=meta["electronic_interactions"],
             doi=str(meta["doi"]),
-            contributors=tuple(str(v) for v in meta["contributors"]),
+            contributors=set(str(v) for v in meta["contributors"]),
             files_by_energy=files_by_energy,
         )
 
@@ -73,9 +73,6 @@ class DebrisDataset:
         self,
         recoil: Element,
         component: Component,
-        interatomic_potentials: list[str] | None = None,
-        doi: str | None = None,
-        contributors: list[str] | None = None,
     ) -> bool:
         """Return whether this dataset matches the requested recoil/component."""
         if not self.files_by_energy:
@@ -83,14 +80,6 @@ class DebrisDataset:
         if self.recoil != recoil.symbol:
             return False
         if not self.target_matches_component(self.target, component):
-            return False
-        if doi is not None and self.doi != doi:
-            return False
-        if interatomic_potentials is not None and set(self.interatomic_potentials) != set(
-            interatomic_potentials
-        ):
-            return False
-        if contributors is not None and set(self.contributors) != set(contributors):
             return False
         return True
 
@@ -100,10 +89,20 @@ class DebrisDataset:
         component: Component,
     ) -> bool:
         """Return whether metadata target stoichiometry matches a component."""
-        component_target = component.stoichiometry_dict
-        if set(target) != set(component_target):
+        return DebrisDataset.target_matches_metadata(
+            target,
+            component.stoichiometry_dict,
+        )
+
+    @staticmethod
+    def target_matches_metadata(
+        target: dict[str, float],
+        metadata_target: dict[str, float],
+    ) -> bool:
+        """Return whether two metadata target stoichiometries match."""
+        if set(target) != set(metadata_target):
             return False
         return all(
-            np.isclose(float(target[symbol]), component_target[symbol])
+            np.isclose(float(target[symbol]), float(metadata_target[symbol]))
             for symbol in target
         )

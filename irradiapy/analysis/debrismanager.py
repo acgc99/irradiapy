@@ -38,12 +38,6 @@ class DebrisManager:
         Mode for calculation of number of displacement atoms.
     fp_dist : float
         Distance between the vacancy and the interstitial of a Frenkel pair, in angstroms.
-    interatomic_potentials : Sequence[str] | None, optional (default=None)
-        Optional exact-set filter for the MD dataset interatomic potentials.
-    doi : str | None, optional (default=None)
-        Optional exact filter for the MD dataset DOI.
-    contributors : Sequence[str] | None, optional (default=None)
-        Optional exact-set filter for the MD dataset contributors.
     invalid_recoil_energy : float (default=1e3)
         Energy below which unmatched recoils are considered invalid for SRIM and represented
         with Frenkel pairs only, in eV.
@@ -63,9 +57,6 @@ class DebrisManager:
     damage_energy_mode: DamageEnergyMode
     displacement_mode: DisplacementMode
     fp_dist: float
-    interatomic_potentials: list[str] | None = None
-    doi: str | None = None
-    contributors: list[str] | None = None
     invalid_recoil_energy: float = 1e3
     energy_tolerance: float = 0.1
     seed: int = 0
@@ -84,9 +75,6 @@ class DebrisManager:
         self.__files = self.debris_database.matching_files_by_energy(
             recoil=self.recoil,
             component=self.component,
-            interatomic_potentials=self.interatomic_potentials,
-            doi=self.doi,
-            contributors=self.contributors,
         )
         self.__energies = np.array(sorted(self.__files.keys(), reverse=True))
         self.__nenergies = len(self.__energies)
