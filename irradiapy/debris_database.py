@@ -1,6 +1,6 @@
 """This module contains the `DebrisDatabase` class."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from irradiapy.materials.component import Component
@@ -8,17 +8,17 @@ from irradiapy.materials.element import Element
 from irradiapy.debris_dataset import DebrisDataset
 
 
-@dataclass(frozen=True)
+@dataclass
 class DebrisDatabase:
     """Database of MD debris datasets under a database root."""
 
-    root: Path
-    datasets: tuple[DebrisDataset, ...]
-    electronic_interactions: str
+    root: str | Path
+    datasets: tuple[DebrisDataset, ...] = field(init=False)
+    electronic_interactions: str = field(init=False)
 
-    @classmethod
-    def from_path(cls, root: Path) -> "DebrisDatabase":
-        """Build a database from a root directory directory."""
+    def __post_init__(self) -> None:
+        """Build a database from a root directory."""
+        root = Path(self.root)
         dataset_dirs = tuple(
             sorted(
                 child
@@ -31,8 +31,11 @@ class DebrisDatabase:
             raise ValueError(f"No debris datasets with meta.json found in {root}")
 
         datasets = tuple(DebrisDataset.from_path(path) for path in dataset_dirs)
-        electronic_interactions = cls.__validate_electronic_interactions(datasets)
-        return cls(root, datasets, electronic_interactions)
+        electronic_interactions = self.__validate_electronic_interactions(datasets)
+
+        self.root = root
+        self.datasets = datasets
+        self.electronic_interactions = electronic_interactions
 
     @staticmethod
     def __validate_electronic_interactions(

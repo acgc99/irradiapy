@@ -87,13 +87,13 @@ def clear_srim_dir() -> None:
 _debris_database: DebrisDatabase | None = None  # pylint: disable=invalid-name
 
 
-def set_debris_database(path_or_db: str | Path | DebrisDatabase) -> DebrisDatabase:
+def set_debris_database(path: str | Path) -> DebrisDatabase:
     """Configure the global MD debris database.
 
     Parameters
     ----------
-    path_or_db : str | pathlib.Path | DebrisDatabase
-        Database root path or an already loaded database.
+    path : str | pathlib.Path
+        Database root path.
 
     Returns
     -------
@@ -102,10 +102,7 @@ def set_debris_database(path_or_db: str | Path | DebrisDatabase) -> DebrisDataba
     """
     global _debris_database  # pylint: disable=global-statement
 
-    if isinstance(path_or_db, DebrisDatabase):
-        _debris_database = path_or_db
-    else:
-        _debris_database = DebrisDatabase.from_path(Path(path_or_db))
+    _debris_database = DebrisDatabase(path)
     return _debris_database
 
 
@@ -114,7 +111,7 @@ def get_debris_database() -> DebrisDatabase:
     if _debris_database is None:
         raise RuntimeError(
             "No debris database configured. Call "
-            "irradiapy.config.set_debris_database(path_or_db) before running "
+            "irradiapy.config.set_debris_database(path) before running "
             "SRIM/debris workflows."
         )
     return _debris_database
