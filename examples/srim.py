@@ -31,8 +31,8 @@ displacement_mode = irpy.DisplacementMode.FERARC
 exclude_vacancies_ion = [1, 2]
 # If a recoil energy exceeds this value, SRIM will be run again, electronvolts
 max_recoil_energy = 250e3
-# If an unmatched recoil energy is below this value, FP are placed instead of running SRIM
-invalid_recoil_energy = 1e3
+# Absolute recoil energy below which unmatched recoils use FP instead of SRIM, eV
+fp_energy_abs = 1e3
 # Maximum number of SRIM iterations
 max_srim_iters = 10
 # Execution will fail if an ion is transmitted
@@ -105,7 +105,7 @@ recoilsdb = py2srim.run(
     max_srim_iters=max_srim_iters,
     fail_on_transmit=fail_on_transmit,
     fail_on_backscatt=fail_on_backscatt,
-    invalid_recoil_energy=invalid_recoil_energy,
+    fp_energy_abs=fp_energy_abs,
 )
 # recoilsdb = irpy.RecoilsDB(root_dir / "recoils.db")
 
@@ -117,7 +117,7 @@ irpy.analysis.debris.generate_debris(
     displacement_mode=displacement_mode,
     exclude_from_vacs=exclude_vacancies_ion,
     fp_dist=fp_dist,
-    invalid_recoil_energy=invalid_recoil_energy,
+    fp_energy_abs=fp_energy_abs,
     surface_irradiation=surface_irradiation,
 )
 

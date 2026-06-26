@@ -38,9 +38,9 @@ class DebrisManager:
         Mode for calculation of number of displacement atoms.
     fp_dist : float
         Distance between the vacancy and the interstitial of a Frenkel pair, in angstroms.
-    invalid_recoil_energy : float (default=1e3)
-        Energy below which unmatched recoils are considered invalid for SRIM and represented
-        with Frenkel pairs only, in eV.
+    fp_energy_abs : float (default=1e3)
+        Absolute recoil energy below which unmatched recoils are represented by Frenkel
+        pairs, in eV.
     energy_tolerance : float (default=0.1)
         Tolerance for energy decomposition. For example, if this value if ``0.1``, the recoil energy
         is 194 keV and the database contains an energy of 200 keV, then 194 will be in the range
@@ -57,7 +57,7 @@ class DebrisManager:
     damage_energy_mode: DamageEnergyMode
     displacement_mode: DisplacementMode
     fp_dist: float
-    invalid_recoil_energy: float = 1e3
+    fp_energy_abs: float = 1e3
     energy_tolerance: float = 0.1
     seed: int = 0
     debris_database: DebrisDatabase | None = None

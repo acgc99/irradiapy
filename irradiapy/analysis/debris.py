@@ -23,7 +23,7 @@ def generate_debris(
     damage_energy_mode: DamageEnergyMode,
     displacement_mode: DisplacementMode,
     fp_dist: float,
-    invalid_recoil_energy: float = 1e3,
+    fp_energy_abs: float = 1e3,
     energy_tolerance: float = 0.1,
     surface_irradiation: bool = False,
     exclude_from_ions: list[int] | None = None,
@@ -48,8 +48,9 @@ def generate_debris(
         Mode for calculation of number of displacement atoms.
     fp_dist : float
         Distance between the vacancy and the interstitial of a Frenkel pair, in angstroms.
-    invalid_recoil_energy : float, optional (default=1e3)
-        Energy below which unmatched recoils are represented by Frenkel pairs only, in eV.
+    fp_energy_abs : float, optional (default=1e3)
+        Absolute recoil energy below which unmatched recoils are represented by Frenkel
+        pairs, in eV.
     energy_tolerance : float (default=0.1)
         Tolerance for energy decomposition. For example, if this value if ``0.1``, the recoil energy
         is 194 keV and the database contains an energy of 200 keV, then 194 will be in the range
@@ -92,7 +93,7 @@ def generate_debris(
             damage_energy_mode=damage_energy_mode,
             displacement_mode=displacement_mode,
             fp_dist=fp_dist,
-            invalid_recoil_energy=invalid_recoil_energy,
+            fp_energy_abs=fp_energy_abs,
             energy_tolerance=energy_tolerance,
             surface_irradiation=surface_irradiation,
             exclude_from_ions=exclude_from_ions,
@@ -107,7 +108,7 @@ def generate_debris(
             damage_energy_mode=damage_energy_mode,
             displacement_mode=displacement_mode,
             fp_dist=fp_dist,
-            invalid_recoil_energy=invalid_recoil_energy,
+            fp_energy_abs=fp_energy_abs,
             energy_tolerance=energy_tolerance,
             surface_irradiation=surface_irradiation,
             exclude_from_ions=exclude_from_ions,
@@ -127,7 +128,7 @@ def __spectra2srim_generate_debris(
     damage_energy_mode: DamageEnergyMode,
     displacement_mode: DisplacementMode,
     fp_dist: float,
-    invalid_recoil_energy: float,
+    fp_energy_abs: float,
     energy_tolerance: float,
     surface_irradiation: bool,
     exclude_from_ions: list[int],
@@ -171,7 +172,7 @@ def __spectra2srim_generate_debris(
                 damage_energy_mode=damage_energy_mode,
                 displacement_mode=displacement_mode,
                 fp_dist=fp_dist,
-                invalid_recoil_energy=invalid_recoil_energy,
+                fp_energy_abs=fp_energy_abs,
                 energy_tolerance=energy_tolerance,
                 seed=seed,
             )
@@ -205,7 +206,7 @@ def __py2srim_generate_debris(
     damage_energy_mode: DamageEnergyMode,
     displacement_mode: DisplacementMode,
     fp_dist: float,
-    invalid_recoil_energy: float,
+    fp_energy_abs: float,
     energy_tolerance: float,
     surface_irradiation: bool,
     exclude_from_ions: list[int],
@@ -256,7 +257,7 @@ def __py2srim_generate_debris(
                 damage_energy_mode=damage_energy_mode,
                 displacement_mode=displacement_mode,
                 fp_dist=fp_dist,
-                invalid_recoil_energy=invalid_recoil_energy,
+                fp_energy_abs=fp_energy_abs,
                 energy_tolerance=energy_tolerance,
                 seed=seed,
             )
@@ -292,7 +293,7 @@ def _get_debris_manager(
     damage_energy_mode: DamageEnergyMode,
     displacement_mode: DisplacementMode,
     fp_dist: float,
-    invalid_recoil_energy: float,
+    fp_energy_abs: float,
     energy_tolerance: float,
     seed: int,
 ) -> DebrisManager:
@@ -305,7 +306,7 @@ def _get_debris_manager(
             damage_energy_mode=damage_energy_mode,
             displacement_mode=displacement_mode,
             fp_dist=fp_dist,
-            invalid_recoil_energy=invalid_recoil_energy,
+            fp_energy_abs=fp_energy_abs,
             energy_tolerance=energy_tolerance,
             seed=seed + int(atom_numb) + int(component_idx),
             debris_database=debris_database,

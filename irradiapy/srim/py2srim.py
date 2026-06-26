@@ -383,7 +383,7 @@ class Py2SRIM:
         component: Component,
         recoil_energy: float,
         max_recoil_energy: float,
-        invalid_recoil_energy: float,
+        fp_energy_abs: float,
         debris_database: DebrisDatabase,
     ) -> bool:
         """Return whether a recoil should be sent to SRIM."""
@@ -400,11 +400,11 @@ class Py2SRIM:
         # FP will be used.
         if matches:
             return False
-        # Any unmatched recoil below invalid_recoil_energy is not sent to SRIM,
-        # FPs will be placed instead.
-        if recoil_energy < invalid_recoil_energy:
+        # Any unmatched recoil below fp_energy_abs is not sent to SRIM;
+        # Frenkel pairs are placed instead.
+        if recoil_energy < fp_energy_abs:
             return False
-        # Send to SRIM unmatched recoils between invalid_recoil_energy and max_recoil_energy.
+        # Send unmatched recoils at or above fp_energy_abs to SRIM.
         return True
 
     def __create_srimdb(
@@ -567,7 +567,7 @@ class Py2SRIM:
         energies: npt.NDArray[np.float64],
         depths: npt.NDArray[np.float64],
         max_recoil_energy: float,
-        invalid_recoil_energy: float,
+        fp_energy_abs: float,
         debris_database: DebrisDatabase,
     ) -> npt.NDArray[np.bool_]:
         """Return the mask of recoils that should be sent to SRIM."""
@@ -580,7 +580,7 @@ class Py2SRIM:
                 component=component,
                 recoil_energy=energies[i],
                 max_recoil_energy=max_recoil_energy,
-                invalid_recoil_energy=invalid_recoil_energy,
+                fp_energy_abs=fp_energy_abs,
                 debris_database=debris_database,
             )
         return mask
@@ -764,7 +764,7 @@ class Py2SRIM:
     def __collect_recoils(
         self,
         max_recoil_energy: float,
-        invalid_recoil_energy: float,
+        fp_energy_abs: float,
         debris_database: DebrisDatabase,
         atomic_numbers: npt.NDArray[np.int64],
         energies: npt.NDArray[np.float64],
@@ -781,9 +781,10 @@ class Py2SRIM:
         Parameters
         ----------
         max_recoil_energy : float
-            Recoils above this energies will be sent to SRIM, in eV.
-        invalid_recoil_energy : float
-            Unmatched recoils at or above this energy will be sent to SRIM, in eV.
+            Recoils above this energy will be sent to SRIM, in eV.
+        fp_energy_abs : float
+            Absolute recoil energy below which unmatched recoils are represented by Frenkel
+            pairs instead of being sent to SRIM, in eV.
         atomic_numbers : npt.NDArray[np.int64]
             Ion atomic numbers.
         energies : npt.NDArray[np.float64]
@@ -862,7 +863,7 @@ class Py2SRIM:
                     component=component,
                     recoil_energy=float(recoil_energy),
                     max_recoil_energy=max_recoil_energy,
-                    invalid_recoil_energy=invalid_recoil_energy,
+                    fp_energy_abs=fp_energy_abs,
                     debris_database=debris_database,
                 )
                 if not should_run:
@@ -932,7 +933,7 @@ class Py2SRIM:
                 component=component,
                 recoil_energy=ion_energy,
                 max_recoil_energy=max_recoil_energy,
-                invalid_recoil_energy=invalid_recoil_energy,
+                fp_energy_abs=fp_energy_abs,
                 debris_database=debris_database,
             )
 
@@ -986,7 +987,7 @@ class Py2SRIM:
     def __collect_ions_vacs(
         self,
         max_recoil_energy: float,
-        invalid_recoil_energy: float,
+        fp_energy_abs: float,
         debris_database: DebrisDatabase,
         atomic_numbers: npt.NDArray[np.int64],
         energies: npt.NDArray[np.float64],
@@ -1085,7 +1086,7 @@ class Py2SRIM:
                     component=component,
                     recoil_energy=recoil_energy,
                     max_recoil_energy=max_recoil_energy,
-                    invalid_recoil_energy=invalid_recoil_energy,
+                    fp_energy_abs=fp_energy_abs,
                     debris_database=debris_database,
                 )
 
@@ -1126,7 +1127,7 @@ class Py2SRIM:
                 component=component,
                 recoil_energy=ion_energy,
                 max_recoil_energy=max_recoil_energy,
-                invalid_recoil_energy=invalid_recoil_energy,
+                fp_energy_abs=fp_energy_abs,
                 debris_database=debris_database,
             )
 
@@ -1172,7 +1173,7 @@ class Py2SRIM:
         max_srim_iters: int,
         fail_on_transmit: bool,
         fail_on_backscatt: bool,
-        invalid_recoil_energy: float = 1e3,
+        fp_energy_abs: float = 1e3,
         ignore_32bit_warning: bool = True,
         minimize_window: bool | None = None,
     ) -> RecoilsDB:
@@ -1219,8 +1220,9 @@ class Py2SRIM:
             If True, raise if any ion is transmitted (TRANSMIT.txt non-empty).
         fail_on_backscatt : bool
             If True, raise if any ion is backscattered (BACKSCAT.txt non-empty).
-        invalid_recoil_energy : float, optional (default=1e3)
-            Unmatched recoils below this energy are terminal and become FP-only debris.
+        fp_energy_abs : float, optional (default=1e3)
+            Absolute recoil energy below which unmatched recoils are represented by Frenkel
+            pairs instead of being sent to SRIM, in eV.
         ignore_32bit_warning : bool (default=True)
             Whether to ignore the 32-bit warning when using 32-bit SRIM with 64-bit Python.
         minimize_window : bool | None (default=None)
@@ -1317,7 +1319,7 @@ class Py2SRIM:
                 energies=branch_energies,
                 depths=branch_depths,
                 max_recoil_energy=max_recoil_energy,
-                invalid_recoil_energy=invalid_recoil_energy,
+                fp_energy_abs=fp_energy_abs,
                 debris_database=debris_database,
             )
             leaf_batches = self.__group_ions_by_atomic_number(
@@ -1354,7 +1356,7 @@ class Py2SRIM:
             energies=energies,
             depths=depths,
             max_recoil_energy=max_recoil_energy,
-            invalid_recoil_energy=invalid_recoil_energy,
+            fp_energy_abs=fp_energy_abs,
             debris_database=debris_database,
         )
         batches = self.__group_ions_by_atomic_number(
@@ -1380,7 +1382,7 @@ class Py2SRIM:
         # Collect all recoils data into a single database
         self.__collect_recoils(
             max_recoil_energy=max_recoil_energy,
-            invalid_recoil_energy=invalid_recoil_energy,
+            fp_energy_abs=fp_energy_abs,
             debris_database=debris_database,
             atomic_numbers=atomic_numbers,
             energies=energies,
@@ -1394,7 +1396,7 @@ class Py2SRIM:
         # Collect all ions and vacancies into a single database
         self.__collect_ions_vacs(
             max_recoil_energy=max_recoil_energy,
-            invalid_recoil_energy=invalid_recoil_energy,
+            fp_energy_abs=fp_energy_abs,
             debris_database=debris_database,
             atomic_numbers=atomic_numbers,
             energies=energies,
