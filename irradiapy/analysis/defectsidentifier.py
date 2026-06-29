@@ -13,7 +13,7 @@ from irradiapy import dtypes
 
 @dataclass
 class DefectsIdentifier:
-    """Class to identify  defects in crystalline structures.
+    """Class to identify defects in crystalline structures.
 
     This class provides methods to identify point defects (vacancies and interstitials) in a
     body-centered cubic (bcc) lattice based on atomic positions from simulation data. It supports

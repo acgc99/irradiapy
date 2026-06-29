@@ -12,7 +12,7 @@ import numpy.typing as npt
 
 
 def read(file_path: Path) -> dict[str | int, Any]:
-    """Reads SPECTRA-PKA .out file.
+    """Read a SPECTRA-PKA .out file.
 
     Parameters
     ----------
@@ -244,7 +244,7 @@ def __process_total_matrix(
      #PKA RECOIL DISTRIBUTIONS
      #RECOIL energy (MeV low & high)  PKAs/s       norm_sum       tdam-pkas disp_energy_(eV/s)  NRT_dpa/s
      #(or T_dam energy low+high for
-     #          tdam-pakas/disp/dpa)
+     #          tdam-pkas/disp/dpa)
     """
     file.readline()  # skip header
     line = file.readline().replace("#", "").strip().replace("[", "").replace("]", "")
@@ -416,13 +416,12 @@ def __process_spectrum(file: TextIO, index: int, label: str) -> dict[str, npt.ND
 
 
 def plot_all(data: dict[str | int, Any], out_path: Path) -> None:
-    """Plot all matrices from SPECTRA-PKA .out using data from irradiapy.spectrapka.output.read
-    function.
+    """Plot all matrices from data returned by `irradiapy.spectrapka.matrices.read`.
 
     Parameters
     ----------
     data : dict[str | int, Any]
-        Data dictionary from irradiapy.spectrapka.output.read function.
+        Data dictionary from `irradiapy.spectrapka.matrices.read`.
     out_path : Path
         Output path to save the plots.
     """

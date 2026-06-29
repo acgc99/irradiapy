@@ -20,7 +20,7 @@ def recoil_energies_hist(
     nbins: int = 100,
     conditions: str = "",
 ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-    """Calculate and store the recoil energy histogram and tries to fit it.
+    """Calculate and store the recoil energy histogram and attempt to fit it.
 
     Fit: power law function.
 
@@ -350,7 +350,7 @@ def depth_injected_ions_hist(
     p0: float | None = None,
     asymmetry: float = 1.0,
 ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-    """Calculate and store the injected ions final depth histogram and tries to fit it.
+    """Calculate and store the injected-ion final-depth histogram and attempt to fit it.
 
     Fit: asymmetric gaussian function.
     Tries to fit to Eq. (1) of

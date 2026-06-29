@@ -1058,7 +1058,7 @@ class Py2SRIM:
                 )
             )
             if range3d:
-                # If not empty, ion stopped inside target
+                # If present, the ion stopped inside the target.
                 self.recoilsdb.insert_ion_vac(
                     event=event,
                     atom_numb=int(trimdat[0][3]),
@@ -1288,7 +1288,7 @@ class Py2SRIM:
         def recurse(tree: tuple[int, ...]) -> None:
             """Process one srim.db and recursively spawn branches."""
             path = self.__tree2path_db(tree, False)
-            # Database not existing: no recoils to process
+            # If the database does not exist, there are no recoils to process.
             if not path.exists():
                 return
 

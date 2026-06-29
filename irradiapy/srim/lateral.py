@@ -1,4 +1,4 @@
-"""This module contains the `Ioniz` class."""
+"""This module contains the `Lateral` class."""
 
 from pathlib import Path
 

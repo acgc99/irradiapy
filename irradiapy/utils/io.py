@@ -184,13 +184,12 @@ def lammps_to_mmonca(path_in: str, path_out: str, scale: float = 10.0) -> None:
     path_out : str
         Path to the output MMonCa file.
     scale : float, optional (default=10.0)
-        Scale factor to convert from angstroms to other units
-        (default is 10.0, angstroms to nanometers).
+        Divisor applied to coordinates. The default converts angstroms to nanometers.
 
     Warning
     -------
-    This converter is very basic, all defects of type 0 are considered vacancies (V),
-    any other defects type are considered a interstitials (I). Therefore, this will
+    This converter is very basic: defects of type 0 are considered vacancies (V),
+    and all other defect types are considered interstitials (I). Therefore, this will
     produce wrong results when multiple elements are present.
     """
     total = 0

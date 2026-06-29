@@ -331,7 +331,7 @@ def fit_power_law(
         absolute_sigma = False
     else:
         yerrs = np.asarray(yerrs, dtype=float)
-        sigma_log = yerrs / ys  # error of log(y)
+        sigma_log = yerrs / ys  # Uncertainty propagated to log(y).
         absolute_sigma = True
 
     popt, pcov = curve_fit(

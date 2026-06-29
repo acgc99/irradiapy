@@ -48,7 +48,7 @@ class RecoilsDB(Database):
         with open(spectrapka_events_path, "r", encoding="utf-8") as file:
             file.readline()
             for line in file:
-                row = line.split()[:-3]  # exclude last columns (not documented)
+                row = line.split()[:-3]  # Ignore three undocumented trailing columns.
                 if row[7] in exclude_recoils:
                     continue
                 cur.execute(

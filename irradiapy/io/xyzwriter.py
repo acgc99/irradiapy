@@ -176,7 +176,7 @@ class XYZWriter:
             Data to write.
         extra_comment : str, optional
             Additional info to add at the end of the comment. Must follow xyz guidelines.
-            Example: 'Info="Fe irradiatied in Fe, Ion 1"'
+            For example: 'Info="Fe irradiated in Fe, Ion 1"'
         """
         natoms = datas.size
         dtype = datas.dtype

@@ -12,8 +12,9 @@ import numpy.typing as npt
 
 @dataclass
 class Database(sqlite3.Connection):
-    """A SQLite database with some methods. Not intended to be used directly, instead use it to
-    inherit other database classes.
+    """A SQLite database with utility methods.
+
+    Not intended to be used directly, instead use it to inherit other database classes.
 
     Parameters
     ----------

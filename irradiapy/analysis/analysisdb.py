@@ -587,7 +587,7 @@ class AnalysisDB(Database):
         Returns
         -------
         float
-            Dpa value.
+            dpa value.
         """
         value = self.read(
             table="dpa", what="model, dpa", conditions=f"WHERE model='{model}'"
