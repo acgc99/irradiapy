@@ -6,12 +6,11 @@ import codecs
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import TracebackType
-from typing import Any, Dict, Generator, Tuple, Type
+from typing import Any, Generator
 
 import indexed_bzip2 as ibz2
 import numpy as np
 from mpi4py import MPI
-from numpy import typing as npt
 
 from irradiapy.utils.mpi import (
     MPIExceptionHandlerMixin,
@@ -49,7 +48,7 @@ class BZIP2LAMMPSReaderMPI(MPIExceptionHandlerMixin):
 
     Yields
     ------
-    dict
+    dict[str, Any]
         A dictionary containing the timestep data with keys:
         'time' (optional), 'timestep', 'boundary', 'xlo', 'xhi',
         'ylo', 'yhi', 'zlo', 'zhi', and 'atoms' (as a numpy structured array).
@@ -106,15 +105,15 @@ class BZIP2LAMMPSReaderMPI(MPIExceptionHandlerMixin):
 
     def __exit__(
         self,
-        exc_type: None | type[BaseException] = None,
-        exc_value: None | BaseException = None,
-        exc_traceback: None | TracebackType = None,
+        exc_type: type[BaseException] | None = None,
+        exc_value: BaseException | None = None,
+        exc_traceback: TracebackType | None = None,
     ) -> bool:
         if self.__rank == 0 and self.__file is not None:
             self.__file.close()
         return False
 
-    def _get_dtype(self) -> Tuple[list[str], list[Type[int | float]], np.dtype]:
+    def _get_dtype(self) -> tuple[list[str], list[type[int | float]], np.dtype]:
         items = self.__file.readline().split()[2:]
         types = [
             np.int64 if it in ("id", "type", "element", "size") else np.float64
@@ -122,8 +121,8 @@ class BZIP2LAMMPSReaderMPI(MPIExceptionHandlerMixin):
         ]
         return items, types, np.dtype(list(zip(items, types)))
 
-    def _process_header(self) -> Dict[str, Any]:
-        data: Dict[str, Any] = {}
+    def _process_header(self) -> dict[str, Any]:
+        data: dict[str, Any] = {}
         line = self.__file.readline()
         if not line:
             return {}
@@ -146,7 +145,7 @@ class BZIP2LAMMPSReaderMPI(MPIExceptionHandlerMixin):
         return data
 
     @mpi_safe_method
-    def __iter__(self) -> Generator[Tuple[Dict[str, Any], npt.NDArray], None, None]:
+    def __iter__(self) -> Generator[dict[str, Any], None, None]:
         while True:
             # header broadcast
             data = self.comm.bcast(
@@ -230,7 +229,7 @@ class _LineReader:
 
     __slots__ = ("__raw", "__decoder", "__buffer", "__closed")
 
-    def __init__(self, raw, encoding: str = "utf-8"):
+    def __init__(self, raw: Any, encoding: str = "utf-8") -> None:
 
         self.__raw = raw
         self.__decoder = codecs.getincrementaldecoder(encoding)(errors="strict")

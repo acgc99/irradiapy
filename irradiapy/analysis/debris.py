@@ -2,9 +2,10 @@
 
 import warnings
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
+import numpy.typing as npt
 
 from irradiapy import config, dtypes, materials
 from irradiapy.analysis.debrismanager import DebrisManager
@@ -29,22 +30,22 @@ def generate_debris(
     exclude_from_ions: list[int] | None = None,
     exclude_from_vacs: list[int] | None = None,
     seed: int = 0,
-    ylo: None | float = None,
-    yhi: None | float = None,
-    zlo: None | float = None,
-    zhi: None | float = None,
+    ylo: float | None = None,
+    yhi: float | None = None,
+    zlo: float | None = None,
+    zhi: float | None = None,
 ) -> None:
     """Generate MD debris from RecoilsDB.
 
     Parameters
     ----------
-    recoilsdb
+    recoilsdb : RecoilsDB
         RecoilsDB instance from Py2SRIM or SPECTRA2SRIM runs.
     debris_path : Path
         Output file path.
-    damage_energy_mode : materials.Material.DamageEnergyMode
+    damage_energy_mode : DamageEnergyMode
         Mode for recoil to damage energy calculation.
-    displacement_mode : materials.Material.DisplacementMode
+    displacement_mode : DisplacementMode
         Mode for calculation of number of displacement atoms.
     fp_dist : float
         Distance between the vacancy and the interstitial of a Frenkel pair, in angstroms.
@@ -60,10 +61,10 @@ def generate_debris(
         ``0.0`` to disable this feature.
     surface_irradiation : bool, optional (default=False)
         If `True`, then the initial primary ion position will not be used to place a vacancy.
-    exclude_from_ions : list[int], optional (default=None)
+    exclude_from_ions : list[int] | None, optional (default=None)
         Ions will not be placed for these ion types. Useful to exclude injected ion effects
         (surface irradiation).
-    exclude_from_vacs : list[int], optional (default=None)
+    exclude_from_vacs : list[int] | None, optional (default=None)
         Ions that have an atomic number in this list will not generate a vacancy at their initial
         position. For example, if the ion is Fe in a target of Fe, this list can be empty to
         simulate that the ion has left its lattice position; if the ion is H or He in a target of
@@ -212,10 +213,10 @@ def __py2srim_generate_debris(
     exclude_from_ions: list[int],
     exclude_from_vacs: list[int],
     seed: int = 0,
-    ylo: None | float = None,
-    yhi: None | float = None,
-    zlo: None | float = None,
-    zhi: None | float = None,
+    ylo: float | None = None,
+    yhi: float | None = None,
+    zlo: float | None = None,
+    zhi: float | None = None,
 ) -> None:
     """Generate MD debris from Python to SRIM results."""
     target = recoilsdb.load_target()
@@ -333,11 +334,11 @@ def _component_idx_from_x(x: float, bounds: list[tuple[float, float]]) -> int:
 
 
 def __apply_boundary_conditions(
-    data: dict,
+    data: dict[str, Any],
     x: bool,
     y: bool,
     z: bool,
-) -> dict:
+) -> dict[str, Any]:
     """Apply boundary conditions to debris data."""
     natoms0 = len(data["atoms"])
     data = apply_boundary_conditions(data, x, y, z)
@@ -356,11 +357,11 @@ def __apply_boundary_conditions(
 def __place_ions_vacs(
     recoilsdb: RecoilsDB,
     event: int,
-    defects: np.ndarray,
+    defects: npt.NDArray,
     surface_irradiation: bool,
-    exclude_from_ions: list,
-    exclude_from_vacs: list,
-):
+    exclude_from_ions: list[int],
+    exclude_from_vacs: list[int],
+) -> npt.NDArray:
     ions_vacs = recoilsdb.read(
         "ions_vacs",
         what="atom_numb, x, y, z",

@@ -47,9 +47,9 @@ class XYZWriter:
 
     def __exit__(
         self,
-        exc_type: None | type[BaseException] = None,
-        exc_value: None | BaseException = None,
-        exc_traceback: None | TracebackType = None,
+        exc_type: type[BaseException] | None = None,
+        exc_value: BaseException | None = None,
+        exc_traceback: TracebackType | None = None,
     ) -> bool:
         """Exit the runtime context related to this object."""
         if self.file is not None:
@@ -58,7 +58,7 @@ class XYZWriter:
 
     def __get_properties(
         self, dtype: npt.DTypeLike
-    ) -> tuple[tuple[str, ...], int, list[str], list[int]]:
+    ) -> tuple[tuple[str, ...], int, list[str], list[int], list[str]]:
         """Get the properties of the given data.
 
         Parameters
@@ -68,7 +68,7 @@ class XYZWriter:
 
         Returns
         -------
-        tuple
+        tuple[tuple[str, ...], int, list[str], list[int], list[str]]
             A tuple containing the names, count, types, multiplicities and formatters
             of the properties.
         """
@@ -99,22 +99,22 @@ class XYZWriter:
 
     def __get_comment(
         self,
-        name_props: tuple,
+        name_props: tuple[str, ...],
         count_props: int,
-        type_props: list,
-        multiplicity_props: list,
+        type_props: list[str],
+        multiplicity_props: list[int],
     ) -> str:
         """Generate file comment following xyz guidelines.
 
         Parameters
         ----------
-        name_props : tuple
+        name_props : tuple[str, ...]
             Property names.
         count_props : int
             Number of properties.
-        type_props : list
+        type_props : list[str]
             Property types.
-        multiplicity_props : list
+        multiplicity_props : list[int]
             Property multiplicities.
 
         Returns
@@ -131,10 +131,10 @@ class XYZWriter:
     def __data_to_line(
         self,
         data: npt.NDArray,
-        name_props: tuple,
+        name_props: tuple[str, ...],
         count_props: int,
-        multiplicity_props: list,
-        formatters: list,
+        multiplicity_props: list[int],
+        formatters: list[str],
     ) -> str:
         """Transform data into string to write.
 
@@ -142,13 +142,13 @@ class XYZWriter:
         ----------
         data : npt.NDArray
             Data to write.
-        name_props : tuple
+        name_props : tuple[str, ...]
             Property names.
         count_props : int
             Number of properties.
-        multiplicity_props : list
+        multiplicity_props : list[int]
             Property multiplicities.
-        formatters : list
+        formatters : list[str]
             Formatters for each property.
 
         Returns

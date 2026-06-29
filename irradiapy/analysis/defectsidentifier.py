@@ -1,6 +1,7 @@
 """This module provides a class to find and analyze defects in crystalline structures."""
 
 from dataclasses import dataclass, field
+from typing import Any
 
 import numpy as np
 import numpy.typing as npt
@@ -45,6 +46,8 @@ class DefectsIdentifier:
     __ny: int = field(init=False)
     __nz: int = field(init=False)
     __sub_count: int = 2  # Number of atoms per primitive unit cell (bcc).
+    __pos_ucell: npt.NDArray[np.float64] = field(init=False)
+    __idx_ucell: npt.NDArray[np.int64] = field(init=False)
 
     def __post_init__(self) -> None:
         if self.lattice == "bcc":
@@ -96,7 +99,7 @@ class DefectsIdentifier:
         ----------
         atoms : dtypes.Atom
             Structured array of atomic positions (fields: x, y, z).
-        a1 : float
+        a1 : float | np.number
             Final lattice parameter to rescale positions.
         pos_pka : npt.NDArray[np.float64]
             Position vector of the PKA for translation.
@@ -167,7 +170,7 @@ class DefectsIdentifier:
 
         Returns
         -------
-        tuple of int
+        tuple[int, int, int, int]
             (ix, iy, iz, ia) indices corresponding to the site ID.
         """
         ia = i % self.__sub_count
@@ -202,14 +205,14 @@ class DefectsIdentifier:
 
     def __defect_identification(
         self,
-        data_atoms: dict,
+        data_atoms: dict[str, Any],
         idx_atoms: npt.NDArray[np.int64],
     ) -> dtypes.Defect:
         """Identifies defects based on the assignments.
 
         Parameters
         ----------
-        data_atoms : dict
+        data_atoms : dict[str, Any]
             Dictionary containing simulation data as given by the LAMMPSReader and similar readers.
         idx_atoms : npt.NDArray[np.int64]
             Array of atomic index coordinates (shape: [N, 4]).
@@ -261,32 +264,32 @@ class DefectsIdentifier:
 
     def identify(
         self,
-        data_atoms: dict,
-        a1: None | float = None,
-        pos_pka: None | npt.NDArray[np.float64] = None,
-        theta_pka: None | float = None,
-        phi_pka: None | float = None,
-        transform: None | bool = False,
-    ) -> dict:
+        data_atoms: dict[str, Any],
+        a1: float | None = None,
+        pos_pka: npt.NDArray[np.float64] | None = None,
+        theta_pka: float | None = None,
+        phi_pka: float | None = None,
+        transform: bool = False,
+    ) -> dict[str, Any]:
         """Identify defects in the crystalline structure based on atomic positions.
 
         Parameters
         ----------
-        data_atoms : dict
+        data_atoms : dict[str, Any]
             Dictionary containing simulation data as given by the LAMMPSReader and similar readers.
             Must include keys: 'atoms', 'boundary', 'xlo', 'xhi', 'ylo', 'yhi', 'zlo',
             'zhi', 'timestep'.
-        a1 : float, optional
+        a1 : float | None, optional (default=None)
             Final lattice parameter. If provided, defect positions are rescaled to this value
             (independently of the `transform` value).
-        pos_pka : npt.NDArray[np.float64], optional
+        pos_pka : npt.NDArray[np.float64] | None, optional (default=None)
             Position vector of the PKA. If provided with theta_pka and phi_pka, defects are
             recentered and aligned.
-        theta_pka : float, optional
+        theta_pka : float | None, optional (default=None)
             Polar angle (in radians) for the PKA direction.
-        phi_pka : float, optional
+        phi_pka : float | None, optional (default=None)
             Azimuthal angle (in radians) for the PKA direction.
-        transform : bool, optional
+        transform : bool, optional (default=False)
             If True, defects are recentered and aligned with the PKA direction (if provided). If
             True but no PKA parameters are provided, defects are recentered based on their
             average position. Note that the box boundaries are not modified for visualization
@@ -294,7 +297,7 @@ class DefectsIdentifier:
 
         Returns
         -------
-        data_defects : dict
+        data_defects : dict[str, Any]
             Dictionary containing the defects found in the structure. Keys are the same as in
             `data_atoms`, but the 'atoms' key contains only defects.
         """

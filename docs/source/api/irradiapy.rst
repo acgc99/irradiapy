@@ -10,40 +10,28 @@ Subpackages
    irradiapy.analysis
    irradiapy.io
    irradiapy.materials
+   irradiapy.spectrapka
    irradiapy.srim
    irradiapy.utils
 
 Submodules
 ----------
 
-irradiapy.config module
------------------------
+.. toctree::
+   :maxdepth: 4
 
-.. automodule:: irradiapy.config
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-irradiapy.damagedb module
--------------------------
-
-.. automodule:: irradiapy.damagedb
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-irradiapy.dtypes module
------------------------
-
-.. automodule:: irradiapy.dtypes
-   :members:
-   :undoc-members:
-   :show-inheritance:
+   irradiapy.config
+   irradiapy.database
+   irradiapy.debris_database
+   irradiapy.debris_dataset
+   irradiapy.dtypes
+   irradiapy.enums
+   irradiapy.recoilsdb
 
 Module contents
 ---------------
 
 .. automodule:: irradiapy
    :members:
-   :undoc-members:
    :show-inheritance:
+   :undoc-members:

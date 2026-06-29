@@ -467,8 +467,8 @@ class AnalysisDB(Database):
         ----------
         model : str
             Model name.
-        hist : float
-            dpa histogram values.
+        dpa : float
+            dpa value.
         """
         cur = self.cursor()
         cur.execute("CREATE TABLE IF NOT EXISTS dpa (model TEXT PRIMARY KEY, dpa REAL)")

@@ -27,7 +27,7 @@ def depth_dpa_hist(
     fluence: float,
     debris_path: Path | None = None,
     nbins: int = 100,
-    p0: None | float = None,
+    p0: float | None = None,
     asymmetry: float = 1.0,
 ) -> None:
     """Get depth dpa histogram and save it into database.
@@ -57,11 +57,6 @@ def depth_dpa_hist(
     asymmetry : float, optional (default=1.0)
         Bound for the asymmetry fit parameter. Fit will be done in (-asymmetry, asymmetry).
 
-    Returns
-    -------
-    dict[str, npt.NDArray[np.float64]]
-        Dictionary with depth centers and dpa histograms. Keys: 'depth_centers', 'nrt', 'arc',
-        'ferarc', and optionally 'debris'.
     """
     target = recoilsdb.load_target()
     if axis == "x":

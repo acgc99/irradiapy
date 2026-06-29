@@ -28,13 +28,13 @@ class DebrisManager:
 
     Attributes
     ----------
-    recoil: Element
+    recoil : Element
         Recoil element.
-    component: Component
+    component : Component
         Target material.
-    damage_energy_mode : materials.Material.DamageEnergyMode
+    damage_energy_mode : DamageEnergyMode
         Mode for recoil to damage energy calculation.
-    displacement_mode : materials.Material.DisplacementMode
+    displacement_mode : DisplacementMode
         Mode for calculation of number of displacement atoms.
     fp_dist : float
         Distance between the vacancy and the interstitial of a Frenkel pair, in angstroms.
@@ -120,7 +120,9 @@ class DebrisManager:
         types = atomic_numbers[idx]
         return types
 
-    def __get_files(self, recoil_energy: float) -> tuple[dict[float, list[Path]], int]:
+    def __get_files(
+        self, recoil_energy: float
+    ) -> tuple[dict[float, np.ndarray], int]:
         """Get cascade files and number of residual FP for a given recoil energy.
 
         Parameters
@@ -130,7 +132,7 @@ class DebrisManager:
 
         Returns
         -------
-        tuple[dict[float, list[Path]], int]
+        tuple[dict[float, np.ndarray], int]
             Dictionary of selected paths and number of residual FP.
         """
         if self.__nenergies == 0:
@@ -166,7 +168,7 @@ class DebrisManager:
             for i, energy in enumerate(self.__energies)
         }
         # Get the number of residual FP
-        nfp = np.round(self.__calc_nd(residual_energy)).astype(np.int64)
+        nfp = int(np.round(self.__calc_nd(residual_energy)))
         return debris_files, nfp
 
     def get_recoil_debris(
@@ -221,7 +223,7 @@ class DebrisManager:
 
     def __process_highest_energy_cascade(
         self,
-        files: dict,
+        files: dict[float, np.ndarray],
         db_emax: float,
         recoil_pos: npt.NDArray[np.float64],
         recoil_dir: npt.NDArray[np.float64],
@@ -230,7 +232,7 @@ class DebrisManager:
 
         Parameters
         ----------
-        files : dict
+        files : dict[float, np.ndarray]
             Dictionary of files for each energy.
         db_emax : float
             Energy of the highest energy cascade.
@@ -262,7 +264,7 @@ class DebrisManager:
 
     def __place_other_debris(
         self,
-        files: dict,
+        files: dict[float, np.ndarray],
         defects: dtypes.Defect,
         parallelepiped: tuple[PCA, npt.NDArray, npt.NDArray],
     ) -> dtypes.Defect:
@@ -270,7 +272,7 @@ class DebrisManager:
 
         Parameters
         ----------
-        files : dict
+        files : dict[float, np.ndarray]
             Dictionary of files for each energy.
         defects : dtypes.Defect
             Defects after the highest energy cascade.
@@ -383,7 +385,9 @@ class DebrisManager:
 
         return defects_
 
-    def __get_parallelepiped(self, atoms: dtypes.Atom) -> tuple:
+    def __get_parallelepiped(
+        self, atoms: dtypes.Atom
+    ) -> tuple[PCA, npt.NDArray[np.float64], npt.NDArray[np.float64]]:
         """
         Define a parallelepiped from the atomic positions using PCA.
 
@@ -394,7 +398,7 @@ class DebrisManager:
 
         Returns
         -------
-        tuple
+        tuple[PCA, npt.NDArray[np.float64], npt.NDArray[np.float64]]
             PCA object, minimum PCA coordinates, maximum PCA coordinates.
         """
         pos = _str2unstr(atoms[["x", "y", "z"]], dtype=np.float64, copy=False)
@@ -449,7 +453,7 @@ class DebrisManager:
             If True, use logarithmic scale for both axes.
         show : bool, optional (default=False)
             Whether to show the plot.
-        plot_path : Path, optional (default=None)
+        plot_path : Path | None, optional (default=None)
             Output path for the plot.
         dpi : int, optional (default=300)
             Dots per inch for the plot.
@@ -597,10 +601,12 @@ class DebrisManager:
             If True, use logarithmic scale for the color map.
         show : bool, optional (default=False)
             Whether to show the plot.
-        vacs_plot_path : Path, optional (default=None)
+        vacs_plot_path : Path | None, optional (default=None)
             Output path for the vacancy cluster sizes plot.
-        sias_plot_path : Path, optional (default=None)
+        sias_plot_path : Path | None, optional (default=None)
             Output path for the interstitial cluster sizes plot.
+        dpi : int, optional (default=300)
+            Dots per inch for the plots.
         """
         recoil_energies: list[float] = sorted(list(self.__files.keys()))
         if not recoil_energies:

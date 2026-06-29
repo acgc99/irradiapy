@@ -50,7 +50,7 @@ def set_srim_dir(path: str | Path) -> None:
 
     Parameters
     ----------
-    path : str | pathlib.Path
+    path : str | Path
         Path to the TRIM.exe directory (parent folder).
     """
     global _srim_dir  # pylint: disable=global-statement
@@ -62,7 +62,7 @@ def get_srim_dir() -> Path:
 
     Returns
     -------
-    pathlib.Path
+    Path
         Path to the TRIM.exe directory (parent folder).
     """
     if _srim_dir is None:
@@ -99,7 +99,7 @@ def set_debris_database(
 
     Parameters
     ----------
-    path : str | pathlib.Path
+    path : str | Path
         Database root path.
     electronic_interactions : str
         Electronic interactions metadata required for selected datasets.

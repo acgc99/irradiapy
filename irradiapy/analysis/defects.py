@@ -1,11 +1,11 @@
 """Defects analysis module."""
 
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 from numpy import typing as npt
 
-from irradiapy import dtypes
 from irradiapy.analysis.defectsidentifier import DefectsIdentifier
 from irradiapy.io import BZIP2LAMMPSReader, LAMMPSReader, LAMMPSWriter
 
@@ -13,14 +13,14 @@ from irradiapy.io import BZIP2LAMMPSReader, LAMMPSReader, LAMMPSWriter
 def identify_defects(
     lattice: str,
     a0: float,
-    data_atoms: dict,
-    a1: None | float = None,
-    pos_pka: None | npt.NDArray[np.float64] = None,
-    theta_pka: None | float = None,
-    phi_pka: None | float = None,
-    transform: None | bool = False,
+    data_atoms: dict[str, Any],
+    a1: float | None = None,
+    pos_pka: npt.NDArray[np.float64] | None = None,
+    theta_pka: float | None = None,
+    phi_pka: float | None = None,
+    transform: bool = False,
     debug: bool = False,
-) -> dtypes.Defect:
+) -> dict[str, Any]:
     """Identify defects in a given atomic structure.
 
     Parameters
@@ -29,19 +29,19 @@ def identify_defects(
         Lattice type. Currently only "bcc" is supported.
     a0 : float
         Lattice parameter.
-    data_atoms : dict
+    data_atoms : dict[str, Any]
         Dictionary containing simulation data as given by the LAMMPSReader and similar readers.
         Must include keys: 'atoms', 'boundary', 'xlo', 'xhi', 'ylo', 'yhi', 'zlo',
         'zhi', 'timestep'.
-    a1 : float, optional (default=None)
+    a1 : float | None, optional (default=None)
         Final lattice parameter. If provided, defect positions are rescaled to this value
         (independently of the `transform` value).
-    pos_pka : npt.NDArray[np.float64], optional (default=None)
+    pos_pka : npt.NDArray[np.float64] | None, optional (default=None)
         Position vector of the PKA. If provided with theta_pka and phi_pka, defects are
         recentered and aligned.
-    theta_pka : float, optional (default=None)
+    theta_pka : float | None, optional (default=None)
         Polar angle (in radians) for the PKA direction.
-    phi_pka : float, optional (default=None)
+    phi_pka : float | None, optional (default=None)
         Azimuthal angle (in radians) for the PKA direction.
     transform : bool, optional (default=False)
         If True, defects are recentered and aligned with the PKA direction (if provided). If
@@ -53,8 +53,8 @@ def identify_defects(
 
     Returns
     -------
-    dtypes.Defect
-        An array of identified defects in the structure.
+    dict[str, Any]
+        Snapshot data containing the identified defects in its ``"atoms"`` entry.
     """
     defects_finder = DefectsIdentifier(lattice=lattice, a0=a0, debug=debug)
     defects = defects_finder.identify(
@@ -73,11 +73,11 @@ def identify_lammps_dump(
     a0: float,
     dump_path: Path,
     dump_defects_path: Path,
-    a1: None | float = None,
-    pos_pka: None | npt.NDArray[np.float64] = None,
-    theta_pka: None | float = None,
-    phi_pka: None | float = None,
-    transform: None | bool = False,
+    a1: float | None = None,
+    pos_pka: npt.NDArray[np.float64] | None = None,
+    theta_pka: float | None = None,
+    phi_pka: float | None = None,
+    transform: bool = False,
     overwrite: bool = False,
     debug: bool = False,
 ) -> None:
@@ -89,27 +89,21 @@ def identify_lammps_dump(
         Lattice type. Currently only "bcc" is supported.
     a0 : float
         Lattice parameter.
-    data_atoms : dict
-        Dictionary containing simulation data as given by the LAMMPSReader and similar readers.
-    data_atoms : dict
-        Dictionary containing simulation data as given by the LAMMPSReader and similar readers.
-        Must include keys: 'atoms', 'boundary', 'xlo', 'xhi', 'ylo', 'yhi', 'zlo',
-        'zhi', 'timestep'.
     dump_path : Path
         Path to the LAMMPS dump file to read. Can be compressed with `.bz2` or not.
     dump_defects_path : Path
         Path to the output file where identified defects will be written (in text format).
-    a1 : float, optional
+    a1 : float | None, optional (default=None)
         Final lattice parameter. If provided, defect positions are rescaled to this value
         (independently of the `transform` value).
-    pos_pka : npt.NDArray[np.float64], optional
+    pos_pka : npt.NDArray[np.float64] | None, optional (default=None)
         Position vector of the PKA. If provided with theta_pka and phi_pka, defects are
         recentered and aligned.
-    theta_pka : float, optional
+    theta_pka : float | None, optional (default=None)
         Polar angle (in radians) for the PKA direction.
-    phi_pka : float, optional
+    phi_pka : float | None, optional (default=None)
         Azimuthal angle (in radians) for the PKA direction.
-    transform : bool, optional
+    transform : bool, optional (default=False)
         If True, defects are recentered and aligned with the PKA direction (if provided). If
         True but no PKA parameters are provided, defects are recentered based on their
         average position. Note that the box boundaries are not modified for visualization

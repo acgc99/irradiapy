@@ -4,14 +4,14 @@
 
 import re
 from pathlib import Path
-from typing import TextIO
+from typing import Any, TextIO
 
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 
 
-def read(file_path: Path) -> dict:
+def read(file_path: Path) -> dict[str | int, Any]:
     """Reads SPECTRA-PKA .out file.
 
     Parameters
@@ -21,7 +21,7 @@ def read(file_path: Path) -> dict:
 
     Returns
     -------
-    dict
+    dict[str | int, Any]
         Dictionary containing the data from the .out file.
     """
 
@@ -415,13 +415,13 @@ def __process_spectrum(file: TextIO, index: int, label: str) -> dict[str, npt.ND
     return data
 
 
-def plot_all(data: dict, out_path: Path) -> None:
+def plot_all(data: dict[str | int, Any], out_path: Path) -> None:
     """Plot all matrices from SPECTRA-PKA .out using data from irradiapy.spectrapka.output.read
     function.
 
     Parameters
     ----------
-    data : dict
+    data : dict[str | int, Any]
         Data dictionary from irradiapy.spectrapka.output.read function.
     out_path : Path
         Output path to save the plots.

@@ -37,15 +37,10 @@ class LAMMPSLogReader:
     def __iter__(self) -> Generator[dict[str, Any], None, None]:
         """Reads a LAMMPS log file.
 
-        Parameters
-        ----------
-        log_path : Path
-            The path to the log file.
-
-        Returns
-        -------
-        npt.NDArray
-            The data as a structured array.
+        Yields
+        ------
+        dict[str, Any]
+            Snapshot data containing the thermo array.
         """
         self.__reset()
         expecting_header = False  # Next line will be a header

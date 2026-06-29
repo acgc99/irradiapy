@@ -8,7 +8,7 @@ import numpy as np
 from numpy import typing as npt
 
 
-def insert_array(path: Path, name: str, **kargs) -> None:
+def insert_array(path: Path, name: str, **kargs: npt.ArrayLike) -> None:
     """Insert or update an array in the arrays table.
 
     Parameters
@@ -17,8 +17,8 @@ def insert_array(path: Path, name: str, **kargs) -> None:
         Path to the SQLite database file.
     name : str
         Name of the array to insert or update.
-    kargs : dict
-        Keyword arguments representing the array data.
+    kargs : npt.ArrayLike
+        Keyword arguments whose values contain the array data.
     """
     buffer = io.BytesIO()
     np.savez(buffer, **kargs)

@@ -89,8 +89,3 @@ python -m sphinx -M html docs/source docs/build
 ```
 
 The generated documentation is available at `docs/build/html/index.html`. The final command treats warnings as build failures, which keeps release documentation from silently shipping broken references or malformed docstrings.
-
-
-python -m sphinx.ext.apidoc --force --remove-old --separate -o docs/source/api irradiapy
-python -m sphinx -M clean docs/source docs/build
-python -m sphinx -M html docs/source docs/build -E -a -W

@@ -1,7 +1,7 @@
 """This module contains the `Component` class."""
 
 from dataclasses import dataclass, field
-from typing import Callable, Union
+from typing import Callable
 
 import numpy as np
 import numpy.typing as npt
@@ -26,41 +26,41 @@ class Component:
         Phase of the component (solid, liquid, gas).
     density : float
         Density of the component in g/cm3.
-    x0 : float, optional
+    x0 : float | None, optional
         Initial x position of the component in angstroms.
-    y0 : float, optional
+    y0 : float | None, optional
         Initial y position of the component in angstroms.
-    z0 : float, optional
+    z0 : float | None, optional
         Initial z position of the component in angstroms.
-    width : float, optional
+    width : float | None, optional
         Width of the component in angstroms.
-    height : float, optional
+    height : float | None, optional
         Height of the component in angstroms.
-    length : float, optional
+    length : float | None, optional
         Length of the component in angstroms.
-    ax : float, optional
+    ax : float | None, optional
         Lattice parameter in x-axis in angstroms.
-    ay : float, optional
+    ay : float | None, optional
         Lattice parameter in y-axis in angstroms.
-    az : float, optional
+    az : float | None, optional
         Lattice parameter in z-axis in angstroms.
-    c : float, optional
+    c : float | None, optional
         c parameter for hcp structure in angstroms.
-    structure : str, optional
+    structure : str | None, optional
         Crystal structure (bcc, fcc, hcp, amorphous).
-    ed_min : float, optional
+    ed_min : float | None, optional
         Minimum displacement energy in eV.
-    ed_avr : float, optional
+    ed_avr : float | None, optional
         Average displacement energy in eV.
-    b_arc : float, optional
+    b_arc : float | None, optional
         b parameter for arc-dpa model.
-    c_arc : float, optional
+    c_arc : float | None, optional
         c parameter for arc-dpa model.
     calculate_energies : bool, optional
         Whether to calculate missing energy parameters from elements.
-    srim_el : float, optional
+    srim_el : float | None, optional
         SRIM lattice binding energy in eV.
-    srim_es : float, optional
+    srim_es : float | None, optional
         SRIM surface binding energy in eV.
     """
 
@@ -73,32 +73,32 @@ class Component:
     stoichiometry_dict: dict[str, float] = field(init=False)
 
     # Position
-    x0: None | float = None  # Angstrom
-    y0: None | float = None  # Angstrom
-    z0: None | float = None  # Angstrom
+    x0: float | None = None  # Angstrom
+    y0: float | None = None  # Angstrom
+    z0: float | None = None  # Angstrom
     # Extension
-    width: None | float = None  # Angstrom
-    height: None | float = None  # Angstrom
-    length: None | float = None  # Angstrom
+    width: float | None = None  # Angstrom
+    height: float | None = None  # Angstrom
+    length: float | None = None  # Angstrom
 
     # Lattice parameters
-    ax: None | float = None  # Angstrom
-    ay: None | float = None  # Angstrom
-    az: None | float = None  # Angstrom
-    c: None | float = None  # for hcp
-    structure: None | str = None  # bcc, fcc, hcp, amorphous
+    ax: float | None = None  # Angstrom
+    ay: float | None = None  # Angstrom
+    az: float | None = None  # Angstrom
+    c: float | None = None  # for hcp
+    structure: str | None = None  # bcc, fcc, hcp, amorphous
 
     # Displacement parameters
-    ed_min: None | float = None  # displacement energy, eV
-    ed_avr: None | float = None  # average displacement energy, eV
-    b_arc: None | float = None
-    c_arc: None | float = None
+    ed_min: float | None = None  # displacement energy, eV
+    ed_avr: float | None = None  # average displacement energy, eV
+    b_arc: float | None = None
+    c_arc: float | None = None
     calculate_energies: bool = False
 
     # SRIM values
-    srim_el: None | float = None  # SRIM lattice binding energy, eV
-    srim_es: None | float = None  # SRIM surface binding energy, eV
-    srim_phase: None | int = field(init=False)  # SRIM phase (solid = 0; gas = 1)
+    srim_el: float | None = None  # SRIM lattice binding energy, eV
+    srim_es: float | None = None  # SRIM surface binding energy, eV
+    srim_phase: int | None = field(init=False)  # SRIM phase (solid = 0; gas = 1)
     srim_bragg: int = 1  # Stopping corrections for special bonding in compound targets.
 
     nelements: int = field(init=False)
@@ -189,9 +189,9 @@ class Component:
         """Return component stoichiometry as a symbol-to-fraction dictionary."""
         stoichiometry: dict[str, float] = {}
         for element, stoich in zip(self.elements, self.stoichs):
-            stoichiometry[element.symbol] = stoichiometry.get(element.symbol, 0.0) + float(
-                stoich
-            )
+            stoichiometry[element.symbol] = stoichiometry.get(
+                element.symbol, 0.0
+            ) + float(stoich)
         return stoichiometry
 
     # region Recoil to damage energy
@@ -350,9 +350,9 @@ class Component:
 
     def damage_energy_to_displacements(
         self,
-        damage_energy: float | npt.NDArray[np.float64],
+        damage_energy: int | float | npt.NDArray[np.float64],
         mode: DisplacementMode,
-    ) -> int | npt.NDArray[np.float64]:
+    ) -> float | npt.NDArray[np.float64]:
         """Convert damage energy to displaced atoms.
 
         Tries to use the component parameters first; if not available, uses the element
@@ -360,7 +360,7 @@ class Component:
 
         Parameters
         ----------
-        damage_energy : float | npt.NDArray[np.float64]
+        damage_energy : int | float | npt.NDArray[np.float64]
             Damage energy, in eV.
         mode : DisplacementMode
             Displaced atoms calculation mode.
@@ -391,27 +391,29 @@ class Component:
 
     @staticmethod
     def __calc_nrt_displacements(
-        damage_energy: float | npt.NDArray[np.float64],
-        target: Union[Element, "Component"],
+        damage_energy: int | float | npt.NDArray[np.float64],
+        target: Element | "Component",
     ) -> float | npt.NDArray[np.float64]:
         """Calculate the NRT-displacements for the given damage energy.
 
         Parameters
         ----------
-        damage_energy : int | float | numpy.ndarray
+        damage_energy : int | float | npt.NDArray[np.float64]
             Damage energy in electron volts.
         target : Element | Component
             Target element or component.
 
         Returns
         -------
-        int | numpy.ndarray
+        float | npt.NDArray[np.float64]
             Number of Frenkel pairs predicted by NRT-displacements.
         """
         min_threshold = target.ed_avr
         max_threshold = 2.5 * target.ed_avr
 
-        def scaling_func(x):
+        def scaling_func(
+            x: float | npt.NDArray[np.float64],
+        ) -> float | npt.NDArray[np.float64]:
             return 0.4 * x / target.ed_avr
 
         if isinstance(damage_energy, (float, int)):
@@ -430,13 +432,13 @@ class Component:
 
     @staticmethod
     def __calc_nrt_displacements_elements(
-        damage_energy: float | npt.NDArray[np.float64],
+        damage_energy: int | float | npt.NDArray[np.float64],
         component: "Component",
     ) -> float | npt.NDArray[np.float64]:
         """Calculate the NRT-displacements for the given damage energy using component elements.
         Parameters
         ----------
-        damage_energy : float | npt.NDArray[np.float64]
+        damage_energy : int | float | npt.NDArray[np.float64]
             Damage energy in electron volts.
         component : Component
             Target component.
@@ -455,14 +457,14 @@ class Component:
 
     @staticmethod
     def __calc_arc_displacements(
-        damage_energy: float | npt.NDArray[np.float64],
-        target: Union[Element, "Component"],
+        damage_energy: int | float | npt.NDArray[np.float64],
+        target: Element | "Component",
     ) -> float | npt.NDArray[np.float64]:
         """Calculate the arc-displacements for the given damage energy.
 
         Parameters
         ----------
-        damage_energy : float | npt.NDArray[np.float64]
+        damage_energy : int | float | npt.NDArray[np.float64]
             Damage energy in electron volts.
         target : Element | Component
             Target element or component.
@@ -475,10 +477,14 @@ class Component:
         min_threshold = target.ed_avr
         max_threshold = 2.5 * target.ed_avr
 
-        def scaling_func(x):
+        def scaling_func(
+            x: float | npt.NDArray[np.float64],
+        ) -> float | npt.NDArray[np.float64]:
             return 0.4 * x / target.ed_avr
 
-        def efficiency_func(x):
+        def efficiency_func(
+            x: float | npt.NDArray[np.float64],
+        ) -> float | npt.NDArray[np.float64]:
             return (1.0 - target.c_arc) / (
                 max_threshold**target.b_arc
             ) * x**target.b_arc + target.c_arc
@@ -502,14 +508,14 @@ class Component:
 
     @staticmethod
     def __calc_arc_displacements_elements(
-        damage_energy: float | npt.NDArray[np.float64],
+        damage_energy: int | float | npt.NDArray[np.float64],
         component: "Component",
     ) -> float | npt.NDArray[np.float64]:
         """Calculate the arc-displacements for the given damage energy using component elements.
 
         Parameters
         ----------
-        damage_energy : float | npt.NDArray[np.float64]
+        damage_energy : int | float | npt.NDArray[np.float64]
             Damage energy in electron volts.
         component : Component
             Target component.
@@ -528,13 +534,13 @@ class Component:
 
     @staticmethod
     def __calc_fer_arc_displacements(
-        damage_energy: float | npt.NDArray[np.float64],
-        target: Union[Element, "Component"],
+        damage_energy: int | float | npt.NDArray[np.float64],
+        target: Element | "Component",
     ) -> float | npt.NDArray[np.float64]:
         """Calculate the fer-arc-displacements for the given damage energy.
         Parameters
         ----------
-        damage_energy : float | npt.NDArray[np.float64]
+        damage_energy : int | float | npt.NDArray[np.float64]
             Damage energy, in eV.
         target : Element | Component
             Target element or component.
@@ -547,10 +553,14 @@ class Component:
         min_threshold = target.ed_min
         max_threshold = 2.5 * target.ed_avr
 
-        def scaling_func(x):
+        def scaling_func(
+            x: float | npt.NDArray[np.float64],
+        ) -> float | npt.NDArray[np.float64]:
             return 0.4 * x / target.ed_avr
 
-        def efficiency_func(x):
+        def efficiency_func(
+            x: float | npt.NDArray[np.float64],
+        ) -> float | npt.NDArray[np.float64]:
             return (1.0 - target.c_arc) / (
                 max_threshold**target.b_arc
             ) * x**target.b_arc + target.c_arc
@@ -575,13 +585,13 @@ class Component:
 
     @staticmethod
     def __calc_fer_arc_displacements_elements(
-        damage_energy: float | npt.NDArray[np.float64],
+        damage_energy: int | float | npt.NDArray[np.float64],
         component: "Component",
     ) -> float | npt.NDArray[np.float64]:
         """Calculate the fer-arc-displacements for the given damage energy using component elements.
         Parameters
         ----------
-        damage_energy : float | npt.NDArray[np.float64]
+        damage_energy : int | float | npt.NDArray[np.float64]
             Damage energy in electron volts.
         component : Component
             Target component.
@@ -603,9 +613,13 @@ class Component:
         damage_energy: npt.NDArray[np.float64],
         min_threshold: float,
         max_threshold: float,
-        scaling_func: Callable[[float], float],
-        efficiency_func: Callable[[float], float] = None,
-        middle_func: Callable[[float], float] = None,
+        scaling_func: Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]],
+        efficiency_func: (
+            Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]] | None
+        ) = None,
+        middle_func: (
+            Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]] | None
+        ) = None,
     ) -> npt.NDArray[np.float64]:
         """Apply displacement thresholds and scaling/efficiency functions.
 
@@ -617,11 +631,17 @@ class Component:
             Minimum threshold for displacements.
         max_threshold : float
             Maximum threshold for displacements.
-        scaling_func : Callable[[float], float]
+        scaling_func : Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]
             Function to scale damage energy.
-        efficiency_func : Callable[[float], float], optional (default=None)
+        efficiency_func : Callable[
+            [npt.NDArray[np.float64]],
+            npt.NDArray[np.float64]
+        ] | None, optional (default=None)
             Efficiency function for high energies.
-        middle_func : Callable[[float], float], optional (default=None)
+        middle_func : Callable[
+            [npt.NDArray[np.float64]],
+            npt.NDArray[np.float64]
+        ] | None, optional (default=None)
             Function for values between thresholds.
 
         Returns

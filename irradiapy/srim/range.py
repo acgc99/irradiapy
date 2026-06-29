@@ -8,7 +8,7 @@ from irradiapy.srim.srimfile import SRIMFile
 class Range(SRIMFile):
     """Class to handle `RANGE.txt` file."""
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         super().__post_init__()
         if self.srim.calculation == "quick":
             self.process_file = self.__process_file_qc

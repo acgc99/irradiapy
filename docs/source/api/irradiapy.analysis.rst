@@ -4,42 +4,22 @@ irradiapy.analysis package
 Submodules
 ----------
 
-irradiapy.analysis.clusters module
-----------------------------------
+.. toctree::
+   :maxdepth: 4
 
-.. automodule:: irradiapy.analysis.clusters
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-irradiapy.analysis.defects module
----------------------------------
-
-.. automodule:: irradiapy.analysis.defects
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-irradiapy.analysis.defectsidentifier module
--------------------------------------------
-
-.. automodule:: irradiapy.analysis.defectsidentifier
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-irradiapy.analysis.dpa module
------------------------------
-
-.. automodule:: irradiapy.analysis.dpa
-   :members:
-   :undoc-members:
-   :show-inheritance:
+   irradiapy.analysis.analysisdb
+   irradiapy.analysis.clusters
+   irradiapy.analysis.debris
+   irradiapy.analysis.debrismanager
+   irradiapy.analysis.defects
+   irradiapy.analysis.defectsidentifier
+   irradiapy.analysis.dpa
+   irradiapy.analysis.recoils
 
 Module contents
 ---------------
 
 .. automodule:: irradiapy.analysis
    :members:
-   :undoc-members:
    :show-inheritance:
+   :undoc-members:

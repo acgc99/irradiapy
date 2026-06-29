@@ -275,12 +275,12 @@ class Py2SRIM:
         self,
         atomic_numbers: npt.NDArray[np.int64],
         energies: npt.NDArray[np.float64],
-        depths: None | npt.NDArray[np.float64] = None,
-        ys: None | npt.NDArray[np.float64] = None,
-        zs: None | npt.NDArray[np.float64] = None,
-        cosxs: None | npt.NDArray[np.float64] = None,
-        cosys: None | npt.NDArray[np.float64] = None,
-        coszs: None | npt.NDArray[np.float64] = None,
+        depths: npt.NDArray[np.float64] | None = None,
+        ys: npt.NDArray[np.float64] | None = None,
+        zs: npt.NDArray[np.float64] | None = None,
+        cosxs: npt.NDArray[np.float64] | None = None,
+        cosys: npt.NDArray[np.float64] | None = None,
+        coszs: npt.NDArray[np.float64] | None = None,
     ) -> npt.NDArray[np.float64]:
         """Generates `TRIM.DAT` file.
 
@@ -589,7 +589,7 @@ class Py2SRIM:
         atomic_numbers: npt.NDArray[np.int64],
         energies: npt.NDArray[np.float64],
         **extra_fields: npt.NDArray[np.float64],
-    ) -> dict[int, dict[str, npt.NDArray[np.float64]]]:
+    ) -> dict[int, dict[str, npt.NDArray | int]]:
         """Group selected ions by atomic number.
 
         Parameters
@@ -605,19 +605,19 @@ class Py2SRIM:
 
         Returns
         -------
-        dict[int, dict[str, np.ndarray]]
+        dict[int, dict[str, npt.NDArray | int]]
             A dictionary keyed by atomic number. Each value is another dict with:
                 'atomic_numbers' : np.ndarray
                 'energies'       : np.ndarray
                 '<field name>'   : np.ndarray  # for each entry in extra_fields
                 'nions'          : int
         """
-        ions: dict[int, dict[str, npt.NDArray[np.float64]]] = {}
+        ions: dict[int, dict[str, npt.NDArray | int]] = {}
         unique_atomic_numbers = np.unique(atomic_numbers[mask])
 
         for atomic_number in unique_atomic_numbers:
             atomic_mask = (atomic_numbers == atomic_number) & mask
-            batch: dict[str, npt.NDArray[np.float64]] = {
+            batch: dict[str, npt.NDArray | int] = {
                 "atomic_numbers": atomic_numbers[atomic_mask],
                 "energies": energies[atomic_mask],
             }
@@ -1259,7 +1259,7 @@ class Py2SRIM:
 
         def run_branch(
             tree: tuple[int, ...],
-            batch: dict[str, npt.NDArray[np.float64]],
+            batch: dict[str, npt.NDArray | int],
         ) -> None:
             """Run SRIM for one branch in the tree and write root_dir/.../srim.db."""
             path = self.__tree2path_db(tree, True)

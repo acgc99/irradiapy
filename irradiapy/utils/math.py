@@ -90,7 +90,7 @@ def lorentzian(
 def fit_lorentzian(
     xs: npt.NDArray[np.float64],
     ys: npt.NDArray[np.float64],
-    p0: None | npt.NDArray[np.float64] = None,
+    p0: npt.NDArray[np.float64] | None = None,
     asymmetry: float = 1.0,
 ) -> tuple[
     npt.NDArray[np.float64],
@@ -105,7 +105,7 @@ def fit_lorentzian(
         X values where the function is evaluated.
     ys : npt.NDArray[np.float64]
         Y values at the given xs.
-    p0 : npt.NDArray[np.float64], optional (default=None)
+    p0 : npt.NDArray[np.float64] | None, optional (default=None)
         Initial guess of fit parameters. If None, a guess is generated.
     asymmetry : float, optional (default=1.0)
         Bound for the asymmetry fit parameter. Fit will be done in (-asymmetry, asymmetry).
@@ -201,7 +201,7 @@ def gaussian(
 def fit_gaussian(
     xs: npt.NDArray[np.float64],
     ys: npt.NDArray[np.float64],
-    p0: None | npt.NDArray[np.float64] = None,
+    p0: npt.NDArray[np.float64] | None = None,
     asymmetry: float = 1.0,
 ) -> tuple[
     npt.NDArray[np.float64],
@@ -216,7 +216,7 @@ def fit_gaussian(
         X values where the function is evaluated.
     ys : npt.NDArray[np.float64]
         Y values at the given xs.
-    p0 : npt.NDArray[np.float64], optional (default=None)
+    p0 : npt.NDArray[np.float64] | None, optional (default=None)
         Initial guess of fit parameters. If None, a guess is generated.
     asymmetry : float, optional (default=1.0)
         Bound for the asymmetry fit parameter. Fit will be done in (-asymmetry, asymmetry).
@@ -294,7 +294,7 @@ def power_law(
 def fit_power_law(
     xs: npt.NDArray[np.float64],
     ys: npt.NDArray[np.float64],
-    yerrs: None | npt.NDArray[np.float64] = None,
+    yerrs: npt.NDArray[np.float64] | None = None,
 ) -> tuple[
     npt.NDArray[np.float64],
     npt.NDArray[np.float64],
@@ -310,7 +310,7 @@ def fit_power_law(
         x-values where the function is evaluated.
     ys : npt.NDArray[np.float64]
         y-values at the given xs.
-    yerrs : npt.NDArray[np.float64], optional
+    yerrs : npt.NDArray[np.float64] | None, optional (default=None)
         y-errors.
     Returns
     -------
@@ -383,7 +383,7 @@ def offset_power_law(
 def fit_offset_power_law(
     xs: npt.NDArray[np.float64],
     ys: npt.NDArray[np.float64],
-    yerrs: None | npt.NDArray[np.float64] = None,
+    yerrs: npt.NDArray[np.float64] | None = None,
 ) -> tuple[
     npt.NDArray[np.float64],
     npt.NDArray[np.float64],
@@ -402,7 +402,7 @@ def fit_offset_power_law(
         X values where the function is evaluated.
     ys : npt.NDArray[np.float64]
         Y values at the given xs.
-    yerrs : npt.NDArray[np.float64], optional
+    yerrs : npt.NDArray[np.float64] | None, optional (default=None)
         Y errors (standard deviations) in linear space.
 
     Returns
@@ -460,7 +460,7 @@ def linear(x: npt.NDArray[np.float64], a: float, b: float) -> npt.NDArray[np.flo
 def fit_linear(
     xs: npt.NDArray[np.float64],
     ys: npt.NDArray[np.float64],
-    yerrs: None | npt.NDArray[np.float64] = None,
+    yerrs: npt.NDArray[np.float64] | None = None,
 ) -> tuple[
     npt.NDArray[np.float64],
     npt.NDArray[np.float64],
@@ -474,7 +474,7 @@ def fit_linear(
         X values where the function is evaluated.
     ys : npt.NDArray[np.float64]
         Y values at the given xs.
-    yerrs : npt.NDArray[np.float64], optional
+    yerrs : npt.NDArray[np.float64] | None, optional (default=None)
         Y errors.
 
     Returns

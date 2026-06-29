@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Generator, TextIO, Type
+from typing import Any, Generator, TextIO
 
 import numpy as np
 
@@ -24,7 +24,7 @@ class LAMMPSReader:
 
     Yields
     ------
-    dict
+    dict[str, Any]
         A dictionary containing the timestep data with keys:
         'time' (optional), 'timestep', 'boundary', 'xlo', 'xhi',
         'ylo', 'yhi', 'zlo', 'zhi', and 'atoms' (as a numpy structured array).
@@ -44,14 +44,10 @@ class LAMMPSReader:
 
     def __iter__(
         self,
-    ) -> Generator[
-        dict,  # Changed from tuple[...] to dict
-        None,
-        None,
-    ]:
+    ) -> Generator[dict[str, Any], None, None]:
         """Read the file as an iterator, timestep by timestep."""
         while True:
-            data = {}
+            data: dict[str, Any] = {}
             line = self.__file.readline()
             if not line:
                 break
@@ -80,7 +76,7 @@ class LAMMPSReader:
 
     def __get_dtype(
         self, line: str
-    ) -> tuple[list[str], list[Type[int | float]], np.dtype]:
+    ) -> tuple[list[str], list[type[int | float]], np.dtype]:
         """Get the data type of the simulation data.
 
         Parameters
@@ -90,7 +86,7 @@ class LAMMPSReader:
 
         Returns
         -------
-        tuple[list[str], list[Type[int | float]], np.dtype]
+        tuple[list[str], list[type[int | float]], np.dtype]
             The names of the data items, the types of the data items,
             and the data type.
         """

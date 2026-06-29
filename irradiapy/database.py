@@ -4,7 +4,7 @@ import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 from types import TracebackType
-from typing import Generator
+from typing import Any, Generator
 
 import numpy as np
 import numpy.typing as npt
@@ -28,9 +28,9 @@ class Database(sqlite3.Connection):
 
     def __exit__(
         self,
-        exc_type: None | type[BaseException] = None,
-        exc_value: None | BaseException = None,
-        exc_traceback: None | TracebackType = None,
+        exc_type: type[BaseException] | None = None,
+        exc_value: BaseException | None = None,
+        exc_traceback: TracebackType | None = None,
     ) -> bool:
         """Exit the runtime context related to this object."""
         self.close()
@@ -99,7 +99,7 @@ class Database(sqlite3.Connection):
         table: str,
         what: str = "*",
         conditions: str = "",
-    ) -> Generator[tuple, None, None]:
+    ) -> Generator[tuple[Any, ...], None, None]:
         """Reads table data from the database as a generator.
 
         Parameters
@@ -113,7 +113,7 @@ class Database(sqlite3.Connection):
 
         Yields
         ------
-        Generator[tuple, None, None]
+        Generator[tuple[Any, ...], None, None]
             Data from the database.
         """
         cur = self.cursor()
@@ -129,7 +129,7 @@ class Database(sqlite3.Connection):
         what: str = "*",
         condition: str = "",
         chunksize: int = 10_000,
-    ) -> Generator[tuple, None, None]:
+    ) -> Generator[tuple[Any, ...], None, None]:
         """Reads table data from the database as a generator in chunks. It might be faster than
         ``read`` for huge tables.
 
@@ -146,7 +146,7 @@ class Database(sqlite3.Connection):
 
         Yields
         ------
-        Generator[tuple, None, None]
+        Generator[tuple[Any, ...], None, None]
             Data from the database.
         """
         cur = self.cursor()

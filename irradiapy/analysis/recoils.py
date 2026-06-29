@@ -66,7 +66,7 @@ def recoil_energies_hist_plot(
     analysisdb: AnalysisDB,
     fit: bool = False,
     show: bool = False,
-    plot_path: None | Path = None,
+    plot_path: Path | None = None,
     dpi: int = 300,
 ) -> None:
     """Plot the recoil energy histogram.
@@ -79,7 +79,7 @@ def recoil_energies_hist_plot(
         Whether to plot the fit function.
     show : bool, optional (default=False)
         Whether to show the plot.
-    plot_path : Path, optional (default=None)
+    plot_path : Path | None, optional (default=None)
         Output path for the plot.
     dpi : int, optional (default=300)
         Dots per inch for the plot.
@@ -123,7 +123,7 @@ def recoils_distances_hist_plot(
     global_min_counts: int = 1,
     log: bool = False,
     show: bool = False,
-    plot_path: None | Path = None,
+    plot_path: Path | None = None,
     dpi: int = 300,
 ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]]:
     """Plot the recoils pairwise distances vs sum of recoil energies histogram.
@@ -150,7 +150,7 @@ def recoils_distances_hist_plot(
         Whether to use a logarithmic scale for the color map.
     show : bool, optional (default=False)
         Whether to show the plot.
-    plot_path : Path, optional (default=None)
+    plot_path : Path | None, optional (default=None)
         Output path for the plot.
     dpi : int, optional (default=300)
         Dots per inch for the plot.
@@ -244,7 +244,7 @@ def depth_recoil_energy_hist_plot(
     max_recoil_energy: float | None = None,
     log: bool = False,
     kev: bool = False,
-    plot_path: None | Path = None,
+    plot_path: Path | None = None,
     show: bool = False,
     dpi: int = 300,
 ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]]:
@@ -266,7 +266,7 @@ def depth_recoil_energy_hist_plot(
         Whether to use a logarithmic scale for the color map.
     kev : bool, optional (default=False)
         Whether to plot recoil energies in keV instead of eV.
-    plot_path : Path, optional (default=None)
+    plot_path : Path | None, optional (default=None)
         Output path for the plot.
     show : bool, optional (default=False)
         Whether to show the plot.
@@ -347,7 +347,7 @@ def depth_injected_ions_hist(
     analysisdb: AnalysisDB,
     axis: str,
     nbins: int = 100,
-    p0: None | float = None,
+    p0: float | None = None,
     asymmetry: float = 1.0,
 ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
     """Calculate and store the injected ions final depth histogram and tries to fit it.
@@ -422,7 +422,7 @@ def depth_injected_ions_hist_plot(
     axis: str,
     fit: bool = False,
     show: bool = False,
-    plot_path: None | Path = None,
+    plot_path: Path | None = None,
     dpi: int = 300,
 ) -> None:
     """Plot the injected ions final depth histogram.
@@ -437,7 +437,7 @@ def depth_injected_ions_hist_plot(
         Whether to plot the fit function.
     show : bool, optional (default=False)
         Whether to show the plot.
-    plot_path : Path, optional (default=None)
+    plot_path : Path | None, optional (default=None)
         Output path for the plot.
     dpi : int, optional (default=300)
         Dots per inch for the plot.

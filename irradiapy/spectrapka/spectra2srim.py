@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 from irradiapy import srim
 from irradiapy.materials import ATOMIC_NUMBER_BY_SYMBOL, ELEMENT_BY_SYMBOL, Phases
@@ -39,8 +40,8 @@ class Spectra2SRIM:
         Unfortunately, there is not a strict rule to set this value.
     matdict : dict[str, Any]
         Material dictionary with SPECTRA-PKA material information.
-    target : srim.target.Target
-        SRIM target.
+    target : list[Component]
+        SRIM target components.
     recoilsdb : RecoilsDB
         Database to store all recoils collected from SPECTRA-PKA and SRIM calculations.
     check_interval : float (default=0.2)
@@ -100,7 +101,19 @@ class Spectra2SRIM:
     reminders: int = field(default=0, init=False)
     bragg: int = field(default=1, init=False)
 
-    def __read_spectrapka_events_for_srim(self, conditions: str = "") -> tuple:
+    def __read_spectrapka_events_for_srim(self, conditions: str = "") -> tuple[
+        int,
+        npt.NDArray[np.int],
+        npt.NDArray[np.float64],
+        npt.NDArray[np.float64],
+        npt.NDArray[np.float64],
+        npt.NDArray[np.float64],
+        npt.NDArray[np.float64],
+        npt.NDArray[np.float64],
+        npt.NDArray[np.float64],
+        npt.NDArray[np.float64],
+        npt.NDArray[np.int],
+    ]:
         """Read data from the SPECTRA-PKA database for SRIM calculations.
 
         Parameters
@@ -110,7 +123,19 @@ class Spectra2SRIM:
 
         Returns
         -------
-        tuple
+        tuple[
+            int,
+            npt.NDArray[np.int],
+            npt.NDArray[np.float64],
+            npt.NDArray[np.float64],
+            npt.NDArray[np.float64],
+            npt.NDArray[np.float64],
+            npt.NDArray[np.float64],
+            npt.NDArray[np.float64],
+            npt.NDArray[np.float64],
+            npt.NDArray[np.float64],
+            npt.NDArray[np.int]
+        ]
             nions, atomic_numbers, recoil_energies, depths, ys, zs, cosxs, cosys, coszs, times,
             events
         """
@@ -248,13 +273,13 @@ class Spectra2SRIM:
     def run(
         self,
         density: float,
-        spectrapka_in_path,
-        spectrapka_events_path,
-        root_dir,
-        srim_width,
+        spectrapka_in_path: Path,
+        spectrapka_events_path: Path,
+        root_dir: Path,
+        srim_width: float,
         calculation: str,
         max_energy_rel: float,
-        exclude_recoils: list[int] | None = None,
+        exclude_recoils: list[str] | None = None,
         max_srim_iters: int = 32,
         minimize_window: bool = False,
         fp_energy_abs: float = 1e3,

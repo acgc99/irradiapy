@@ -85,9 +85,9 @@ class LAMMPSWriterMPI(MPIExceptionHandlerMixin):
 
     def __exit__(
         self,
-        exc_type: None | type[BaseException] = None,
-        exc_value: None | BaseException = None,
-        exc_traceback: None | TracebackType = None,
+        exc_type: type[BaseException] | None = None,
+        exc_value: BaseException | None = None,
+        exc_traceback: TracebackType | None = None,
     ) -> bool:
         if self.__rank == 0 and self.__file is not None:
             self.__file.close()

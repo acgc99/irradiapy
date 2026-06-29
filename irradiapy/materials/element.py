@@ -22,11 +22,11 @@ class Element:
     symbol: str
 
     # Displacement parameters
-    ed_min: None | float = None  # displacement energy, eV
-    ed_avr: None | float = None  # average displacement energy, eV
-    b_arc: None | float = None
-    c_arc: None | float = None
+    ed_min: float | None = None  # displacement energy, eV
+    ed_avr: float | None = None  # average displacement energy, eV
+    b_arc: float | None = None
+    c_arc: float | None = None
 
     # SRIM values
-    srim_el: None | float = None  # SRIM lattice binding energy, eV
-    srim_es: None | float = None  # SRIM surface binding energy, eV
+    srim_el: float | None = None  # SRIM lattice binding energy, eV
+    srim_es: float | None = None  # SRIM surface binding energy, eV

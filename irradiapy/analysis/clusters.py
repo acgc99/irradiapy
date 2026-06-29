@@ -234,7 +234,9 @@ def depth_clustering_fraction_hist(
     depth_edges = np.histogram_bin_edges(np.concatenate((idepths, vdepths)), bins=nbins)
     depth_centers = (depth_edges[1:] + depth_edges[:-1]) / 2.0
 
-    def fraction_by_depth(depths, sizes):
+    def fraction_by_depth(
+        depths: np.ndarray, sizes: np.ndarray
+    ) -> npt.NDArray[np.float64]:
         nbins = len(depth_edges) - 1
         b = np.digitize(depths, depth_edges) - 1
         valid = (b >= 0) & (b < nbins)
@@ -276,7 +278,7 @@ def depth_clustering_fraction_hist_plot(
         Axis along which to compute depth ('x', 'y', or 'z').
     min_size : int
         Minimum cluster size to be considered clustered.
-    plot_path : Path, optional (default=None)
+    plot_path : Path | None, optional (default=None)
         Output path for the plot.
     show : bool, optional (default=False)
         Whether to show the plot.
@@ -348,7 +350,11 @@ def depth_cluster_sizes_plot(
         correspond to depth bins, columns to cluster sizes.
     """
 
-    def size_histogram_by_depth(depths, sizes, depth_edges):
+    def size_histogram_by_depth(
+        depths: np.ndarray,
+        sizes: np.ndarray,
+        depth_edges: npt.NDArray[np.float64],
+    ) -> npt.NDArray[np.float64]:
         if sizes.size == 0:
             return np.zeros((depth_nbins, 0), dtype=np.float64)
 
@@ -598,9 +604,9 @@ def cluster_size_scaling_law_plot(
         Database for storing results.
     show : bool, optional (default=False)
         Whether to show the plots.
-    vacs_plot_path : Path, optional (default=None)
+    vacs_plot_path : Path | None, optional (default=None)
         Output path for the vacancies plot.
-    sias_plot_path : Path, optional (default=None)
+    sias_plot_path : Path | None, optional (default=None)
         Output path for the interstitials plot.
     dpi : int, optional (default=300)
         Dots per inch for the plot.

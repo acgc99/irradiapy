@@ -6,13 +6,14 @@ import sys
 import traceback
 from functools import wraps
 from pathlib import Path
+from typing import Any, Callable
 
 from mpi4py import MPI
 
 from irradiapy.utils.math import repeated_prime_factors
 
 
-def broadcast_variables(root: int, comm: MPI.Comm, *variables) -> list:
+def broadcast_variables(root: int, comm: MPI.Comm, *variables: Any) -> list[Any]:
     """Broadcasts variables.
 
     Parameters
@@ -21,12 +22,12 @@ def broadcast_variables(root: int, comm: MPI.Comm, *variables) -> list:
         The rank of the process that will broadcast the variables.
     comm : MPI.Comm
         The MPI communicator.
-    variables : tuple
-        The variables to broadcast.
+    variables : Any
+        Variables to broadcast.
 
     Returns
     -------
-    list
+    list[Any]
         The broadcasted variables.
     """
     return [comm.bcast(var, root=root) for var in variables]
@@ -69,7 +70,7 @@ def ap_rm_file(original: Path, target: Path, comm: MPI.Comm) -> None:
     comm.Barrier()
 
 
-def _resolve_attr(obj, public_name, default=None):
+def _resolve_attr(obj: Any, public_name: str, default: Any = None) -> Any:
     """Get an attribute, even if it is name-mangled."""
     # Try the public name first
     if hasattr(obj, public_name):
@@ -82,7 +83,7 @@ def _resolve_attr(obj, public_name, default=None):
     return default
 
 
-def mpi_safe_method(method):
+def mpi_safe_method(method: Callable[..., Any]) -> Callable[..., Any]:
     """Decorator that wraps an MPI-using method so any exception prints a
     traceback with the current rank and then calls MPI.Abort.
 
@@ -90,7 +91,7 @@ def mpi_safe_method(method):
     """
 
     @wraps(method)
-    def wrapper(self, *args, **kwargs):
+    def wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
         try:
             return method(self, *args, **kwargs)
         except Exception:
@@ -152,7 +153,7 @@ class MPITagAllocator:
     _next_tag = 0
 
     @classmethod
-    def get_tag(cls):
+    def get_tag(cls) -> int:
         """Get a unique tag for the current process.
 
         Warning

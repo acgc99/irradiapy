@@ -3,7 +3,7 @@
 import bz2
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import BinaryIO, Generator, Type
+from typing import Any, Generator, TextIO
 
 import numpy as np
 
@@ -25,7 +25,7 @@ class BZIP2LAMMPSReader:
 
     Yields
     ------
-    dict
+    dict[str, Any]
         A dictionary containing the timestep data with keys:
         'time' (optional), 'timestep', 'boundary', 'xlo', 'xhi',
         'ylo', 'yhi', 'zlo', 'zhi', and 'atoms' (as a numpy structured array).
@@ -35,7 +35,7 @@ class BZIP2LAMMPSReader:
     file_path: Path
     encoding: str = "utf-8"
 
-    __file: BinaryIO = field(default=None, init=False)
+    __file: TextIO = field(default=None, init=False)
 
     def __post_init__(self) -> None:
         self.__file = bz2.open(self.file_path, mode="rt", encoding=self.encoding)
@@ -46,23 +46,19 @@ class BZIP2LAMMPSReader:
 
     def __iter__(
         self,
-    ) -> Generator[
-        dict,
-        None,
-        None,
-    ]:
+    ) -> Generator[dict[str, Any], None, None]:
         """Read the bzip2 file as an iterator, timestep by timestep.
 
         Yields
         ------
-        dict
+        dict[str, Any]
             A dictionary containing the timestep data with keys:
             'time' (optional), 'timestep', 'boundary', 'xlo', 'xhi',
             'ylo', 'yhi', 'zlo', 'zhi', and 'atoms' (as a numpy structured array).
         """
         with bz2.open(self.file_path, mode="rt", encoding="utf-8") as file:
             while True:
-                data = {}
+                data: dict[str, Any] = {}
                 line = file.readline()
                 if not line:
                     break
@@ -88,7 +84,7 @@ class BZIP2LAMMPSReader:
 
     def __get_dtype(
         self, line: str
-    ) -> tuple[list[str], list[Type[int | float]], np.dtype]:
+    ) -> tuple[list[str], list[type[int | float]], np.dtype]:
         items = line.split()[2:]
         types = [
             int if item in ("id", "type", "element", "size") else float

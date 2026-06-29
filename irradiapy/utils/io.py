@@ -2,7 +2,9 @@
 
 import bz2
 from collections import deque
+from collections.abc import Iterable
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
@@ -54,18 +56,18 @@ def decompress_file_bz2(input_path: str, output_path: str) -> None:
 
 
 def get_last_reader(
-    reader: list[LAMMPSReader, BZIP2LAMMPSReader, LAMMPSLogReader],
-) -> any:
+    reader: Iterable[dict[str, Any]],
+) -> dict[str, Any]:
     """Get the last snapshot from a LAMMPS dump file using a reader.
 
     Parameters
     ----------
-    reader : LAMMPSReader, BZIP2LAMMPSReader, LAMMPSLogReader
+    reader : Iterable[dict[str, Any]]
         An instance of a LAMMPS reader.
 
     Returns
     -------
-    any
+    dict[str, Any]
         The last snapshot from the LAMMPS file.
     """
     return deque(reader, maxlen=1).pop()
@@ -73,7 +75,7 @@ def get_last_reader(
 
 def merge_lammps_snapshots(
     in_path: Path, out_path: Path, overwrite: bool = False
-) -> dict:
+) -> dict[str, Any]:
     """Merge multiple snapshots in a LAMMPS file into a single snapshot.
 
     Parameters
@@ -87,7 +89,7 @@ def merge_lammps_snapshots(
 
     Returns
     -------
-    dict
+    dict[str, Any]
         A dictionary containing the merged snapshot data.
     """
 

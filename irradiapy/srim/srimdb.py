@@ -31,22 +31,15 @@ class SRIMDB(Database):
     ----------
     path : Path
         Output database path.
-    target : list[Component], optional (default=None)
+    target : list[Component] | None, optional (default=None)
         SRIM target. Do not provide this argument for read only.
-    calculation : str, optional (default=None)
+    calculation : str | None, optional (default=None)
         SRIM calculation. Do not provide this argument for read only.
         Accepted values are: "quick", "full" and "mono".
     seed : int (default=0)
         Seed for SRIM randomness.
     srim_dir : Path (default=config.get_srim_dir())
         Directory where SRIM is installed.
-    check_interval : float
-        Interval to check for SRIM window/popups.
-    srim_path : Path
-        Where all SRIM output files are.
-        If given, it will automatically add all those files into the database.
-    con : sqlite3.Connection
-        Database connection.
     backscat : Backscat
         Class storing `BACKSCAT.txt` data.
     e2recoil : E2Recoil
@@ -71,8 +64,8 @@ class SRIMDB(Database):
         Class storing `VACANCY.txt` data.
     """
 
-    target: None | list[Component] = None
-    calculation: None | str = None
+    target: list[Component] | None = None
+    calculation: str | None = None
 
     seed: int = 0
     srim_dir: Path = field(default_factory=config.get_srim_dir)
@@ -108,13 +101,6 @@ class SRIMDB(Database):
 
     def __post_init__(self) -> None:
         """Initializes the `SRIMDB` object.
-
-        Parameters
-        ----------
-        target : Target, optional (default=None)
-            SRIM target. Do not provide this argument for read only.
-        calculation : Calculation, optional (default=None)
-            SRIM calculation. Do not provide this argument for read only.
         """
         super().__post_init__()
         self.backscat = Backscat(self)
