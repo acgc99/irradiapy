@@ -16,9 +16,9 @@ sys.path.insert(0, os.path.abspath("../.."))
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = "irradiapy"
-copyright = "2025, Abel Carlos Gutiérrez Camacho"
+copyright = "2026, Abel Carlos Gutiérrez Camacho"
 author = "Abel Carlos Gutiérrez Camacho"
-release = "1.0.2"
+release = "2.0.0"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
