@@ -70,6 +70,27 @@ Note that:
 - (For the future) If you do `pip install lammps`, you are not installing the right thing. To use your LAMMPS distribution you must build the package from source.
 
 Installation (PyPI link [here](https://pypi.org/project/irradiapy/)):
-```
+
+```bash
 pip install irradiapy
 ```
+
+## Building the documentation
+
+Run the following commands from the repository root with the project virtual environment activated:
+
+```bash
+python -m pip install sphinx -r docs/requirements.txt
+python -m pip install -e .
+
+python -m sphinx.ext.apidoc --force --remove-old --separate -o docs/source/api irradiapy
+python -m sphinx -M clean docs/source docs/build
+python -m sphinx -M html docs/source docs/build
+```
+
+The generated documentation is available at `docs/build/html/index.html`. The final command treats warnings as build failures, which keeps release documentation from silently shipping broken references or malformed docstrings.
+
+
+python -m sphinx.ext.apidoc --force --remove-old --separate -o docs/source/api irradiapy
+python -m sphinx -M clean docs/source docs/build
+python -m sphinx -M html docs/source docs/build -E -a -W

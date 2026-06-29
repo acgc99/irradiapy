@@ -32,6 +32,12 @@ extensions = [
     "myst_parser",  # support for Markdown files
     "sphinx.ext.autosummary",  # generate summary tables for modules
 ]
+
+# Render Napoleon ``Attributes`` sections as ``:ivar:`` fields.  Dataclass
+# attributes are also discovered by autodoc; using separate attribute
+# directives would register each field twice.
+napoleon_use_ivar = True
+
 source_suffix = {
     ".rst": "restructuredtext",
     ".md": "markdown",

@@ -271,7 +271,7 @@ class Spectra2SRIM:
             SPECTRA-PKA config_events.pka file path, for recoils data.
         root_dir : Path
             Root output directory where all data will be stored.
-        srim_width : float, optional (default=1e8)
+        srim_width : float
             The SPECTRA-PKA box might be small for SRIM ions. To avoid backscattering and
             transmission, SPECTRA-PKA recoils are injected at the middle of a thick SRIM target
             of this width (in Angstrom). In postprocessing, the depth offset is corrected to get

@@ -1180,14 +1180,14 @@ class Py2SRIM:
     ) -> RecoilsDB:
         """Run SRIM iteratively, creating a folder tree driven by a recoil-energy threshold.
 
-        - group ions by atomic number, keeping only those that should be sent to SRIM
-        - create a directory tree under ``root_dir`` of the form:
-              root_dir / atomic_number_1 / [atomic_number_2 / atomic_number_3 / ...]
-          where each branch holds a ``srim.db`` file
-        - run SRIM once per branch
-        - recursively spawn new SRIM runs for recoils from the ``collision`` table whose
-          energy is above the relative maximum of their matching MD debris datasets
-        - stop at depth ``max_srim_iters`` (depth is len(tree), e.g. (26, 76, 26) -> 3)
+        * Group ions by atomic number, keeping only those that should be sent to SRIM.
+        * Create a directory tree under ``root_dir`` where each branch holds a
+          ``srim.db`` file.
+        * Run SRIM once per branch.
+        * Recursively spawn new SRIM runs for recoils from the ``collision`` table whose
+          energy is above the relative maximum of their matching MD debris datasets.
+        * Stop at depth ``max_srim_iters``. Depth is ``len(tree)``; for example,
+          ``(26, 76, 26)`` has depth 3.
 
         Parameters
         ----------

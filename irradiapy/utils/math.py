@@ -6,7 +6,7 @@ from typing import Any, Callable
 
 import numpy as np
 from numpy import typing as npt
-from numpy.lib.recfunctions import structured_to_unstructured as str2unstr
+from numpy.lib.recfunctions import structured_to_unstructured as _str2unstr
 from scipy.optimize import curve_fit
 
 # region Math
@@ -584,8 +584,8 @@ def recombine_in_radius(data_defects: dict[str, Any], radius: float) -> dict[str
     box = np.array([[xlo, xhi], [ylo, yhi], [zlo, zhi]])
     box_size = box[:, 1] - box[:, 0]
 
-    vac_pos = str2unstr(vacs[["x", "y", "z"]])
-    sia_pos = str2unstr(sias[["x", "y", "z"]])
+    vac_pos = _str2unstr(vacs[["x", "y", "z"]])
+    sia_pos = _str2unstr(sias[["x", "y", "z"]])
     # Mask to keep track of recombined interstitials
     sia_used = np.zeros(len(sias), dtype=bool)
     # List to keep indices of vacancies and interstitials to remove

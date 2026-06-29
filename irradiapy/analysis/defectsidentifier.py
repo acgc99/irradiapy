@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 import numpy.typing as npt
-from numpy.lib.recfunctions import structured_to_unstructured as str2unstr
+from numpy.lib.recfunctions import structured_to_unstructured as _str2unstr
 from scipy.spatial.transform import Rotation as R
 
 from irradiapy import dtypes
@@ -131,7 +131,7 @@ class DefectsIdentifier:
         transform = transform @ scaling_matrix
 
         # Apply transformations
-        pos = str2unstr(atoms[["x", "y", "z"]])
+        pos = _str2unstr(atoms[["x", "y", "z"]])
         pos = pos @ transform.T
         atoms["x"] = pos[:, 0]
         atoms["y"] = pos[:, 1]
@@ -244,7 +244,7 @@ class DefectsIdentifier:
             elif len(grp) > 1:
                 # Interstitials
                 xyz = self.__site_id_to_cartesian(i)
-                coords = str2unstr(data_atoms["atoms"][["x", "y", "z"]][grp])
+                coords = _str2unstr(data_atoms["atoms"][["x", "y", "z"]][grp])
                 dist2 = np.sum(np.square(coords - xyz), axis=1)
                 keep_idx = np.argmin(dist2)
                 inters_idx = np.ones(len(grp), dtype=bool)

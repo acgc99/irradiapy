@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 from matplotlib.gridspec import GridSpec
-from numpy.lib.recfunctions import structured_to_unstructured as str2unstr
+from numpy.lib.recfunctions import structured_to_unstructured as _str2unstr
 from scipy.spatial.transform import Rotation
 from sklearn.decomposition import PCA
 
@@ -252,7 +252,7 @@ class DebrisManager:
             warnings.filterwarnings("ignore", category=UserWarning)
             transform = Rotation.align_vectors([recoil_dir], [xaxis])[0]
 
-        pos = str2unstr(defects[["x", "y", "z"]], dtype=np.float64, copy=False)
+        pos = _str2unstr(defects[["x", "y", "z"]], dtype=np.float64, copy=False)
         pos = transform.apply(pos) + recoil_pos
         defects["x"] = pos[:, 0]
         defects["y"] = pos[:, 1]
@@ -287,7 +287,9 @@ class DebrisManager:
                 defects_ = utils.io.get_last_reader(LAMMPSReader(file0))["atoms"]
 
                 transform = Rotation.random(rng=self.__rng)
-                pos = str2unstr(defects_[["x", "y", "z"]], dtype=np.float64, copy=False)
+                pos = _str2unstr(
+                    defects_[["x", "y", "z"]], dtype=np.float64, copy=False
+                )
                 pos0 = self.__get_parallelepiped_points(*parallelepiped, 1)
                 pos = transform.apply(pos) + pos0
                 defects_["x"] = pos[:, 0]
@@ -322,7 +324,7 @@ class DebrisManager:
         defects_ = np.zeros(2 * nfp, dtype=dtypes.defect)
         defects_["type"][:nfp] = self.__get_fp_types(nfp)
         defects_["x"][:nfp] = self.fp_dist / 2.0
-        pos = str2unstr(defects_[["x", "y", "z"]], dtype=np.float64, copy=False)
+        pos = _str2unstr(defects_[["x", "y", "z"]], dtype=np.float64, copy=False)
         pos[:nfp] = Rotation.random(nfp, rng=self.__rng).apply(pos[:nfp])
         pos[nfp:] = -pos[:nfp]
         pos0 = self.__get_parallelepiped_points(*parallelepiped, nfp)
@@ -358,7 +360,7 @@ class DebrisManager:
         defects_ = np.zeros(2 * nfp, dtype=dtypes.defect)
         defects_["type"][:nfp] = self.__get_fp_types(nfp)
         defects_["x"][:nfp] = self.fp_dist / 2.0
-        pos = str2unstr(defects_[["x", "y", "z"]], dtype=np.float64, copy=False)
+        pos = _str2unstr(defects_[["x", "y", "z"]], dtype=np.float64, copy=False)
         pos[:nfp] = Rotation.random(nfp, rng=self.__rng).apply(pos[:nfp])
         pos[nfp:] = -pos[:nfp]
 
@@ -395,7 +397,7 @@ class DebrisManager:
         tuple
             PCA object, minimum PCA coordinates, maximum PCA coordinates.
         """
-        pos = str2unstr(atoms[["x", "y", "z"]], dtype=np.float64, copy=False)
+        pos = _str2unstr(atoms[["x", "y", "z"]], dtype=np.float64, copy=False)
         pca = PCA(n_components=3)
         pca.fit(pos)
         atoms_pca = pca.transform(pos)
