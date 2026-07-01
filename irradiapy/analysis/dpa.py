@@ -205,16 +205,6 @@ def depth_dpa_hist_plot(
     dpi : int, optional (default=300)
         DPI for saving the plot.
     """
-    if fits:
-        fit_nrt = analysisdb.load_depth_dpa_hist_fit_functions(axis, "nrt")
-        fit_arc = analysisdb.load_depth_dpa_hist_fit_functions(axis, "arc")
-        fit_ferarc = analysisdb.load_depth_dpa_hist_fit_functions(axis, "ferarc")
-        fits = {
-            "nrt": fit_nrt,
-            "arc": fit_arc,
-            "ferarc": fit_ferarc,
-        }
-
     depth_centers, hist_nrt = analysisdb.load_depth_dpa_hist(axis=axis, model="nrt")
     _, hist_arc = analysisdb.load_depth_dpa_hist(axis=axis, model="arc")
     _, hist_ferarc = analysisdb.load_depth_dpa_hist(axis=axis, model="ferarc")
@@ -227,9 +217,6 @@ def depth_dpa_hist_plot(
     if analysisdb.table_has_column(f"depth_dpa_{axis}", "debris"):
         _, hist_debris = analysisdb.load_depth_dpa_hist(axis=axis, model="debris")
         hists["debris"] = hist_debris
-        if fits:
-            fit_debris = analysisdb.load_depth_dpa_hist_fit_functions(axis, "debris")
-            fits["debris"] = fit_debris
     models = list(hists.keys())
 
     fig = plt.figure()
@@ -250,12 +237,15 @@ def depth_dpa_hist_plot(
         else:
             label = model
         scatter = ax.scatter(depth_centers, hists[model], label=label, marker=".")
-        if fits is not False:
+        if fits:
             try:
+                fit_function = analysisdb.load_depth_dpa_hist_fit_functions(axis, model)
                 ax.plot(
-                    depth_centers, fits[model](depth_centers), c=scatter.get_facecolor()
+                    depth_centers,
+                    fit_function(depth_centers),
+                    c=scatter.get_facecolor(),
                 )
-            except sqlite3.OperationalError as exc:
+            except (sqlite3.OperationalError, StopIteration) as exc:
                 print(f"Could not plot fit function for model {model}: {exc}")
 
     ax.legend()

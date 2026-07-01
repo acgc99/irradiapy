@@ -429,10 +429,10 @@ def plot_all(data: dict[str | int, Any], out_path: Path) -> None:
 
     # Plot spectrum
     spectrum = data["spectrum"]
-    lower, upper, flux = spectrum["lower"], spectrum["upper"], spectrum["flux"]
+    lower, upper = spectrum["lower"], spectrum["upper"]
     edges = np.concatenate((lower, [upper[-1]])) * 1e6
     lethargy = np.log(edges[1:] / edges[:-1])
-    flux /= lethargy  # Convert to per lethargy interval
+    flux = spectrum["flux"] / lethargy  # Convert to per lethargy interval
 
     fig, ax = plt.subplots()
     ax.stairs(flux, edges)

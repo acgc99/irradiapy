@@ -391,9 +391,17 @@ def depth_cluster_sizes_plot(
 
         histogram = histogram / nevents
         vmin = global_min_counts / nevents
-        histogram = np.ma.masked_less_equal(histogram, vmin)
-        vmax = histogram.max()
-        norm = LogNorm(vmin=vmin, vmax=vmax) if log else Normalize(vmin=vmin, vmax=vmax)
+        histogram = np.ma.masked_less(histogram, vmin)
+        if log:
+            histogram = np.ma.masked_less_equal(histogram, 0.0)
+            if vmin <= 0.0:
+                vmin = float(histogram.min())
+        vmax = float(histogram.max())
+        norm = (
+            LogNorm(vmin=vmin, vmax=vmax)
+            if log
+            else Normalize(vmin=vmin, vmax=vmax)
+        )
 
         ax.set_xlabel(r"Depth ($\mathrm{\AA}$)")
         ax.set_ylabel("Cluster size")

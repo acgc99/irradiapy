@@ -728,7 +728,7 @@ class DebrisManager:
 
             if path is not None:
                 fig.savefig(path, dpi=dpi)
-            if show or path is None:
+            if show:
                 plt.show()
             plt.close(fig)
 
