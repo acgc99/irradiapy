@@ -81,6 +81,12 @@ irradiapy 2.0.0 requires Python 3.14 or newer.
 python -m pip install irradiapy
 ```
 
+MPI I/O support is optional:
+
+```bash
+python -m pip install "irradiapy[mpi]"
+```
+
 To work from a source checkout:
 
 ```bash
@@ -89,7 +95,8 @@ cd irradiapy
 python -m pip install -e .
 ```
 
-An MPI implementation is required by `mpi4py` and the MPI I/O classes. For example, Debian and Ubuntu users can install Open MPI with:
+An MPI implementation is required when installing the `mpi` extra. For example,
+Debian and Ubuntu users can install Open MPI with:
 
 ```bash
 sudo apt install libopenmpi-dev openmpi-bin
@@ -148,7 +155,7 @@ Questions belong in [GitHub Discussions](https://github.com/acgc99/irradiapy/dis
 Run the following commands from the repository root with the project virtual environment activated:
 
 ```bash
-python -m pip install -e . -r docs/requirements.txt
+python -m pip install -e ".[mpi]" -r docs/requirements.txt
 python -m sphinx.ext.apidoc --force --remove-old --separate -o docs/source/api irradiapy
 python -m sphinx -W --keep-going -b html docs/source docs/build/html
 ```
