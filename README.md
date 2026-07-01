@@ -69,17 +69,8 @@ Using `irradiapy.config.use_style()` you can take advantage of the colorblind-fr
 
 ## Installation
 
-Dependencies:
-```
-matplotlib>=3.10.1
-numpy>=2.2.4
-PyGetWindow>=0.0.9
-pywinauto>=0.6.8
-scikit_learn>=1.6.0
-scipy>=1.14.1
-mpi4py>=3.0.0
-indexed-bzip2>=1.7.0
-```
+Dependencies: see [requirements.txt](./requirements.txt).
+
 Note that:
 - The code might work with previous packages versions, but results might change slightly. For example, [`scipy.spatial.transform.Rotation.align_vectors`](https://docs.scipy.org/doc/scipy-1.14.1/reference/generated/scipy.spatial.transform.Rotation.align_vectors.html) changed its behaviour when only two vectors are provided between versions 1.11 and 1.12.
 - (Not applicable yet) You need to be able to run LAMMPS from Python. On Windows, you will need first to install [MS-MPI](https://learn.microsoft.com/en-gb/message-passing-interface/microsoft-mpi) (`msmpisetup.exe`), and then LAMMPS for Windows with Python support [LAMMPS-64bit-Python-latest-MSMPI.exe](https://rpm.lammps.org/windows/). In Linux, you need to build the Python package from source with `make install-python` or similar.
