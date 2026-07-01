@@ -5,15 +5,16 @@
 import copy
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import numpy.typing as npt
-from lammps import lammps
 
 import irradiapy.lammps.commands as cmds
 from irradiapy import utils
 from irradiapy.io.lammpslogreader import LAMMPSLogReader
 from irradiapy.lammps.cascadebase import CascadeBase
+from irradiapy.lammps.utils import load_lammps_class, get_properties_from_group
 
 
 @dataclass(kw_only=True)
@@ -38,9 +39,13 @@ class Cascade(CascadeBase):
     pka_target: npt.NDArray[np.float64]
     cmds_ions_grouping: list[cmds.Command]
 
-    @utils.mpi.mpi_safe_method
     def run(self) -> None:
         """Run the bulk cascade simulations."""
+        lammps_class = load_lammps_class()
+        self._run(lammps_class)
+
+    @utils.mpi.mpi_safe_method
+    def _run(self, lammps_class: type[Any]) -> None:
         # Initialise directory
         self.dir_parent.mkdir(parents=True, exist_ok=True)
         # Thermalisation
@@ -51,7 +56,7 @@ class Cascade(CascadeBase):
                 raise FileExistsError("Thermalisation already done.")
             self.comm.Barrier()
             try:
-                lmp = lammps(comm=self.comm)
+                lmp = lammps_class(comm=self.comm)
                 self.__run_thermalisation(lmp)
             except Exception as e:
                 raise e
@@ -61,7 +66,7 @@ class Cascade(CascadeBase):
         if self.cmds_cascade:
             # Select ions for cascades
             try:
-                lmp = lammps(comm=self.comm)
+                lmp = lammps_class(comm=self.comm)
                 (
                     ions_ids,
                     ions_atomic_numbers,
@@ -86,7 +91,7 @@ class Cascade(CascadeBase):
                     raise FileExistsError(f"Cascade {idx+1} already exists.")
                 self.comm.Barrier()
                 try:
-                    lmp = lammps(comm=self.comm)
+                    lmp = lammps_class(comm=self.comm)
                     self.__run_cascade(
                         lmp,
                         idx + 1,
@@ -135,7 +140,7 @@ class Cascade(CascadeBase):
                     t0 = (timestep0 - log_timestep) * log_dt + log_time
                 timestep0, t0 = self._broadcast_variables(timestep0, t0)
                 try:
-                    lmp = lammps(comm=self.comm)
+                    lmp = lammps_class(comm=self.comm)
                     self.__rerun(
                         lmp,
                         idx + 1,
@@ -153,7 +158,7 @@ class Cascade(CascadeBase):
         if self.finalize:
             lmp.finalize()
 
-    def __run_thermalisation(self, lmp: lammps) -> None:
+    def __run_thermalisation(self, lmp: Any) -> None:
         """Run the thermalisation.
 
         Parameters
@@ -178,7 +183,7 @@ class Cascade(CascadeBase):
         cmd_write = cmds.WriteData(file=self.dir_parent / "simulation.data")
         self.exec_cmds(lmp, self.cmds_preamble + cmds_therma + [cmd_write])
 
-    def __select_ions_for_cascades(self, lmp: lammps) -> tuple[
+    def __select_ions_for_cascades(self, lmp: Any) -> tuple[
         np.ndarray,
         np.ndarray,
         np.ndarray,
@@ -195,7 +200,7 @@ class Cascade(CascadeBase):
         for cmd in self.cmds_ions_grouping:
             if isinstance(cmd, cmds.Group):
                 ions_group = cmd.id
-        ions_properties = utils.lammps.get_properties_from_group(
+        ions_properties = get_properties_from_group(
             lmp, ions_group, ["id", "type", "x"]
         )  # for each process this variable is different
         ions_ids = ions_atomic_numbers = ions_positions = ions_speeds = None
@@ -270,7 +275,7 @@ class Cascade(CascadeBase):
 
     def __run_cascade(
         self,
-        lmp: lammps,
+        lmp: Any,
         idx: int,
         ion_id: np.integer,
         ion_atomic_number: np.integer,
@@ -372,7 +377,7 @@ class Cascade(CascadeBase):
 
     def __rerun(
         self,
-        lmp: lammps,
+        lmp: Any,
         idx: int,
         timestep0: int,
         t0: float,

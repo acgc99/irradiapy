@@ -6,10 +6,9 @@ import shutil
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Generator, Optional, Union
+from typing import Any, Generator, Optional, Union
 
 import numpy as np
-from lammps import lammps
 from mpi4py import MPI
 
 from irradiapy import materials, utils
@@ -80,7 +79,7 @@ class CascadeBase(ABC):
     cmds_rerun: Optional[list[Command]] = None
     seed: int = 1
     finalize: bool = True
-    skip: Union[str, list[int]] = field(default_factory="")
+    skip: Union[str, list[int]] = field(default_factory=str)
 
     uttm_c: Optional[float] = field(init=False, default=None)
     uttm_k: Optional[float] = field(init=False, default=None)
@@ -156,7 +155,7 @@ class CascadeBase(ABC):
 
     # region Commands
 
-    def exec_cmds(self, lmp: lammps, cmds: list[Command]) -> None:
+    def exec_cmds(self, lmp: Any, cmds: list[Command]) -> None:
         """Executes a list of commands.
 
         Parameters

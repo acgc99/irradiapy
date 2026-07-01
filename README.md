@@ -42,6 +42,10 @@ SPECTRA-PKA itself is not launched by irradiapy. Run it separately on Linux and 
 
 Compatible curated datasets are available from [CascadesDefectsDB](https://github.com/acgc99/CascadesDefectsDB).
 
+### LAMMPS
+
+The [`irradiapy.lammps`](https://github.com/acgc99/irradiapy/tree/main/irradiapy/lammps) subpackage acts as a wrapper around the official `lammps`  Python package to use commands as instances of classes. This is useful for custom workflows and reuse of commands.
+
 ### Analysis
 
 The [`irradiapy.analysis`](https://github.com/acgc99/irradiapy/tree/main/irradiapy/analysis) subpackage provides:
@@ -96,6 +100,7 @@ Additional external requirements depend on the workflow:
 - **SRIM on Windows:** install SRIM; Windows automation dependencies are installed with irradiapy.
 - **SRIM on Linux:** install `wine`, `xdotool` and SRIM.
 - **SPECTRA-PKA:** build and run SPECTRA-PKA separately on Linux or WSL2.
+- **LAMMPS cascade simulations:** build LAMMPS with Python support and install its Python module from the LAMMPS source tree. Do not use the unofficial `lammps` package from PyPI.
 - **MD debris generation:** obtain a compatible cascade database such as CascadesDefectsDB.
 
 ## Basic configuration
