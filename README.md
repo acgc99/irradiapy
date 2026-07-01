@@ -36,7 +36,7 @@ SPECTRA-PKA itself is not launched by irradiapy. Run it separately on Linux and 
 
 ### MD cascade debris
 
-`DebrisDataset` reads cascade metadata and energy-indexed LAMMPS dump files from one dataset. `DebrisDatabase` filters and combines compatible datasets by target composition, electronic-interaction model, interatomic potential, DOI, and contributors.
+`DebrisDataset` reads cascade metadata and energy-indexed LAMMPS dump files from one dataset. `DebrisDatabase` filters and combines compatible datasets by target composition, lattice type, electronic-interaction model, interatomic potential, DOI, and contributors.
 
 `irradiapy.analysis.debris.generate_debris` then matches stored recoils to those cascades, rotates and places the selected debris, applies boundary conditions, and represents unmatched low-energy recoils with Frenkel pairs.
 
@@ -112,6 +112,7 @@ irpy.config.set_debris_database(
     path=Path("/path/to/CascadesDefectsDB"),
     electronic_interactions="SRIM",
     target={"Fe": 1.0},
+    lattice="bcc",
 )
 ```
 

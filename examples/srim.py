@@ -66,10 +66,7 @@ target = [component]
 # Root database of MD cascades
 # For example: CascadesDefectsDB
 # Donwloaded from: https://github.com/acgc99/CascadesDefectsDB
-mddb_dir = Path()
-electronic_interactions = "SRIM"
-mddb_target = {"Fe": 1.0}
-irpy.config.set_debris_database(mddb_dir, electronic_interactions, mddb_target)
+irpy.config.set_debris_database(Path(), "SRIM", {"Fe": 1.0}, "bcc")
 # Important distances
 fp_dist = 4.0 * Fe_bcc.ax
 cutoff_sia = (np.sqrt(2.0) + np.sqrt(11.0) / 2.0) * Fe_bcc.ax / 2.0

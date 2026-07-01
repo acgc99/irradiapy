@@ -15,6 +15,7 @@ class DebrisDatabase:
     root: str | Path
     electronic_interactions: str
     target: dict[str, float]
+    lattice: str
     interatomic_potentials: list[set[str]] | None = None
     doi: set[str] | None = None
     contributors: list[set[str]] | None = None
@@ -75,6 +76,9 @@ class DebrisDatabase:
             return False
 
         if not dataset.target_matches_metadata(dataset.target, self.target):
+            return False
+
+        if dataset.lattice != self.lattice:
             return False
 
         if self.interatomic_potentials is not None and (

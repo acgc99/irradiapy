@@ -16,6 +16,7 @@ class DebrisDataset:
     path: str | Path
     recoil: str = field(init=False)
     target: dict[str, float] = field(init=False)
+    lattice: str = field(init=False)
     interatomic_potentials: set[str] = field(init=False)
     electronic_interactions: str = field(init=False)
     doi: str = field(init=False)
@@ -33,6 +34,7 @@ class DebrisDataset:
         required_keys = {
             "recoil",
             "target",
+            "lattice",
             "interatomic_potentials",
             "electronic_interactions",
             "doi",
@@ -45,6 +47,7 @@ class DebrisDataset:
 
         self.recoil = meta["recoil"]
         self.target = meta["target"]
+        self.lattice = meta["lattice"]
         self.electronic_interactions = meta["electronic_interactions"]
         self.doi = meta["doi"]
         self.interatomic_potentials = set(meta["interatomic_potentials"])

@@ -91,6 +91,7 @@ def set_debris_database(
     path: str | Path,
     electronic_interactions: str,
     target: dict[str, float],
+    lattice: str,
     interatomic_potentials: list[set[str]] | None = None,
     doi: set[str] | None = None,
     contributors: list[set[str]] | None = None,
@@ -105,6 +106,8 @@ def set_debris_database(
         Electronic interactions metadata required for selected datasets.
     target : dict[str, float]
         Target stoichiometry metadata required for selected datasets.
+    lattice : str
+        Lattice type metadata required for selected datasets.
     interatomic_potentials : list[set[str]] | None, optional
         Accepted interatomic potential metadata sets.
     doi : set[str] | None, optional
@@ -127,6 +130,7 @@ def set_debris_database(
         root=path,
         electronic_interactions=electronic_interactions,
         target=target,
+        lattice=lattice,
         interatomic_potentials=interatomic_potentials,
         doi=doi,
         contributors=contributors,
@@ -139,8 +143,8 @@ def get_debris_database() -> DebrisDatabase:
     if _debris_database is None:
         raise RuntimeError(
             "No debris database configured. Call "
-            "irradiapy.config.set_debris_database(path, electronic_interactions, target) "
-            "before running "
+            "irradiapy.config.set_debris_database("
+            "path, electronic_interactions, target, lattice) before running "
             "SRIM/debris workflows."
         )
     return _debris_database
