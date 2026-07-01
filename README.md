@@ -134,7 +134,7 @@ The complete workflows require irradiation inputs and material-specific paramete
 - [SPECTRA-PKA, SRIM, and debris generation](https://github.com/acgc99/irradiapy/blob/main/examples/spectra.py)
 - [MD debris database analysis](https://github.com/acgc99/irradiapy/blob/main/examples/debris_analysis.py)
 
-The [API documentation](https://irradiapy.readthedocs.io/en/stable/) describes the individual classes and functions.
+The [API documentation](https://irradiapy.readthedocs.io/en/latest/) describes the individual classes and functions.
 
 ## Scientific use
 
