@@ -1,3 +1,3 @@
 """Utilities subpackage."""
 
-from . import io, math, mpi, sqlite
+from . import io, lammps, math, mpi, sqlite
