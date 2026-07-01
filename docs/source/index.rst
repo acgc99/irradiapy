@@ -1,14 +1,6 @@
 irradiapy documentation
 =======================
 
-MD debris datasets
-------------------
-
-.. toctree::
-   :maxdepth: 1
-
-   debris_datasets
-
 API reference
 -------------
 
@@ -19,3 +11,11 @@ API reference
 
 .. include:: ../../README.md
    :parser: markdown
+
+MD debris datasets
+------------------
+
+.. toctree::
+   :maxdepth: 1
+
+   debris_datasets

@@ -9,6 +9,7 @@ Subpackages
 
    irradiapy.analysis
    irradiapy.io
+   irradiapy.lammps
    irradiapy.materials
    irradiapy.spectrapka
    irradiapy.srim
