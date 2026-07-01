@@ -53,16 +53,16 @@ class CascadeBase(ABC):
     skip : Union[str, list[int]] (default="")
         A string of comma-separated integers and ranges to skip simulations.
         For example, "1, 2, 3-5, 7-9" will skip simulations 1, 2, 3, 4, 5, 7, 8, and 9.
-    eph_c : float (default=None)
-        Only for EPH calculations. The EPH electron heat capacity in eV/K.
-    eph_k : float (default=None)
-        Only for EPH calculations. The EPH electron thermal conductivity in W/(m*K).
-    eph_temperature : float (default=None)
-        Only for EPH calculations. The EPH electron temperature in K.
-    eph_nxyz : tuple[int, int, int] (default=None)
-        Only for EPH calculations. The number of grid voxels in the x, y, and z directions.
-    eph_extent : tuple[float, float, float, float, float, float] (default=None)
-        Only for EPH calculations. The extent of the grid in the x, y, and z directions.
+    uttm_c : float (default=None)
+        Only for UTTM calculations. The UTTM electron heat capacity in eV/K.
+    uttm_k : float (default=None)
+        Only for UTTM calculations. The UTTM electron thermal conductivity in W/(m*K).
+    uttm_temperature : float (default=None)
+        Only for UTTM calculations. The UTTM electron temperature in K.
+    uttm_nxyz : tuple[int, int, int] (default=None)
+        Only for UTTM calculations. The number of grid voxels in the x, y, and z directions.
+    uttm_extent : tuple[float, float, float, float, float, float] (default=None)
+        Only for UTTM calculations. The extent of the grid in the x, y, and z directions.
     """
 
     comm: MPI.Comm = field(default_factory=lambda: MPI.COMM_WORLD)
@@ -82,14 +82,14 @@ class CascadeBase(ABC):
     finalize: bool = True
     skip: Union[str, list[int]] = field(default_factory="")
 
-    eph_c: Optional[float] = field(init=False, default=None)
-    eph_k: Optional[float] = field(init=False, default=None)
-    eph_temperature: Optional[float] = field(init=False, default=None)
-    eph_nxyz: Optional[tuple[int, int, int]] = None
-    eph_extent: Optional[tuple[float, float, float, float, float, float]] = None
+    uttm_c: Optional[float] = field(init=False, default=None)
+    uttm_k: Optional[float] = field(init=False, default=None)
+    uttm_temperature: Optional[float] = field(init=False, default=None)
+    uttm_nxyz: Optional[tuple[int, int, int]] = None
+    uttm_extent: Optional[tuple[float, float, float, float, float, float]] = None
 
     _rng: Optional[np.random.Generator] = field(init=False, default=None)
-    _eph: bool = field(init=False, default=False)
+    _uttm: bool = field(init=False, default=False)
 
     @abstractmethod
     def run(self) -> None:
@@ -98,8 +98,8 @@ class CascadeBase(ABC):
     def __post_init__(self) -> None:
         self.rank = self.comm.Get_rank()
         self.skip = self.__parse_ranges(self.skip)
-        if all([self.eph_nxyz, self.eph_extent]):
-            self._eph = True
+        if all([self.uttm_nxyz, self.uttm_extent]):
+            self._uttm = True
         self._rng = None
         if self.rank == 0:
             self._rng = np.random.default_rng(self.seed)
@@ -210,7 +210,7 @@ class CascadeBase(ABC):
         amu = 1.66054e-27  # atomic mass unit, kg
         mass = np.array(
             [
-                materials.MASS_NUMBER_BY_ATOMIC_NUMBER[int(atomic_number)]
+                materials.ATOMIC_WEIGHT_BY_ATOMIC_NUMBER[int(atomic_number)]
                 for atomic_number in atomic_numbers
             ]
         )
@@ -239,25 +239,27 @@ class CascadeBase(ABC):
 
     # endregion
 
-    # region EPH
+    # region UTTM
 
     def _generate_egrid(self) -> Path:
-        """Generates the EPH electron grid."""
+        """Generates the UTTM electron grid."""
         path_egrid = self.dir_parent / "egrid0"
         with open(path_egrid, "w", encoding="utf-8") as file:
             file.write("# https://github.com/LLNL/USER-EPH\n")
             file.write("# at commit a836eb2f3dd8648160d59c64a6c4a69d82c4a6b9\n")
             file.write("# i j k T_e source rho_e C_e kappa_e updateTemp ReadFile\n")
-            file.write(f"{self.eph_nxyz[0]} {self.eph_nxyz[1]} {self.eph_nxyz[2]} 10\n")
-            file.write(f"{self.eph_extent[0]} {self.eph_extent[1]}\n")
-            file.write(f"{self.eph_extent[2]} {self.eph_extent[3]}\n")
-            file.write(f"{self.eph_extent[4]} {self.eph_extent[5]}\n")
+            file.write(
+                f"{self.uttm_nxyz[0]} {self.uttm_nxyz[1]} {self.uttm_nxyz[2]} 10\n"
+            )
+            file.write(f"{self.uttm_extent[0]} {self.uttm_extent[1]}\n")
+            file.write(f"{self.uttm_extent[2]} {self.uttm_extent[3]}\n")
+            file.write(f"{self.uttm_extent[4]} {self.uttm_extent[5]}\n")
             file.write("NULL\n")
-            for i in range(self.eph_nxyz[0]):
-                for j in range(self.eph_nxyz[1]):
-                    for k in range(self.eph_nxyz[2]):
+            for i in range(self.uttm_nxyz[0]):
+                for j in range(self.uttm_nxyz[1]):
+                    for k in range(self.uttm_nxyz[2]):
                         file.write(
-                            f"{i} {j} {k} {self.eph_temperature} 0.0 1.0 {self.eph_c} {self.eph_k} 1 0\n"
+                            f"{i} {j} {k} {self.uttm_temperature} 0.0 1.0 {self.uttm_c} {self.uttm_k} 1 0\n"
                         )
         return path_egrid
 

@@ -133,7 +133,7 @@ class Cascade(CascadeBase):
                     log_time = float(last_log["Time"][-1])
                     log_dt = float(last_log["Dt"][-1])
                     t0 = (timestep0 - log_timestep) * log_dt + log_time
-                (timestep0, t0) = self._broadcast_variables(timestep0, t0)
+                timestep0, t0 = self._broadcast_variables(timestep0, t0)
                 try:
                     lmp = lammps(comm=self.comm)
                     self.__rerun(
@@ -167,9 +167,9 @@ class Cascade(CascadeBase):
                 cmd.file = self.dir_parent / f"simulation{Path(cmd.file).suffix}"
             if isinstance(cmd, cmds.Fix):
                 if cmd.style == "eph":
-                    self.eph_c = cmd.args[4]
-                    self.eph_k = cmd.args[5]
-                    self.eph_temperature = cmd.args[6]
+                    self.uttm_c = cmd.args[4]
+                    self.uttm_k = cmd.args[5]
+                    self.uttm_temperature = cmd.args[6]
                     cmd.args[10] = self.dir_parent / "egrid0"
                     cmd.args[12] = self.dir_parent / "egrid/egrid"
                     (self.dir_parent / "egrid").mkdir(parents=True, exist_ok=True)
@@ -363,7 +363,7 @@ class Cascade(CascadeBase):
         ]
         self.comm.Barrier()
         self.exec_cmds(lmp, cmds_cascade)
-        if self._eph:
+        if self._uttm:
             utils.mpi.mv_file(
                 self.dir_parent / "egrid0.restart.restart",
                 dir_cascade / "egrid0.restart",
@@ -413,7 +413,7 @@ class Cascade(CascadeBase):
         ]
         self.comm.Barrier()
         self.exec_cmds(lmp, cmds_rerun)
-        if self._eph:
+        if self._uttm:
             utils.mpi.mv_file(
                 dir_cascade / "egrid0.restart.restart",
                 dir_cascade / "egrid0.restart",
