@@ -1,8 +1,10 @@
 """Utility functions for I/O operations."""
 
 import bz2
-from collections import defaultdict, deque
+from collections import deque
+from collections.abc import Iterable
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
@@ -54,61 +56,61 @@ def decompress_file_bz2(input_path: str, output_path: str) -> None:
 
 
 def get_last_reader(
-    reader: list[LAMMPSReader, BZIP2LAMMPSReader, LAMMPSLogReader],
-) -> any:
+    reader: Iterable[dict[str, Any]],
+) -> dict[str, Any]:
     """Get the last snapshot from a LAMMPS dump file using a reader.
 
     Parameters
     ----------
-    reader : LAMMPSReader, BZIP2LAMMPSReader, LAMMPSLogReader
+    reader : Iterable[dict[str, Any]]
         An instance of a LAMMPS reader.
 
     Returns
     -------
-    any
+    dict[str, Any]
         The last snapshot from the LAMMPS file.
     """
     return deque(reader, maxlen=1).pop()
 
 
 def merge_lammps_snapshots(
-    path_in: Path, path_out: Path, overwrite: bool = False
-) -> defaultdict:
+    in_path: Path, out_path: Path, overwrite: bool = False
+) -> dict[str, Any]:
     """Merge multiple snapshots in a LAMMPS file into a single snapshot.
 
     Parameters
     ----------
-    path_in : Path
+    in_path : Path
         Path to the input LAMMPS file (bzip2 compressed or not).
-    path_out : Path
+    out_path : Path
         Path to the output LAMMPS file (bzip2 compressed or not).
     overwrite : bool, optional (default=False)
         Whether to overwrite the output file if it exists.
 
     Returns
     -------
-    defaultdict
+    dict[str, Any]
         A dictionary containing the merged snapshot data.
     """
 
-    if not overwrite and path_out.exists():
-        raise FileExistsError(f"Output file {path_out} already exists.")
-    elif path_out.exists():
-        path_out.unlink()
-    if path_in.suffix == ".bz2":
-        reader = BZIP2LAMMPSReader(path_in)
+    if not overwrite and out_path.exists():
+        raise FileExistsError(f"Output file {out_path} already exists.")
+    elif out_path.exists():
+        out_path.unlink()
+    if in_path.suffix == ".bz2":
+        reader = BZIP2LAMMPSReader(in_path)
     else:
-        reader = LAMMPSReader(path_in)
-    if path_out.suffix == ".bz2":
-        writer = BZIP2LAMMPSWriter(path_out, mode="a")
+        reader = LAMMPSReader(in_path)
+    if out_path.suffix == ".bz2":
+        writer = BZIP2LAMMPSWriter(out_path, mode="a")
     else:
-        writer = LAMMPSWriter(path_out, mode="a")
+        writer = LAMMPSWriter(out_path, mode="a")
 
     data_atoms_list = []
     for data_atoms in reader:
         data_atoms_list.append(data_atoms)
     reader.close()
-    data_atoms_merged = defaultdict(None)
+    data_atoms_merged = {}
     data_atoms_merged["timestep"] = data_atoms_list[-1]["timestep"]
     data_atoms_merged["time"] = data_atoms_list[-1]["time"]
     data_atoms_merged["boundary"] = data_atoms_list[-1]["boundary"]
@@ -118,9 +120,6 @@ def merge_lammps_snapshots(
     data_atoms_merged["yhi"] = data_atoms_list[-1]["yhi"]
     data_atoms_merged["zlo"] = data_atoms_list[-1]["zlo"]
     data_atoms_merged["zhi"] = data_atoms_list[-1]["zhi"]
-    data_atoms_merged["natoms"] = np.sum(
-        data_atoms["natoms"] for data_atoms in data_atoms_list
-    )
     data_atoms_merged["atoms"] = np.concatenate(
         [data_atoms["atoms"] for data_atoms in data_atoms_list]
     )
@@ -130,15 +129,15 @@ def merge_lammps_snapshots(
 
 
 def apply_boundary_conditions_to_lammps(
-    path_in: Path, path_out: Path, x: bool, y: bool, z: bool, overwrite: bool = False
+    in_path: Path, out_path: Path, x: bool, y: bool, z: bool, overwrite: bool = False
 ) -> None:
     """Apply periodic boundary conditions to a LAMMPS dump file.
 
     Parameters
     ----------
-    path_in : Path
+    in_path : Path
         Path to the input LAMMPS file (bzip2 compressed or not).
-    path_out : Path
+    out_path : Path
         Path to the output LAMMPS file (bzip2 compressed or not).
     x : bool
         Whether to apply periodic boundary conditions in the x direction.
@@ -150,18 +149,18 @@ def apply_boundary_conditions_to_lammps(
         Whether to overwrite the output file if it exists.
     """
 
-    if not overwrite and path_out.exists():
-        raise FileExistsError(f"Output file {path_out} already exists.")
-    elif path_out.exists():
-        path_out.unlink()
-    if path_in.suffix == ".bz2":
-        reader = BZIP2LAMMPSReader(path_in)
+    if not overwrite and out_path.exists():
+        raise FileExistsError(f"Output file {out_path} already exists.")
+    elif out_path.exists():
+        out_path.unlink()
+    if in_path.suffix == ".bz2":
+        reader = BZIP2LAMMPSReader(in_path)
     else:
-        reader = LAMMPSReader(path_in)
-    if path_out.suffix == ".bz2":
-        writer = BZIP2LAMMPSWriter(path_out, mode="a")
+        reader = LAMMPSReader(in_path)
+    if out_path.suffix == ".bz2":
+        writer = BZIP2LAMMPSWriter(out_path, mode="a")
     else:
-        writer = LAMMPSWriter(path_out, mode="a")
+        writer = LAMMPSWriter(out_path, mode="a")
 
     for data_atoms in reader:
         data_atoms = apply_boundary_conditions(
@@ -173,3 +172,41 @@ def apply_boundary_conditions_to_lammps(
         writer.write(data_atoms)
     reader.close()
     writer.close()
+
+
+def lammps_to_mmonca(path_in: str, path_out: str, scale: float = 10.0) -> None:
+    """Convert LAMMPS dump file to MMonCa format. Uses LAMMPSReader.
+
+    Parameters
+    ----------
+    path_in : str
+        Path to the input LAMMPS dump file.
+    path_out : str
+        Path to the output MMonCa file.
+    scale : float, optional (default=10.0)
+        Divisor applied to coordinates. The default converts angstroms to nanometers.
+
+    Warning
+    -------
+    This converter is very basic: defects of type 0 are considered vacancies (V),
+    and all other defect types are considered interstitials (I). Therefore, this will
+    produce wrong results when multiple elements are present.
+    """
+    total = 0
+    with open(path_out, "w", encoding="utf-8") as ofile:
+        nions = 0
+        for data_defects in LAMMPSReader(path_in):
+            defects = data_defects["atoms"]
+            nions += 1
+            natoms = len(defects)
+            natom = 0
+            ofile.write(f"{natoms}\n")
+            for defect in defects:
+                natom += 1
+                x = defect["x"] / scale
+                y = defect["y"] / scale
+                z = defect["z"] / scale
+                kind = "V" if defect["type"] == 0 else "I"
+                ofile.write(f"{natom} {kind} {x} {y} {z}\n")
+            total += natom
+    print(f"Total mean defects (vacs + sias): {total/nions}")

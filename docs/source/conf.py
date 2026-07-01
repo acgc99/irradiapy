@@ -9,16 +9,21 @@
 
 import os
 import sys
+import tomllib
+from pathlib import Path
 
-sys.path.insert(0, os.path.abspath("../.."))
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, os.fspath(ROOT))
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = "irradiapy"
-copyright = "2025, Abel Carlos Gutiérrez Camacho"
+copyright = "2026, Abel Carlos Gutiérrez Camacho"
 author = "Abel Carlos Gutiérrez Camacho"
-release = "1.0.2"
+with (ROOT / "pyproject.toml").open("rb") as pyproject_file:
+    release = tomllib.load(pyproject_file)["project"]["version"]
+version = release
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -32,6 +37,12 @@ extensions = [
     "myst_parser",  # support for Markdown files
     "sphinx.ext.autosummary",  # generate summary tables for modules
 ]
+
+# Render Napoleon ``Attributes`` sections as ``:ivar:`` fields.  Dataclass
+# attributes are also discovered by autodoc; using separate attribute
+# directives would register each field twice.
+napoleon_use_ivar = True
+
 source_suffix = {
     ".rst": "restructuredtext",
     ".md": "markdown",

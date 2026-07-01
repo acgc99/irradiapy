@@ -3,7 +3,7 @@
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import TracebackType
-from typing import TextIO
+from typing import Any, TextIO
 
 from irradiapy import config
 
@@ -61,9 +61,9 @@ class LAMMPSWriter:
 
     def __exit__(
         self,
-        exc_type: None | type[BaseException] = None,
-        exc_value: None | BaseException = None,
-        exc_traceback: None | TracebackType = None,
+        exc_type: type[BaseException] | None = None,
+        exc_value: BaseException | None = None,
+        exc_traceback: TracebackType | None = None,
     ) -> bool:
         if self.__file is not None:
             self.__file.close()
@@ -74,7 +74,7 @@ class LAMMPSWriter:
         if self.__file is not None:
             self.__file.close()
 
-    def write(self, data: dict) -> None:
+    def write(self, data: dict[str, Any]) -> None:
         """Write the data to the file.
 
         Parameters
@@ -88,7 +88,7 @@ class LAMMPSWriter:
             self.__file.write(f"ITEM: TIME\n{self.float_format % data['time']}\n")
         self.__file.write(f"ITEM: TIMESTEP\n{self.int_format % data['timestep']}\n")
         self.__file.write(
-            f"ITEM: NUMBER OF ATOMS\n{self.int_format % data['natoms']}\n"
+            f"ITEM: NUMBER OF ATOMS\n{self.int_format % len(data['atoms'])}\n"
         )
         self.__file.write(f"ITEM: BOX BOUNDS {' '.join(data['boundary'])}\n")
         self.__file.write(

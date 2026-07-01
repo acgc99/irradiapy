@@ -2,12 +2,11 @@
 
 # pylint: disable=unbalanced-tuple-unpacking
 
-from collections import defaultdict
 from typing import Any, Callable
 
 import numpy as np
 from numpy import typing as npt
-from numpy.lib.recfunctions import structured_to_unstructured as str2unstr
+from numpy.lib.recfunctions import structured_to_unstructured as _str2unstr
 from scipy.optimize import curve_fit
 
 # region Math
@@ -91,7 +90,7 @@ def lorentzian(
 def fit_lorentzian(
     xs: npt.NDArray[np.float64],
     ys: npt.NDArray[np.float64],
-    p0: None | npt.NDArray[np.float64] = None,
+    p0: npt.NDArray[np.float64] | None = None,
     asymmetry: float = 1.0,
 ) -> tuple[
     npt.NDArray[np.float64],
@@ -106,7 +105,7 @@ def fit_lorentzian(
         X values where the function is evaluated.
     ys : npt.NDArray[np.float64]
         Y values at the given xs.
-    p0 : npt.NDArray[np.float64], optional (default=None)
+    p0 : npt.NDArray[np.float64] | None, optional (default=None)
         Initial guess of fit parameters. If None, a guess is generated.
     asymmetry : float, optional (default=1.0)
         Bound for the asymmetry fit parameter. Fit will be done in (-asymmetry, asymmetry).
@@ -146,11 +145,12 @@ def fit_lorentzian(
             [x_end, x_sum, ys.max(), asymmetry],
         ),
     )
+    errors = np.sqrt(np.diag(pcov)).astype(float)
 
     def fit_function(xs_fit: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         return lorentzian(xs_fit, *popt)
 
-    return popt, pcov, fit_function
+    return popt, errors, fit_function
 
 
 # endregion
@@ -201,7 +201,7 @@ def gaussian(
 def fit_gaussian(
     xs: npt.NDArray[np.float64],
     ys: npt.NDArray[np.float64],
-    p0: None | npt.NDArray[np.float64] = None,
+    p0: npt.NDArray[np.float64] | None = None,
     asymmetry: float = 1.0,
 ) -> tuple[
     npt.NDArray[np.float64],
@@ -216,7 +216,7 @@ def fit_gaussian(
         X values where the function is evaluated.
     ys : npt.NDArray[np.float64]
         Y values at the given xs.
-    p0 : npt.NDArray[np.float64], optional (default=None)
+    p0 : npt.NDArray[np.float64] | None, optional (default=None)
         Initial guess of fit parameters. If None, a guess is generated.
     asymmetry : float, optional (default=1.0)
         Bound for the asymmetry fit parameter. Fit will be done in (-asymmetry, asymmetry).
@@ -256,11 +256,12 @@ def fit_gaussian(
             [x_end, x_sum, ys.max(), asymmetry],
         ),
     )
+    errors = np.sqrt(np.diag(pcov)).astype(float)
 
     def fit_function(xs_fit: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         return gaussian(xs_fit, *popt)
 
-    return popt, pcov, fit_function
+    return popt, errors, fit_function
 
 
 # endregion
@@ -293,50 +294,61 @@ def power_law(
 def fit_power_law(
     xs: npt.NDArray[np.float64],
     ys: npt.NDArray[np.float64],
-    yerrs: None | npt.NDArray[np.float64] = None,
-) -> tuple[float, float, Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]]:
+    yerrs: npt.NDArray[np.float64] | None = None,
+) -> tuple[
+    npt.NDArray[np.float64],
+    npt.NDArray[np.float64],
+    Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]],
+]:
     """Fit a power law to the given histogram data: y = a * x**k.
 
-    Note
-    ----
-    The fit is done in log-log space, so the input data should be positive.
+    Fitted in log-log space: log(y) = log(a) + k * log(x)
 
     Parameters
     ----------
     xs : npt.NDArray[np.float64]
-        X values where the function is evaluated.
+        x-values where the function is evaluated.
     ys : npt.NDArray[np.float64]
-        Y values at the given xs.
-    yerrs : npt.NDArray[np.float64], optional
-        Y errors.
-
+        y-values at the given xs.
+    yerrs : npt.NDArray[np.float64] | None, optional (default=None)
+        y-errors.
     Returns
     -------
-    tuple[float, float, Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]]
-        Tuple containing:
-        - (a, k): Fitted parameters of the power law.
-        - (error_a, error_k): Errors of the fitted parameters.
-        - fit_function: Function that evaluates the fitted power law.
+    popt : npt.NDArray[np.float64]
+        Optimal values for the parameters.
+    pcov : npt.NDArray[np.float64]
+        Covariance of popt.
+    fit_function : Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]
+        Function that evaluates the fitted power law.
     """
-    # Power law: y = a * x**k
-    # Fitted in log-log space: log(y) = log(a) + k * log(x)
-    popt, popv = curve_fit(
+    if np.any(xs <= 0.0) or np.any(ys <= 0.0):
+        raise ValueError("xs and ys must be positive for power law fitting.")
+    if yerrs is not None and np.any(yerrs <= 0.0):
+        raise ValueError("yerrs must be positive for power law fitting.")
+
+    if yerrs is None:
+        sigma_log = None
+        absolute_sigma = False
+    else:
+        yerrs = np.asarray(yerrs, dtype=float)
+        sigma_log = yerrs / ys  # Uncertainty propagated to log(y).
+        absolute_sigma = True
+
+    popt, pcov = curve_fit(
         lambda x, a, b: a + b * x,
         np.log(xs),
         np.log(ys),
-        sigma=yerrs / ys,
-        absolute_sigma=True,
+        sigma=sigma_log,
+        absolute_sigma=absolute_sigma,
     )
-    a = np.exp(popt[0])
-    k = popt[1]
-    errors = np.sqrt(np.diag(popv))
-    error_a = a * errors[0]
-    error_k = errors[1]
+    popt = np.array([np.exp(popt[0]), popt[1]])
+    errors = np.sqrt(np.diag(pcov)).astype(float)
+    errors = np.array([popt[0] * errors[0], errors[1]])
 
     def fit_function(x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        return power_law(x, a, k)
+        return power_law(x, *popt)
 
-    return (a, k), (error_a, error_k), fit_function
+    return popt, errors, fit_function
 
 
 # endregion
@@ -371,10 +383,10 @@ def offset_power_law(
 def fit_offset_power_law(
     xs: npt.NDArray[np.float64],
     ys: npt.NDArray[np.float64],
-    yerrs: None | npt.NDArray[np.float64] = None,
+    yerrs: npt.NDArray[np.float64] | None = None,
 ) -> tuple[
-    tuple[float, float, float],
-    tuple[float, float, float],
+    npt.NDArray[np.float64],
+    npt.NDArray[np.float64],
     Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]],
 ]:
     """Fit a power law with an offset to the given histogram data: y = a * x**k + b.
@@ -390,25 +402,20 @@ def fit_offset_power_law(
         X values where the function is evaluated.
     ys : npt.NDArray[np.float64]
         Y values at the given xs.
-    yerrs : npt.NDArray[np.float64], optional
+    yerrs : npt.NDArray[np.float64] | None, optional (default=None)
         Y errors (standard deviations) in linear space.
 
     Returns
     -------
-    tuple[
-        tuple[float, float, float],
-        tuple[float, float, float],
-        tuple[float, float, float],
-        Callable[[npt.NDArray[np.float64]],
-        npt.NDArray[np.float64]]
-    ]
-        Tuple containing:
-        - (a, k, b): Fitted parameters of the power law.
-        - (error_a, error_k, error_b): Errors of the fitted parameters.
-        - fit_function: Function that evaluates the fitted power law.
+    popt : npt.NDArray[np.float64]
+        Optimal values for the parameters.
+    pcov : npt.NDArray[np.float64]
+        Covariance of popt.
+    fit_function : Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]
+        Function that evaluates the fitted power law with offset.
     """
     # Power law: y = a * x**k + b
-    popt, popv = curve_fit(
+    popt, pcov = curve_fit(
         offset_power_law,
         xs,
         ys,
@@ -416,14 +423,12 @@ def fit_offset_power_law(
         absolute_sigma=yerrs is not None,
         p0=(1.0, 1.0, 0.0),
     )
-    a, k, b = popt[0], popt[1], popt[2]
-    errors = np.sqrt(np.diag(popv)).astype(float)
-    error_a, error_k, error_b = errors
+    errors = np.sqrt(np.diag(pcov)).astype(float)
 
     def fit_function(x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        return offset_power_law(x, a, k, b)
+        return offset_power_law(x, *popt)
 
-    return (a, k, b), (error_a, error_k, error_b), fit_function
+    return popt, errors, fit_function
 
 
 # endregion
@@ -455,8 +460,12 @@ def linear(x: npt.NDArray[np.float64], a: float, b: float) -> npt.NDArray[np.flo
 def fit_linear(
     xs: npt.NDArray[np.float64],
     ys: npt.NDArray[np.float64],
-    yerrs: None | npt.NDArray[np.float64] = None,
-) -> tuple[float, float, Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]]:
+    yerrs: npt.NDArray[np.float64] | None = None,
+) -> tuple[
+    npt.NDArray[np.float64],
+    npt.NDArray[np.float64],
+    Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]],
+]:
     """Fit a linear function to the given data: y = a * x + b.
 
     Parameters
@@ -465,28 +474,25 @@ def fit_linear(
         X values where the function is evaluated.
     ys : npt.NDArray[np.float64]
         Y values at the given xs.
-    yerrs : npt.NDArray[np.float64], optional
+    yerrs : npt.NDArray[np.float64] | None, optional (default=None)
         Y errors.
 
     Returns
     -------
-    tuple[float, float, Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]]
-        Tuple containing:
-        - (a, b): Fitted parameters of the linear function.
-        - (error_a, error_b): Errors of the fitted parameters.
-        - fit_function: Function that evaluates the fitted linear function.
+    popt : npt.NDArray[np.float64]
+        Optimal values for the parameters.
+    pcov : npt.NDArray[np.float64]
+        Covariance of popt.
+    fit_function : Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]
+        Function that evaluates the fitted linear function.
     """
-    popt, popv = curve_fit(linear, xs, ys, sigma=yerrs)
-    a = popt[0]
-    b = popt[1]
-    errors = np.sqrt(np.diag(popv))
-    error_a = errors[0]
-    error_b = errors[1]
+    popt, pcov = curve_fit(linear, xs, ys, sigma=yerrs)
+    errors = np.sqrt(np.diag(pcov)).astype(float)
 
     def fit_function(x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        return linear(x, a, b)
+        return linear(x, *popt)
 
-    return (a, b), (error_a, error_b), fit_function
+    return popt, errors, fit_function
 
 
 # endregion
@@ -495,16 +501,16 @@ def fit_linear(
 
 
 def apply_boundary_conditions(
-    data_atoms: defaultdict[str, Any],
+    data_atoms: dict[str, Any],
     x: bool,
     y: bool,
     z: bool,
-) -> defaultdict[str, Any]:
+) -> dict[str, Any]:
     """Apply boundary conditions to atoms.
 
     Parameters
     ----------
-    data_atoms : defaultdict[str, Any]
+    data_atoms : dict[str, Any]
         Atoms data containing atom positions and boundaries.
     x : bool
         Whether to apply periodic boundary conditions in the x direction.
@@ -515,7 +521,7 @@ def apply_boundary_conditions(
 
     Returns
     -------
-    defaultdict[str, Any]
+    dict[str, Any]
         Updated atoms data with applied boundary conditions.
     """
     xlo, xhi = data_atoms["xlo"], data_atoms["xhi"]
@@ -547,23 +553,21 @@ def apply_boundary_conditions(
     return data_atoms
 
 
-def recombine_in_radius(
-    data_defects: defaultdict[str, Any], radius: float
-) -> defaultdict[str, Any]:
+def recombine_in_radius(data_defects: dict[str, Any], radius: float) -> dict[str, Any]:
     """Recombine defects (interstitials and vacancies) within a given radius.
 
     Takes into account periodic boundary conditions.
 
     Parameters
     ----------
-    data_defects : defaultdict[str, Any]
+    data_defects : dict[str, Any]
         Defects data containing defect positions and boundaries.
     radius : float
         Radius within which to recombine defects.
 
     Returns
     -------
-    defaultdict[str, Any]
+    dict[str, Any]
         Updated defects data with recombined defects.
     """
 
@@ -580,8 +584,8 @@ def recombine_in_radius(
     box = np.array([[xlo, xhi], [ylo, yhi], [zlo, zhi]])
     box_size = box[:, 1] - box[:, 0]
 
-    vac_pos = str2unstr(vacs[["x", "y", "z"]])
-    sia_pos = str2unstr(sias[["x", "y", "z"]])
+    vac_pos = _str2unstr(vacs[["x", "y", "z"]])
+    sia_pos = _str2unstr(sias[["x", "y", "z"]])
     # Mask to keep track of recombined interstitials
     sia_used = np.zeros(len(sias), dtype=bool)
     # List to keep indices of vacancies and interstitials to remove
@@ -615,7 +619,6 @@ def recombine_in_radius(
     defects = np.concatenate([vacs[vac_mask], sias[sia_mask]])
 
     data_defects["atoms"] = defects
-    data_defects["natoms"] = len(defects)
 
     return data_defects
 

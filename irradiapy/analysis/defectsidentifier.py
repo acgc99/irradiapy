@@ -1,11 +1,11 @@
 """This module provides a class to find and analyze defects in crystalline structures."""
 
-from collections import defaultdict
 from dataclasses import dataclass, field
+from typing import Any
 
 import numpy as np
 import numpy.typing as npt
-from numpy.lib.recfunctions import structured_to_unstructured as str2unstr
+from numpy.lib.recfunctions import structured_to_unstructured as _str2unstr
 from scipy.spatial.transform import Rotation as R
 
 from irradiapy import dtypes
@@ -13,7 +13,7 @@ from irradiapy import dtypes
 
 @dataclass
 class DefectsIdentifier:
-    """Class to identify  defects in crystalline structures.
+    """Class to identify defects in crystalline structures.
 
     This class provides methods to identify point defects (vacancies and interstitials) in a
     body-centered cubic (bcc) lattice based on atomic positions from simulation data. It supports
@@ -46,6 +46,8 @@ class DefectsIdentifier:
     __ny: int = field(init=False)
     __nz: int = field(init=False)
     __sub_count: int = 2  # Number of atoms per primitive unit cell (bcc).
+    __pos_ucell: npt.NDArray[np.float64] = field(init=False)
+    __idx_ucell: npt.NDArray[np.int64] = field(init=False)
 
     def __post_init__(self) -> None:
         if self.lattice == "bcc":
@@ -97,7 +99,7 @@ class DefectsIdentifier:
         ----------
         atoms : dtypes.Atom
             Structured array of atomic positions (fields: x, y, z).
-        a1 : float
+        a1 : float | np.number
             Final lattice parameter to rescale positions.
         pos_pka : npt.NDArray[np.float64]
             Position vector of the PKA for translation.
@@ -132,7 +134,7 @@ class DefectsIdentifier:
         transform = transform @ scaling_matrix
 
         # Apply transformations
-        pos = str2unstr(atoms[["x", "y", "z"]])
+        pos = _str2unstr(atoms[["x", "y", "z"]])
         pos = pos @ transform.T
         atoms["x"] = pos[:, 0]
         atoms["y"] = pos[:, 1]
@@ -168,7 +170,7 @@ class DefectsIdentifier:
 
         Returns
         -------
-        tuple of int
+        tuple[int, int, int, int]
             (ix, iy, iz, ia) indices corresponding to the site ID.
         """
         ia = i % self.__sub_count
@@ -203,14 +205,14 @@ class DefectsIdentifier:
 
     def __defect_identification(
         self,
-        data_atoms: defaultdict,
+        data_atoms: dict[str, Any],
         idx_atoms: npt.NDArray[np.int64],
     ) -> dtypes.Defect:
         """Identifies defects based on the assignments.
 
         Parameters
         ----------
-        data_atoms : defaultdict
+        data_atoms : dict[str, Any]
             Dictionary containing simulation data as given by the LAMMPSReader and similar readers.
         idx_atoms : npt.NDArray[np.int64]
             Array of atomic index coordinates (shape: [N, 4]).
@@ -245,7 +247,7 @@ class DefectsIdentifier:
             elif len(grp) > 1:
                 # Interstitials
                 xyz = self.__site_id_to_cartesian(i)
-                coords = str2unstr(data_atoms["atoms"][["x", "y", "z"]][grp])
+                coords = _str2unstr(data_atoms["atoms"][["x", "y", "z"]][grp])
                 dist2 = np.sum(np.square(coords - xyz), axis=1)
                 keep_idx = np.argmin(dist2)
                 inters_idx = np.ones(len(grp), dtype=bool)
@@ -262,32 +264,32 @@ class DefectsIdentifier:
 
     def identify(
         self,
-        data_atoms: defaultdict,
-        a1: None | float = None,
-        pos_pka: None | npt.NDArray[np.float64] = None,
-        theta_pka: None | float = None,
-        phi_pka: None | float = None,
-        transform: None | bool = False,
-    ) -> defaultdict:
+        data_atoms: dict[str, Any],
+        a1: float | None = None,
+        pos_pka: npt.NDArray[np.float64] | None = None,
+        theta_pka: float | None = None,
+        phi_pka: float | None = None,
+        transform: bool = False,
+    ) -> dict[str, Any]:
         """Identify defects in the crystalline structure based on atomic positions.
 
         Parameters
         ----------
-        data_atoms : defaultdict
+        data_atoms : dict[str, Any]
             Dictionary containing simulation data as given by the LAMMPSReader and similar readers.
-            Must include keys: 'atoms', 'natoms', 'boundary', 'xlo', 'xhi', 'ylo', 'yhi', 'zlo',
+            Must include keys: 'atoms', 'boundary', 'xlo', 'xhi', 'ylo', 'yhi', 'zlo',
             'zhi', 'timestep'.
-        a1 : float, optional
+        a1 : float | None, optional (default=None)
             Final lattice parameter. If provided, defect positions are rescaled to this value
             (independently of the `transform` value).
-        pos_pka : npt.NDArray[np.float64], optional
+        pos_pka : npt.NDArray[np.float64] | None, optional (default=None)
             Position vector of the PKA. If provided with theta_pka and phi_pka, defects are
             recentered and aligned.
-        theta_pka : float, optional
+        theta_pka : float | None, optional (default=None)
             Polar angle (in radians) for the PKA direction.
-        phi_pka : float, optional
+        phi_pka : float | None, optional (default=None)
             Azimuthal angle (in radians) for the PKA direction.
-        transform : bool, optional
+        transform : bool, optional (default=False)
             If True, defects are recentered and aligned with the PKA direction (if provided). If
             True but no PKA parameters are provided, defects are recentered based on their
             average position. Note that the box boundaries are not modified for visualization
@@ -295,10 +297,9 @@ class DefectsIdentifier:
 
         Returns
         -------
-        data_defects : defaultdict
+        data_defects : dict[str, Any]
             Dictionary containing the defects found in the structure. Keys are the same as in
-            `data_atoms`, but the 'atoms' key contains only defects and
-            'natoms' reflects the number of defects found.
+            `data_atoms`, but the 'atoms' key contains only defects.
         """
         self.__nxlo = round(data_atoms["xlo"] / self.a0)
         self.__nxhi = round(data_atoms["xhi"] / self.a0)
@@ -313,8 +314,9 @@ class DefectsIdentifier:
         self.__pery = data_atoms["boundary"][1] == "pp"
         self.__perz = data_atoms["boundary"][2] == "pp"
 
-        idx_atoms = np.zeros((data_atoms["natoms"], 4), dtype=np.int64)
-        mod_atoms = np.zeros((data_atoms["natoms"], 3), dtype=np.float64)
+        natoms = len(data_atoms["atoms"])
+        idx_atoms = np.zeros((natoms, 4), dtype=np.int64)
+        mod_atoms = np.zeros((natoms, 3), dtype=np.float64)
         idx_atoms[:, 0], mod_atoms[:, 0] = np.divmod(data_atoms["atoms"]["x"], self.a0)
         idx_atoms[:, 1], mod_atoms[:, 1] = np.divmod(data_atoms["atoms"]["y"], self.a0)
         idx_atoms[:, 2], mod_atoms[:, 2] = np.divmod(data_atoms["atoms"]["z"], self.a0)
@@ -360,10 +362,9 @@ class DefectsIdentifier:
                 defects["y"] *= a1 / self.a0
                 defects["z"] *= a1 / self.a0
 
-        data_defects = defaultdict(None)
+        data_defects = {}
         data_defects["time"] = data_atoms["time"]
         data_defects["timestep"] = data_atoms["timestep"]
-        data_defects["natoms"] = len(defects)
         data_defects["boundary"] = data_atoms["boundary"]
         data_defects["xlo"] = data_atoms["xlo"]
         data_defects["xhi"] = data_atoms["xhi"]

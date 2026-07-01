@@ -1,8 +1,7 @@
 matplotlib>=3.10.1
 numpy>=2.2.4
-PyGetWindow>=0.0.9
-pywinauto>=0.6.8
-scikit_learn>=1.6.0
+pygetwindow>=0.0.9; platform_system == "Windows"
+pywinauto>=0.6.8; platform_system == "Windows"
+scikit-learn>=1.6.0
 scipy>=1.14.1
-mpi4py>=3.0.0
 indexed-bzip2>=1.7.0

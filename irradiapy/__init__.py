@@ -1,3 +1,8 @@
 """irradiapy package"""
 
-from irradiapy import analysis, config, dtypes, io, materials, srim, utils
+from irradiapy import analysis, config, dtypes, io, materials, spectrapka, srim, utils
+from irradiapy.database import Database
+from irradiapy.enums import DamageEnergyMode, DisplacementMode, Phases
+from irradiapy.recoilsdb import RecoilsDB
+from irradiapy.debris_dataset import DebrisDataset
+from irradiapy.debris_database import DebrisDatabase

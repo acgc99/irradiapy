@@ -1,21 +1,21 @@
 irradiapy documentation
 =======================
 
-Subpackages and submodules quick reference.
+API reference
+-------------
 
-.. autosummary::
-   :toctree: .
-   :caption: Core subpackages
-   :recursive:
+.. toctree::
+   :maxdepth: 2
 
-   irradiapy.analysis
-   irradiapy.io
-   irradiapy.materials
-   irradiapy.srim
-   irradiapy.utils
-   irradiapy.config
-   irradiapy.dtypes
-   irradiapy.damagedb
+   api/modules
 
 .. include:: ../../README.md
    :parser: markdown
+
+MD debris datasets
+------------------
+
+.. toctree::
+   :maxdepth: 1
+
+   debris_datasets

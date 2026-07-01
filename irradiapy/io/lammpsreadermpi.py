@@ -2,15 +2,13 @@
 
 # pylint: disable=no-name-in-module, broad-except
 
-from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import TracebackType
-from typing import Any, Dict, Generator, TextIO, Tuple, Type
+from typing import Any, Generator, TextIO
 
 import numpy as np
 from mpi4py import MPI
-from numpy import typing as npt
 
 from irradiapy.utils.mpi import (
     MPIExceptionHandlerMixin,
@@ -44,9 +42,9 @@ class LAMMPSReaderMPI(MPIExceptionHandlerMixin):
 
     Yields
     ------
-    dict
+    dict[str, Any]
         A dictionary containing the timestep data with keys:
-        'time' (optional), 'timestep', 'natoms', 'boundary', 'xlo', 'xhi',
+        'time' (optional), 'timestep', 'boundary', 'xlo', 'xhi',
         'ylo', 'yhi', 'zlo', 'zhi', and 'atoms' (as a numpy structured array).
     """
 
@@ -61,8 +59,9 @@ class LAMMPSReaderMPI(MPIExceptionHandlerMixin):
     __nx: int = field(init=False)
     __ny: int = field(init=False)
     __nz: int = field(init=False)
+    __natoms: int = field(init=False)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.__rank = self.comm.Get_rank()
         self.__commsize = self.comm.Get_size()
         self.__nx, self.__ny, self.__nz = mpi_subdomains_decomposition(self.__commsize)
@@ -86,9 +85,9 @@ class LAMMPSReaderMPI(MPIExceptionHandlerMixin):
 
     def __exit__(
         self,
-        exc_type: None | type[BaseException] = None,
-        exc_value: None | BaseException = None,
-        exc_traceback: None | TracebackType = None,
+        exc_type: type[BaseException] | None = None,
+        exc_value: BaseException | None = None,
+        exc_traceback: TracebackType | None = None,
     ) -> bool:
         """Exits the context manager."""
         if self.__rank == 0 and self.__file is not None:
@@ -97,7 +96,7 @@ class LAMMPSReaderMPI(MPIExceptionHandlerMixin):
 
     def __get_dtype(
         self, file: TextIO
-    ) -> Tuple[list[str], list[Type[int | float]], np.dtype]:
+    ) -> tuple[list[str], list[type[int | float]], np.dtype]:
         items = file.readline().split()[2:]
         types = [
             np.int64 if it in ("id", "type", "element", "size") else np.float64
@@ -105,8 +104,8 @@ class LAMMPSReaderMPI(MPIExceptionHandlerMixin):
         ]
         return items, types, np.dtype(list(zip(items, types)))
 
-    def __process_header(self, file: TextIO) -> Dict[str, Any]:
-        data = defaultdict(None)
+    def __process_header(self, file: TextIO) -> dict[str, Any]:
+        data: dict[str, Any] = {}
         line = file.readline()
         if not line:
             return {}
@@ -118,7 +117,7 @@ class LAMMPSReaderMPI(MPIExceptionHandlerMixin):
             file.seek(file.tell() - len(line))
         data["timestep"] = int(file.readline())
         file.readline()
-        data["natoms"] = int(file.readline())
+        self.__natoms = int(file.readline())
         data["boundary"] = file.readline().split()[3:]
         bounds = []
         for _ in range(3):
@@ -130,7 +129,7 @@ class LAMMPSReaderMPI(MPIExceptionHandlerMixin):
         return data
 
     @mpi_safe_method
-    def __iter__(self) -> Generator[Tuple[Dict[str, Any], npt.NDArray], None, None]:
+    def __iter__(self) -> Generator[dict[str, Any], None, None]:
         while True:
             # header broadcast
             data = self.comm.bcast(
@@ -151,10 +150,9 @@ class LAMMPSReaderMPI(MPIExceptionHandlerMixin):
             data.update({"items": items, "types": types, "dtype": dtype})
 
             # calculate raw line counts
-            natoms = data["natoms"]
             counts = [
-                (natoms // self.__commsize)
-                + (1 if i < (natoms % self.__commsize) else 0)
+                (self.__natoms // self.__commsize)
+                + (1 if i < (self.__natoms % self.__commsize) else 0)
                 for i in range(self.__commsize)
             ]
 

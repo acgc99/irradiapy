@@ -3,7 +3,7 @@
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Generator, TextIO
+from typing import Generator, TextIO
 
 import numpy as np
 import numpy.typing as npt
@@ -34,7 +34,7 @@ class XYZReader:
         if self.file is not None:
             self.file.close()
 
-    def __iter__(self) -> Generator[Any, None, None]:
+    def __iter__(self) -> Generator[npt.NDArray, None, None]:
         """Iterate over subfiles in the XYZ file.
 
         Yields

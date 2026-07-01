@@ -1,75 +1,178 @@
-# Irradiapy
+# irradiapy
 
-This Python package is aimed towards the simulation and analysis of irradiation damage with multiple tools.
+`irradiapy` is a Python toolkit for constructing and analysing primary irradiation damage data. It connects recoil spectra from [SRIM](http://www.srim.org/) or [SPECTRA-PKA](https://github.com/fispact/SPECTRA-PKA) with curated molecular dynamics (MD) cascade debris, and provides SQLite-backed storage, file I/O, defect analysis, and plotting tools.
 
-You can find examples under the [`examples`](https://github.com/acgc99/irradiapy/tree/214650c478d5a6744fb24d46cb06deb8819b4aa1/examples) folder. More examples will be provided as new functionalities are implemented. A documentation page is hosted in Read the Docs [here](https://irradiapy.readthedocs.io/en/stable/).
+The central workflow is:
 
-If you have any question about the use of `irradiapy`, feel free to start a discussion. Otherwise, if you find a bug or you want to suggest a feature, open an issue. Note that not all materials have been implemented, only the ones that I have used. Open an issue and I will update the code as soon as possible.
+1. Generate primary knock-on atoms (PKAs) with SRIM, or read time-dependent PKAs produced by SPECTRA-PKA.
+2. Re-run recoils through SRIM when their energies exceed the MD cascade database range.
+3. Store ions, recoils, target information, and SRIM output in SQLite databases.
+4. Match each recoil to MD cascade debris.
+5. Calculate defect, cluster, recoil, and displacements-per-atom (dpa) statistics.
 
-## Functionalities
+irradiapy does not distribute SRIM, SPECTRA-PKA, or any MD cascade database. Those tools and data must be installed or obtained separately.
 
-### SRIM
+## Features
 
-This subpackage runs [SRIM](http://www.srim.org/) from Python. Main features:
-1. SRIM execution automation.
-2. All outputs are saved into a SQLite database for easy use.
-3. SRIM can be run in a iterative way given some conditions. For example, a incident ion of MeV energy, can generate a PKA of MeV (SRIM only follows the incident ion in `COLLISON.txt`). That might be too high for your application. In this case, SRIM can be run again automatically to simulate that PKA as a new ion.
+### Ion irradiation: SRIM
 
-Please note that:
-1. You must obtain SRIM and make it work on your own before using this functionality. SRIM is not included here.
-2. SRIM was designed to be run with a GUI. I managed to handle it the best way I could. A SRIM window will open in every run, but it will be minimised.
-3. I think this can adapted to run in Linux with Wine, but I do not have a Linux system. Someone could help with this.
-4. All SRIM output files are saved as SQLite tables. All of them correspond to the initial incident ions, if SRIM is executed interatively, they are not updated. The only exception is `COLLISON.txt`, which has a special treatment (see feature 3.).
+The [`irradiapy.srim`](https://github.com/acgc99/irradiapy/tree/main/irradiapy/srim) subpackage automates SRIM graphical application and parses its output.
 
-This package is applied in [Gutiérrez-Camacho, A.-C. et al. (2025)](https://doi.org/10.1038/s41598-025-05661-2). We obtained the list of PKAs produced by ions, and then we placed molecular dynamics collisional cascades debris accordinly. You can find the database we used in [CascadesDefectsDB](https://github.com/acgc99/CascadesDefectsDB.git) repository. [This](https://github.com/acgc99/irradiapy/blob/214650c478d5a6744fb24d46cb06deb8819b4aa1/examples/srim.py) is an example about how to use this feature.
+- Runs quick, full, and monolayer SRIM calculations.
+- Supports Windows directly and Linux through Wine.
+- Converts SRIM text outputs into queryable SQLite tables.
+- Collects all generated ions and recoils in a central `recoils.db`.
+- Iteratively simulates recoils whose energies are above the configured MD
+  debris range.
 
-### SPECTRA-PKA
+SRIM remains a GUI application: its windows are visible while a calculation runs. On Linux, automation requires Wine, `xdotool`, and an X11-compatible display (including XWayland where available). See [Installing SRIM on Linux](https://github.com/acgc99/irradiapy/tree/main/Installing_SRIM_Linux.md) for the tested setup.
 
-SPECTRA-PKA will be transfered to SRIM as described above. Work in progress.
+### Neutron irradiation: SPECTRA-PKA and SRIM
+
+The
+[`irradiapy.spectrapka`](https://github.com/acgc99/irradiapy/tree/main/irradiapy/spectrapka) subpackage reads SPECTRA-PKA material and `config_events.pka` output, converts the PKA events to irradiapy's database format, and delegates high-energy recoils to the SRIM workflow.
+
+SPECTRA-PKA itself is not launched by irradiapy. Run it separately on Linux and provide its input and event files to `irradiapy.spectrapka.Spectra2SRIM`. For Windows users, Windows Subsystem for Linux 2 (WSL2) is recommended.
+
+### MD cascade debris
+
+`DebrisDataset` reads cascade metadata and energy-indexed LAMMPS dump files from one dataset. `DebrisDatabase` filters and combines compatible datasets by target composition, lattice type, electronic-interaction model, interatomic potential, DOI, and contributors.
+
+`irradiapy.analysis.debris.generate_debris` then matches stored recoils to those cascades, rotates and places the selected debris, applies boundary conditions, and represents unmatched low-energy recoils with Frenkel pairs.
+
+Compatible curated datasets are available from [CascadesDefectsDB](https://github.com/acgc99/CascadesDefectsDB).
 
 ### LAMMPS
 
-This will be Python workflow that uses the LAMMPS package to generate databases of molecular dynamcis cascades "easily". Work in progress.
+The [`irradiapy.lammps`](https://github.com/acgc99/irradiapy/tree/main/irradiapy/lammps) subpackage acts as a wrapper around the official `lammps`  Python package to use commands as instances of classes. This is useful for custom workflows and reuse of commands.
 
 ### Analysis
 
-Under [`analysis`](https://github.com/acgc99/irradiapy/tree/39b5de7f575024101dfec23f6373b8c454bead81/irradiapy/analysis) subpackage you will find tools for defect and cluster identification. Together with the dpa module, a few basic plots are provided.
+The [`irradiapy.analysis`](https://github.com/acgc99/irradiapy/tree/main/irradiapy/analysis) subpackage provides:
 
-Please, note that the original version of defect identification ([Gutiérrez-Camacho, A.-C. et al. (2025)](https://doi.org/10.1038/s41598-025-05661-2)) is deprecated since version 1.0. I realised that it was not very efficent and the current code is more similar to the reference algorithm ([Bhardwaj, U. et al. (2020)](https://doi.org/10.1016/j.commatsci.2019.109364)). However, I think this code can be further improved with MPI parallelisation, but I miss the technical knowledge for this.
+- defect identification similar to [U. Bhardwaj, et al. (2020)](https://doi.org/10.1016/j.commatsci.2019.109364);
+- vacancy and self-interstitial cluster identification;
+- recoil-energy, recoil-position, and injected-ion distributions;
+- NRT, arc, and fer-arc dpa calculations;
+- SQLite-backed analysis results and plotting helpers.
 
 ### I/O
 
-The subpackage [`io`](https://github.com/acgc99/irradiapy/tree/39b5de7f575024101dfec23f6373b8c454bead81/irradiapy/io) provides a set of basic readers and writers for LAMMPS dump custom:
-- Standard
-- MPI parallelised
-- bzip2 compressed
-  
-There are functions to compress LAMMPS dump custom text files using bzip2, this is highly recommend to store large amounts of data (from personal experience, a 26 GB file can end up around 7 GB once compressed). You do not need to decompress the files for processing, use the proper reader instead. However, you will not be able to use commercial visualisation tools with compressed files.
+The [`irradiapy.io`](https://github.com/acgc99/irradiapy/tree/main/irradiapy/io) subpackage contains:
 
-This subpackage also provides a basic XYZ reader and reader. These work differently from LAMMPS readers/writers and are not longer updated, since I decided to keep LAMMPS format as default. The XYZ reader and writer are there because I used them long time ago.
+- serial and MPI readers and writers for LAMMPS custom dump files;
+- serial and MPI readers and writers for bzip2-compressed LAMMPS dumps;
+- a LAMMPS log reader;
+- basic XYZ readers and writers.
 
-### Matplotlib style
+The parallel compressed reader uses `indexed-bzip2` for indexed, multi-threaded decompression. Compression and conversion helpers are available under `irradiapy.utils.io`.
 
-Using `irradiapy.config.use_style()` you can take advantage of the colorblind-friendly matplotlib style used in [Gutiérrez-Camacho, A.-C. et al. (2025)](https://doi.org/10.1038/s41598-025-05661-2). If `latex=True` is provided, it will use LaTeX fonts, but it is slower and you might need to install LaTeX first (not sure).
+### Materials and plotting
+
+`irradiapy.materials` defines reusable `Element` and `Component` data classes, several built-in elements, and reference components for bcc Fe and W (you can request new components). `Component` implements recoil-to-damage-energy conversion and NRT, arc, and fer-arc dpa models.
+
+`irradiapy.config.use_style()` enables the package's colourblind-friendly Matplotlib style. Pass `latex=True` to use LaTeX text rendering when a LaTeX installation is available.
 
 ## Installation
 
-Dependencies:
-```
-matplotlib>=3.10.1
-numpy>=2.2.4
-PyGetWindow>=0.0.9
-pywinauto>=0.6.8
-scikit_learn>=1.6.0
-scipy>=1.14.1
-mpi4py>=3.0.0
-indexed-bzip2>=1.7.0
-```
-Note that:
-- The code might work with previous packages versions, but results might change slightly. For example, [`scipy.spatial.transform.Rotation.align_vectors`](https://docs.scipy.org/doc/scipy-1.14.1/reference/generated/scipy.spatial.transform.Rotation.align_vectors.html) changed its behaviour when only two vectors are provided between versions 1.11 and 1.12.
-- (Not applicable yet) You need to be able to run LAMMPS from Python. On Windows, you will need first to install [MS-MPI](https://learn.microsoft.com/en-gb/message-passing-interface/microsoft-mpi) (`msmpisetup.exe`), and then LAMMPS for Windows with Python support [LAMMPS-64bit-Python-latest-MSMPI.exe](https://rpm.lammps.org/windows/). In Linux, you need to build the Python package from source with `make install-python` or similar.
+irradiapy 2.0.0 requires Python 3.14 or newer.
 
-Installation (PyPI link [here](https://pypi.org/project/irradiapy/)):
+```bash
+python -m pip install irradiapy
 ```
-pip install irradiapy
+
+MPI I/O support is optional:
+
+```bash
+python -m pip install "irradiapy[mpi]"
 ```
+
+To work from a source checkout:
+
+```bash
+git clone https://github.com/acgc99/irradiapy.git
+cd irradiapy
+python -m pip install -e .
+```
+
+An MPI implementation is required when installing the `mpi` extra. For example,
+Debian and Ubuntu users can install Open MPI with:
+
+```bash
+sudo apt install libopenmpi-dev openmpi-bin
+```
+
+Additional external requirements depend on the workflow:
+
+- **SRIM on Windows:** install SRIM; Windows automation dependencies are installed with irradiapy.
+- **SRIM on Linux:** install `wine`, `xdotool` and SRIM.
+- **SPECTRA-PKA:** build and run SPECTRA-PKA separately on Linux or WSL2.
+- **LAMMPS cascade simulations:** build LAMMPS with Python support and install its Python module from the LAMMPS source tree. Do not use the unofficial `lammps` package from PyPI.
+- **MD debris generation:** obtain a compatible cascade database such as CascadesDefectsDB.
+
+## Basic configuration
+
+SRIM and debris-database locations are configured explicitly:
+
+```python
+from pathlib import Path
+
+import irradiapy as irpy
+
+irpy.config.set_srim_dir(Path("/path/to/SRIM-2013"))
+irpy.config.set_debris_database(
+    path=Path("/path/to/CascadesDefectsDB"),
+    electronic_interactions="SRIM",
+    target={"Fe": 1.0},
+    lattice="bcc",
+)
+```
+
+The complete workflows require irradiation inputs and material-specific parameters. Start from the maintained examples:
+
+- [SRIM ion irradiation and analysis](https://github.com/acgc99/irradiapy/blob/main/examples/srim.py)
+- [SPECTRA-PKA, SRIM, and debris generation](https://github.com/acgc99/irradiapy/blob/main/examples/spectra.py)
+- [MD debris database analysis](https://github.com/acgc99/irradiapy/blob/main/examples/debris_analysis.py)
+
+The [API documentation](https://irradiapy.readthedocs.io/en/stable/) describes the individual classes and functions.
+
+## Scientific use
+
+This package should be cites as:
+> A.-C. Gutiérrez-Camacho et al., “Towards a standardised methodology of radiation damage defect distributions for microstructure evolution models”, [*Scientific Reports* 15, 20596 (2025)](https://doi.org/10.1038/s41598-025-05661-2).
+
+It has been used in the following works:
+
+> A.-C. Gutiérrez-Camacho et al., “Towards a standardised methodology of radiation damage defect distributions for microstructure evolution models”, [*Scientific Reports* 15, 20596 (2025)](https://doi.org/10.1038/s41598-025-05661-2).
+
+
+## Contributing
+
+Questions belong in [GitHub Discussions](https://github.com/acgc99/irradiapy/discussions). Report bugs and feature requests through [GitHub Issues](https://github.com/acgc99/irradiapy/issues).
+
+### Building the documentation
+
+Run the following commands from the repository root with the project virtual environment activated:
+
+```bash
+python -m pip install -e ".[mpi]" -r docs/requirements.txt
+python -m sphinx.ext.apidoc --force --remove-old --separate -o docs/source/api irradiapy
+python -m sphinx -W --keep-going -b html docs/source docs/build/html
+```
+
+The generated documentation is written to `docs/build/html/index.html`.
+
+### Building the package
+
+Run the following commands from the repository root with the project virtual environment activated:
+
+```bash
+python -m pip install build
+python -m build
+```
+
+The wheel and source distributions are written to `dist`.
+
+## License
+
+irradiapy is distributed under the [MIT License](LICENSE).

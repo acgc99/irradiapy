@@ -62,3 +62,26 @@ trimdat = np.dtype(
 Trimdat = Annotated[npt.NDArray[Any], trimdat]
 
 # endregion
+
+# region SPECTRA-PKA
+
+spectra_event = np.dtype(
+    [
+        ("atom", np.int32),
+        ("x", np.float64),
+        ("y", np.float64),
+        ("z", np.float64),
+        ("vx", np.float64),
+        ("vy", np.float64),
+        ("vz", np.float64),
+        ("element", "U16"),
+        ("mass", np.float64),
+        ("timestep", np.int32),
+        ("recoil_energy", np.float64),
+        ("time", np.float64),
+        ("event", np.int32),
+    ]
+)
+Spectra_Event = Annotated[npt.NDArray[Any], spectra_event]
+
+# endregion

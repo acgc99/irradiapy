@@ -1,0 +1,420 @@
+"""SPECTRA-PKA subpackage core module."""
+
+# pylint: disable=too-many-lines
+
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+import numpy.typing as npt
+
+from irradiapy import srim
+from irradiapy.materials import ATOMIC_NUMBER_BY_SYMBOL, ELEMENT_BY_SYMBOL, Phases
+from irradiapy.materials.component import Component
+from irradiapy.recoilsdb import RecoilsDB
+
+
+@dataclass
+class Spectra2SRIM:
+    """Spectra2SRIM class to run SPECTRA-PKA to SRIM workflow.
+
+    Attributes
+    ----------
+    seed : int (default=0)
+        Seed for SRIM randomness.
+    spectrapka_in_path : Path
+        SPECTRA-PKA input file path, for target definition.
+    spectrapka_events_path : Path
+        SPECTRA-PKA config_events.pka file path, for recoils data.
+    root_dir : Path
+        Root output directory where all data will be stored.
+    srim_width : float, optional (default=1e8)
+        The SPECTRA-PKA box might be small for SRIM ions. To avoid backscattering and
+        transmission, SPECTRA-PKA recoils are injected at the middle of a thick SRIM target
+        of this width (in Angstrom). In postprocessing, the depth offset is corrected to get
+        the position in the SPECTRA-PKA box. Note that due to SRIM limitations, recoils
+        positions are rounded to a number of the form "xxxxx.E+xx",
+        if this width is set too high, precision might be lost, but
+        backscattering/transmission might happen if set too low.
+        Unfortunately, there is not a strict rule to set this value.
+    matdict : dict[str, Any]
+        Material dictionary with SPECTRA-PKA material information.
+    target : list[Component]
+        SRIM target components.
+    recoilsdb : RecoilsDB
+        Database to store all recoils collected from SPECTRA-PKA and SRIM calculations.
+    check_interval : float (default=0.2)
+        Interval to check for SRIM window/popups.
+    plot_type : int (default=5)
+        Plot type during SRIM calculations. 5 for no plots (faster calculations).
+    xmin : float (default=0.0)
+        Minimum x for plots and depth-dependent means during SRIM calculations. Particularly
+        important for large targets, since SRIM divides it in 100 segments.
+    xmax : float (default=0.0)
+        Maximum x for plots and depth-dependent means during SRIM calculations. Particularly
+        important for large targets, since SRIM divides it in 100 segments.
+        0.0 for full target.
+    do_ranges : int (default=1)
+        Whether to save `RANGE.txt` file.
+        Disabling this might cause errors afterwards because of missing tables.
+    do_backscatt : int (default=1)
+        Whether to save `BACKSCAT.txt` file.
+        Disabling this might cause errors afterwards because of missing tables.
+    do_transmit : int (default=1)
+        Whether to save `TRANSMIT.txt` file.
+        Disabling this might cause errors afterwards because of missing tables.
+    do_sputtered : int (default=1)
+        Whether to save `SPUTTER.txt` file.
+        Disabling this might cause errors afterwards because of missing tables.
+    do_collisions : int (default=1)
+        Whether to save `COLLISON.txt` file.
+        Disabling this might cause errors afterwards because of missing tables.
+    exyz : float (default=0.0)
+        Whether to save ions position every time they loose `exyz` energy in the `EXYZ.txt` file.
+    autosave : int (default=0)
+        Autosave every this number of ions. 0 to disable.
+    """
+
+    seed: int = 0
+
+    spectrapka_in_path: Path = field(init=False)
+    spectrapka_events_path: Path = field(init=False)
+    root_dir: Path = field(init=False)
+    srim_width: float = field(default=1e8, init=False)
+    matdict: dict[str, Any] = field(init=False)
+    target: list[Component] = field(init=False)
+    recoilsdb: RecoilsDB = field(init=False)
+
+    check_interval: float = 0.2
+    plot_type: int = 5
+    xmin: float = 0.0
+    xmax: float = 0.0
+    do_ranges: int = 1
+    do_backscatt: int = 1
+    do_transmit: int = 1
+    do_sputtered: int = 1
+    do_collisions: int = 1
+    exyz: float = 0.0
+    autosave: int = 0
+
+    reminders: int = field(default=0, init=False)
+    bragg: int = field(default=1, init=False)
+
+    def __read_spectrapka_events_for_srim(self, conditions: str = "") -> tuple[
+        int,
+        npt.NDArray[np.int],
+        npt.NDArray[np.float64],
+        npt.NDArray[np.float64],
+        npt.NDArray[np.float64],
+        npt.NDArray[np.float64],
+        npt.NDArray[np.float64],
+        npt.NDArray[np.float64],
+        npt.NDArray[np.float64],
+        npt.NDArray[np.float64],
+        npt.NDArray[np.int],
+    ]:
+        """Read data from the SPECTRA-PKA database for SRIM calculations.
+
+        Parameters
+        ----------
+        conditions : str
+            Conditions to filter data.
+
+        Returns
+        -------
+        tuple[
+            int,
+            npt.NDArray[np.int],
+            npt.NDArray[np.float64],
+            npt.NDArray[np.float64],
+            npt.NDArray[np.float64],
+            npt.NDArray[np.float64],
+            npt.NDArray[np.float64],
+            npt.NDArray[np.float64],
+            npt.NDArray[np.float64],
+            npt.NDArray[np.float64],
+            npt.NDArray[np.int]
+        ]
+            nions, atomic_numbers, recoil_energies, depths, ys, zs, cosxs, cosys, coszs, times,
+            events
+        """
+        data = list(
+            self.recoilsdb.read(
+                table="spectrapkas",
+                what="x, y, z, vx, vy, vz, element, recoil_energy, time, event",
+                conditions=conditions,
+            )
+        )
+        nions = len(data)
+
+        depths = np.array([row[0] for row in data], dtype=np.float64)
+        ys = np.array([row[1] for row in data], dtype=np.float64)
+        zs = np.array([row[2] for row in data], dtype=np.float64)
+
+        vx = np.array([row[3] for row in data], dtype=np.float64)
+        vy = np.array([row[4] for row in data], dtype=np.float64)
+        vz = np.array([row[5] for row in data], dtype=np.float64)
+        v = np.sqrt(np.square(vx) + np.square(vy) + np.square(vz))
+        cosxs = vx / v
+        cosys = vy / v
+        coszs = vz / v
+
+        atomic_numbers = np.array(
+            [ATOMIC_NUMBER_BY_SYMBOL[row[6]] for row in data], dtype=np.int32
+        )
+        recoil_energies = 1e6 * np.array(
+            [row[7] for row in data], dtype=np.float64
+        )  # MeV to eV
+        times = np.array([row[8] for row in data], dtype=np.float64)
+        events = np.array([row[9] for row in data], dtype=np.int32)
+
+        return (
+            nions,
+            atomic_numbers,
+            recoil_energies,
+            depths,
+            ys,
+            zs,
+            cosxs,
+            cosys,
+            coszs,
+            times,
+            events,
+        )
+
+    def __recoils__spectrapka_in_to_target(self, density: float) -> None:
+        """Process the SPECTRA-PKA input file to generate target.
+
+        Parameters
+        ----------
+        density : float
+            Density of the target material in g/cm3.
+
+        Notes
+        -----
+            Isotopes with the same element symbol are combined into a single element with the
+            sum of their stoichiometries.
+        """
+        # Store material data
+        self.matdict = {}
+        cols = []
+        reading_columns = False
+        with open(self.spectrapka_in_path, "r", encoding="utf-8") as file:
+            for line in file:
+                if line.strip().startswith("columns="):
+                    reading_columns = True
+                    continue
+                if reading_columns and line.startswith('"'):
+                    # remove quotes and split by space
+                    cols.append(line.strip().strip('"').split())
+                if reading_columns and not line.startswith('"'):
+                    reading_columns = False
+                    break
+        self.matdict["stoichs"] = np.array([col[1] for col in cols], dtype=np.float64)
+        self.matdict["symbols"] = np.array([col[2] for col in cols], dtype=str)
+        # SRIM does not distinguish isotopes, merge them
+        unique_symbols = np.unique(self.matdict["symbols"])
+        unique_stoichs = [
+            float(np.sum(self.matdict["stoichs"][self.matdict["symbols"] == el]))
+            for el in unique_symbols
+        ]
+        self.matdict["stoichs"] = unique_stoichs
+        self.matdict["symbols"] = unique_symbols.tolist()
+        # Get lattice definition
+        a0, lattice, nsize = None, None, None
+        with open(self.spectrapka_in_path, "r", encoding="utf-8") as file:
+            for line in file:
+                if line.strip().startswith("latt="):
+                    a0 = float(line.split("=")[1].strip())
+                elif line.strip().startswith("box_type="):
+                    lattice = line.split("=")[1].strip()
+                elif line.strip().startswith("box_nunits="):
+                    nsize = int(line.split("=")[1].strip())
+        self.matdict["a0"] = a0
+        if lattice == "1":
+            self.matdict["lattice"] = "bcc"
+        elif lattice == "2":
+            self.matdict["lattice"] = "fcc"
+        elif lattice == "3":
+            self.matdict["lattice"] = "hcp"
+        else:
+            raise ValueError(f"Unknown SPECTRA-PKA lattice type: {lattice}")
+        self.matdict["nsize"] = nsize
+        self.matdict["sizex"] = a0 * nsize
+        self.matdict["sizey"] = (
+            a0 * nsize * np.sqrt(3) if lattice == "3" else a0 * nsize
+        )
+        self.matdict["sizez"] = (
+            a0 * nsize * np.sqrt(8 / 3) if lattice == "3" else a0 * nsize
+        )
+
+        # Create SRIM target
+        elements = [ELEMENT_BY_SYMBOL[sym] for sym in self.matdict["symbols"]]
+        # SRIM PKA energy to damage energy compatibility
+        if all(symbol == "Fe" for symbol in self.matdict["symbols"]):
+            name = "Iron"
+        elif all(symbol == "W" for symbol in self.matdict["symbols"]):
+            name = "Tungsten"
+        else:
+            name = "Layer1"
+        component = Component(
+            elements=elements,
+            stoichs=self.matdict["stoichs"],
+            name=name,
+            width=self.srim_width,
+            phase=Phases.SOLID,
+            density=density,
+            structure=self.matdict["lattice"],
+            ax=self.matdict["a0"],
+        )
+        self.target = [component]
+
+    def run(
+        self,
+        density: float,
+        spectrapka_in_path: Path,
+        spectrapka_events_path: Path,
+        root_dir: Path,
+        srim_width: float,
+        calculation: str,
+        max_energy_rel: float,
+        exclude_recoils: list[str] | None = None,
+        max_srim_iters: int = 32,
+        minimize_window: bool = False,
+        fp_energy_abs: float = 1e3,
+    ) -> RecoilsDB:
+        """Run the SPECTRA-PKA to SRIM workflow.
+
+        Parameters
+        ----------
+        density : float
+            Density of the target material in g/cm3.
+        spectrapka_in_path : Path
+            SPECTRA-PKA input file path, for target definition.
+        spectrapka_events_path : Path
+            SPECTRA-PKA config_events.pka file path, for recoils data.
+        root_dir : Path
+            Root output directory where all data will be stored.
+        srim_width : float
+            The SPECTRA-PKA box might be small for SRIM ions. To avoid backscattering and
+            transmission, SPECTRA-PKA recoils are injected at the middle of a thick SRIM target
+            of this width (in Angstrom). In postprocessing, the depth offset is corrected to get
+            the position in the SPECTRA-PKA box. Note that due to SRIM limitations, recoils
+            positions are rounded to a number of the form "xxxxx.E+xx",
+            if this width is set too high, precision might be lost, but
+            backscattering/transmission might happen if set too low.
+            Unfortunately, there is not a strict rule to set this value.
+        calculation : str
+            SRIM calculation mode: "quick", "full" or "mono".
+        max_energy_rel : float
+            Relative recoil energy threshold for matching MD debris datasets. Recoils above
+            ``max_dataset_energy * max_energy_rel`` are sent to SRIM, where
+            ``max_dataset_energy`` is the highest recoil energy available in the matching
+            dataset data. Must be at least 1.0.
+        exclude_recoils : list[str] | None (default=None)
+            List of symbols of recoils atoms to exclude from processing.
+        max_srim_iters : int, optional (default=32)
+            Maximum number of SRIM iterations.
+        minimize_window : bool (default=False)
+            Whether to minimize the SRIM window while SRIM simulations run.
+        fp_energy_abs : float, optional (default=1e3)
+            Absolute recoil energy below which unmatched recoils are represented by Frenkel
+            pairs instead of being sent to SRIM, in eV.
+
+        Returns
+        -------
+        RecoilsDB
+            Database with all recoils collected.
+        """
+        self.spectrapka_in_path = spectrapka_in_path
+        self.spectrapka_events_path = spectrapka_events_path
+        self.root_dir = root_dir
+        self.srim_width = srim_width
+        if max_energy_rel < 1.0:
+            raise ValueError("max_energy_rel must be at least 1.0")
+
+        self.root_dir.mkdir(parents=True, exist_ok=True)
+        self.recoilsdb = RecoilsDB(self.root_dir / "recoils.db")
+        self.__recoils__spectrapka_in_to_target(density=density)
+
+        # Convert SPECTRA-PKA events to SQLite3 database
+        self.recoilsdb.process_config_events(
+            self.spectrapka_events_path, exclude_recoils
+        )
+        # Read from SQLite3 database
+        (
+            nions,
+            atomic_numbers,
+            recoil_energies,
+            _depths,
+            ys,
+            zs,
+            cosxs,
+            cosys,
+            coszs,
+            _times,
+            _events,
+        ) = self.__read_spectrapka_events_for_srim()
+
+        # If SPECTRA-PKA output is empty
+        if nions == 0:
+            for component in self.target:
+                component.width = self.matdict["sizex"]
+            self.recoilsdb.save_target(self.target)
+            self.recoilsdb.commit()
+            return self.recoilsdb
+
+        # To avoid backscattering and transmission, inject all SPECTRA-PKA recoils at mid-target
+        depths_srim = np.full(nions, self.srim_width / 2.0, dtype=np.float64)
+        py2srim = srim.Py2SRIM()
+        py2srim.run(
+            root_dir=self.root_dir,
+            target=self.target,
+            calculation=calculation,
+            atomic_numbers=atomic_numbers,
+            energies=recoil_energies,
+            depths=depths_srim,
+            ys=ys,
+            zs=zs,
+            cosxs=cosxs,
+            cosys=cosys,
+            coszs=coszs,
+            max_energy_rel=max_energy_rel,
+            max_srim_iters=max_srim_iters,
+            fail_on_backscatt=True,
+            fail_on_transmit=True,
+            fp_energy_abs=fp_energy_abs,
+            ignore_32bit_warning=True,
+            minimize_window=minimize_window,
+        )
+        # Undo artificial offsets during SRIM calculations to avoid backscattering/transmission.
+        cur = self.recoilsdb.cursor()
+        cur.execute(
+            """
+            UPDATE recoils
+            SET x = x + (
+                SELECT x - ? FROM spectrapkas WHERE spectrapkas.event = recoils.event
+            )
+            """,
+            (self.srim_width / 2.0,),
+        )
+        cur.execute(
+            """
+            UPDATE ions_vacs
+            SET x = x + (
+                SELECT x - ? FROM spectrapkas WHERE spectrapkas.event = ions_vacs.event
+            )
+            """,
+            (self.srim_width / 2.0,),
+        )
+        cur.execute(
+            """
+            UPDATE components
+            SET width = ?
+            """,
+            (self.matdict["sizex"],),
+        )
+        self.recoilsdb.commit()
+
+        return self.recoilsdb

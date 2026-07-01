@@ -1,9 +1,8 @@
 """This module contains the `LAMMPSReader` class."""
 
-from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Generator, TextIO, Type
+from typing import Any, Generator, TextIO
 
 import numpy as np
 
@@ -25,9 +24,9 @@ class LAMMPSReader:
 
     Yields
     ------
-    dict
+    dict[str, Any]
         A dictionary containing the timestep data with keys:
-        'time' (optional), 'timestep', 'natoms', 'boundary', 'xlo', 'xhi',
+        'time' (optional), 'timestep', 'boundary', 'xlo', 'xhi',
         'ylo', 'yhi', 'zlo', 'zhi', and 'atoms' (as a numpy structured array).
     """
 
@@ -45,14 +44,10 @@ class LAMMPSReader:
 
     def __iter__(
         self,
-    ) -> Generator[
-        dict,  # Changed from tuple[...] to dict
-        None,
-        None,
-    ]:
+    ) -> Generator[dict[str, Any], None, None]:
         """Read the file as an iterator, timestep by timestep."""
         while True:
-            data = defaultdict(None)
+            data: dict[str, Any] = {}
             line = self.__file.readline()
             if not line:
                 break
@@ -61,7 +56,7 @@ class LAMMPSReader:
                 self.__file.readline()
             data["timestep"] = int(self.__file.readline())
             self.__file.readline()
-            data["natoms"] = int(self.__file.readline())
+            natoms = int(self.__file.readline())
             data["boundary"] = self.__file.readline().split()[-3:]
             data["xlo"], data["xhi"] = map(float, self.__file.readline().split())
             data["ylo"], data["yhi"] = map(float, self.__file.readline().split())
@@ -70,8 +65,8 @@ class LAMMPSReader:
             line = self.__file.readline()
             items, types, dtype = self.__get_dtype(line)
 
-            data["atoms"] = np.empty(data["natoms"], dtype=dtype)
-            for i in range(data["natoms"]):
+            data["atoms"] = np.empty(natoms, dtype=dtype)
+            for i in range(natoms):
                 line = self.__file.readline().split()
                 for j, item in enumerate(items):
                     data["atoms"][i][item] = types[j](line[j])
@@ -81,7 +76,7 @@ class LAMMPSReader:
 
     def __get_dtype(
         self, line: str
-    ) -> tuple[list[str], list[Type[int | float]], np.dtype]:
+    ) -> tuple[list[str], list[type[int | float]], np.dtype]:
         """Get the data type of the simulation data.
 
         Parameters
@@ -91,7 +86,7 @@ class LAMMPSReader:
 
         Returns
         -------
-        tuple[list[str], list[Type[int | float]], np.dtype]
+        tuple[list[str], list[type[int | float]], np.dtype]
             The names of the data items, the types of the data items,
             and the data type.
         """

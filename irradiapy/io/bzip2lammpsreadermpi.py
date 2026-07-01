@@ -3,16 +3,14 @@
 # pylint: disable=no-name-in-module, broad-except
 
 import codecs
-from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import TracebackType
-from typing import Any, Dict, Generator, Tuple, Type
+from typing import Any, Generator
 
 import indexed_bzip2 as ibz2
 import numpy as np
 from mpi4py import MPI
-from numpy import typing as npt
 
 from irradiapy.utils.mpi import (
     MPIExceptionHandlerMixin,
@@ -50,9 +48,9 @@ class BZIP2LAMMPSReaderMPI(MPIExceptionHandlerMixin):
 
     Yields
     ------
-    dict
+    dict[str, Any]
         A dictionary containing the timestep data with keys:
-        'time' (optional), 'timestep', 'natoms', 'boundary', 'xlo', 'xhi',
+        'time' (optional), 'timestep', 'boundary', 'xlo', 'xhi',
         'ylo', 'yhi', 'zlo', 'zhi', and 'atoms' (as a numpy structured array).
     """
 
@@ -62,15 +60,14 @@ class BZIP2LAMMPSReaderMPI(MPIExceptionHandlerMixin):
     comm: MPI.Comm = field(default_factory=lambda: MPI.COMM_WORLD)
     parallelization: int = 0
 
-    __raw: Any = field(default=None, init=False, repr=False)
-    __rank: int = field(init=False, repr=False)
-    __size: int = field(init=False, repr=False)
-    __comm_tag: int = field(
-        default_factory=MPITagAllocator.get_tag, init=False, repr=False
-    )
-    __nx: int = field(init=False, repr=False)
-    __ny: int = field(init=False, repr=False)
-    __nz: int = field(init=False, repr=False)
+    __raw: Any = field(default=None, init=False)
+    __rank: int = field(init=False)
+    __size: int = field(init=False)
+    __comm_tag: int = field(default_factory=MPITagAllocator.get_tag, init=False)
+    __nx: int = field(init=False)
+    __ny: int = field(init=False)
+    __nz: int = field(init=False)
+    __natoms: int = field(init=False)
 
     def __post_init__(self) -> None:
         self.__rank = self.comm.Get_rank()
@@ -108,15 +105,15 @@ class BZIP2LAMMPSReaderMPI(MPIExceptionHandlerMixin):
 
     def __exit__(
         self,
-        exc_type: None | type[BaseException] = None,
-        exc_value: None | BaseException = None,
-        exc_traceback: None | TracebackType = None,
+        exc_type: type[BaseException] | None = None,
+        exc_value: BaseException | None = None,
+        exc_traceback: TracebackType | None = None,
     ) -> bool:
         if self.__rank == 0 and self.__file is not None:
             self.__file.close()
         return False
 
-    def _get_dtype(self) -> Tuple[list[str], list[Type[int | float]], np.dtype]:
+    def _get_dtype(self) -> tuple[list[str], list[type[int | float]], np.dtype]:
         items = self.__file.readline().split()[2:]
         types = [
             np.int64 if it in ("id", "type", "element", "size") else np.float64
@@ -124,8 +121,8 @@ class BZIP2LAMMPSReaderMPI(MPIExceptionHandlerMixin):
         ]
         return items, types, np.dtype(list(zip(items, types)))
 
-    def _process_header(self) -> Dict[str, Any]:
-        data: Dict[str, Any] = defaultdict(None)
+    def _process_header(self) -> dict[str, Any]:
+        data: dict[str, Any] = {}
         line = self.__file.readline()
         if not line:
             return {}
@@ -138,7 +135,7 @@ class BZIP2LAMMPSReaderMPI(MPIExceptionHandlerMixin):
         else:
             data["timestep"] = int(self.__file.readline())
         self.__file.readline()  # "ITEM: NUMBER OF ATOMS"
-        data["natoms"] = int(self.__file.readline())
+        self.__natoms = int(self.__file.readline())
         # BOX BOUNDS
         data["boundary"] = self.__file.readline().split()[3:]
         bounds = [self.__file.readline().split() for _ in range(3)]
@@ -148,7 +145,7 @@ class BZIP2LAMMPSReaderMPI(MPIExceptionHandlerMixin):
         return data
 
     @mpi_safe_method
-    def __iter__(self) -> Generator[Tuple[Dict[str, Any], npt.NDArray], None, None]:
+    def __iter__(self) -> Generator[dict[str, Any], None, None]:
         while True:
             # header broadcast
             data = self.comm.bcast(
@@ -164,9 +161,9 @@ class BZIP2LAMMPSReaderMPI(MPIExceptionHandlerMixin):
             data.update({"items": items, "types": types, "dtype": dtype})
 
             # calculate raw line counts
-            natoms = int(data["natoms"])
             counts = [
-                (natoms // self.__size) + (1 if i < (natoms % self.__size) else 0)
+                (self.__natoms // self.__size)
+                + (1 if i < (self.__natoms % self.__size) else 0)
                 for i in range(self.__size)
             ]
 
@@ -232,7 +229,7 @@ class _LineReader:
 
     __slots__ = ("__raw", "__decoder", "__buffer", "__closed")
 
-    def __init__(self, raw, encoding: str = "utf-8"):
+    def __init__(self, raw: Any, encoding: str = "utf-8") -> None:
 
         self.__raw = raw
         self.__decoder = codecs.getincrementaldecoder(encoding)(errors="strict")
