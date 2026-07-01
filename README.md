@@ -150,6 +150,17 @@ python -m sphinx -W --keep-going -b html docs/source docs/build/html
 
 The generated documentation is written to `docs/build/html/index.html`.
 
+### Building the package
+
+Run the following commands from the repository root with the project virtual environment activated:
+
+```bash
+python -m pip install build
+python -m build
+```
+
+The wheel and source distributions are written to `dist`.
+
 ## License
 
 irradiapy is distributed under the [MIT License](LICENSE).
