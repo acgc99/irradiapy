@@ -5,3 +5,4 @@ pywinauto>=0.6.8
 scikit_learn>=1.6.0
 scipy>=1.14.1
 mpi4py>=3.0.0
+indexed-bzip2>=1.7.0
