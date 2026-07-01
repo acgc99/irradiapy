@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "irradiapy"
 version = "2.0.0"
-description = "This Python package is aimed towards the simulation and analysis of irradiation damage with multiple tools."
+description = "Primary irradiation-damage simulation, MD debris generation, and analysis tools."
 readme = "README.md"
 requires-python = ">=3.14.0"
 license = {text = "MIT"}
@@ -15,11 +15,18 @@ authors = [
 dependencies = [
     "matplotlib>=3.10.1",
     "numpy>=2.2.4",
-    "PyGetWindow>=0.0.9",
-    "pywinauto>=0.6.8",
-    "scikit_learn>=1.6.0",
+    "pygetwindow>=0.0.9; platform_system == 'Windows'",
+    "pywinauto>=0.6.8; platform_system == 'Windows'",
+    "scikit-learn>=1.6.0",
     "scipy>=1.14.1",
     "mpi4py>=3.0.0",
+    "indexed-bzip2>=1.7.0",
 ]
+
+[project.urls]
+Documentation = "https://irradiapy.readthedocs.io/"
+Issues = "https://github.com/acgc99/irradiapy/issues"
+Repository = "https://github.com/acgc99/irradiapy"
+
 [tool.setuptools.package-data]
 "irradiapy" = ["styles/*.mplstyle"]

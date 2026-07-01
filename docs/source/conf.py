@@ -9,8 +9,11 @@
 
 import os
 import sys
+import tomllib
+from pathlib import Path
 
-sys.path.insert(0, os.path.abspath("../.."))
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, os.fspath(ROOT))
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
@@ -18,7 +21,9 @@ sys.path.insert(0, os.path.abspath("../.."))
 project = "irradiapy"
 copyright = "2026, Abel Carlos Gutiérrez Camacho"
 author = "Abel Carlos Gutiérrez Camacho"
-release = "2.0.0"
+with (ROOT / "pyproject.toml").open("rb") as pyproject_file:
+    release = tomllib.load(pyproject_file)["project"]["version"]
+version = release
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
