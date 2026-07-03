@@ -85,6 +85,11 @@ def depth_dpa_hist(
         # Use recoil depth to find the depth center, then use that to find the component
         # and use that center for the histogram
         bin_idx = np.searchsorted(depth_edges, depth, side="right") - 1
+        # Clamp high and lower ends to avoid index errors, for example:
+        # if depth == width, then bin_idx == nbins, which is out of bounds for depth_centers
+        bin_idx = np.clip(
+            np.searchsorted(depth_edges, depth, side="right") - 1, 0, nbins - 1
+        )
         depth_center = depth_centers[bin_idx]
         component_idx = np.searchsorted(component_edges, depth_center, side="right") - 1
         component: Component = target[component_idx]
